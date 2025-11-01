@@ -1,0 +1,136 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "./lib/interface/IPayRegistry.sol";
+
+/**
+ * @title Pay Registry contract
+ * @notice Implementation of a global registry to record payment results
+ *   reported by different PayResolvers.
+ */
+contract PayRegistry is IPayRegistry {
+    struct PayInfo {
+        uint256 amount;
+        uint256 resolveDeadline;
+    }
+
+    // bytes32 payId => PayInfo payInfo
+    mapping(bytes32 => PayInfo) public payInfoMap;
+
+    /**
+     * @notice Calculate pay id
+     * @param _payHash hash of serialized condPay
+     * @param _setter payment info setter, i.e. pay resolver
+     * @return calculated pay id
+     */
+    function calculatePayId(bytes32 _payHash, address _setter) public pure returns(bytes32) {
+        return keccak256(abi.encodePacked(_payHash, _setter));
+    }
+
+    function setPayAmount(bytes32 _payHash, uint256 _amt) external {
+        bytes32 payId = calculatePayId(_payHash, msg.sender);
+        PayInfo storage payInfo = payInfoMap[payId];
+        payInfo.amount = _amt;
+
+        emit PayInfoUpdate(payId, _amt, payInfo.resolveDeadline);
+    }
+
+    function setPayDeadline(bytes32 _payHash, uint256 _deadline) external {
+        bytes32 payId = calculatePayId(_payHash, msg.sender);
+        PayInfo storage payInfo = payInfoMap[payId];
+        payInfo.resolveDeadline = _deadline;
+
+        emit PayInfoUpdate(payId, payInfo.amount, _deadline);
+    }
+
+    function setPayInfo(bytes32 _payHash, uint256 _amt, uint256 _deadline) external {
+        bytes32 payId = calculatePayId(_payHash, msg.sender);
+        PayInfo storage payInfo = payInfoMap[payId];
+        payInfo.amount = _amt;
+        payInfo.resolveDeadline = _deadline;
+
+        emit PayInfoUpdate(payId, _amt, _deadline);
+    }
+
+    function setPayAmounts(bytes32[] calldata _payHashes, uint256[] calldata _amts) external {
+        require(_payHashes.length == _amts.length, "Lengths do not match");
+
+        bytes32 payId;
+        address msgSender = msg.sender;
+    for (uint256 i = 0; i < _payHashes.length; i++) {
+            payId = calculatePayId(_payHashes[i], msgSender);
+            PayInfo storage payInfo = payInfoMap[payId];
+            payInfo.amount = _amts[i];
+
+            emit PayInfoUpdate(payId, _amts[i], payInfo.resolveDeadline);
+        }
+    }
+
+    function setPayDeadlines(bytes32[] calldata _payHashes, uint256[] calldata _deadlines) external {
+        require(_payHashes.length == _deadlines.length, "Lengths do not match");
+
+        bytes32 payId;
+        address msgSender = msg.sender;
+    for (uint256 i = 0; i < _payHashes.length; i++) {
+            payId = calculatePayId(_payHashes[i], msgSender);
+            PayInfo storage payInfo = payInfoMap[payId];
+            payInfo.resolveDeadline = _deadlines[i];
+
+            emit PayInfoUpdate(payId, payInfo.amount, _deadlines[i]);
+        }
+    }
+
+    function setPayInfos(bytes32[] calldata _payHashes, uint256[] calldata _amts, uint256[] calldata _deadlines) external {
+        require(
+            _payHashes.length == _amts.length && _payHashes.length == _deadlines.length,
+            "Lengths do not match"
+        );
+
+        bytes32 payId;
+        address msgSender = msg.sender;
+    for (uint256 i = 0; i < _payHashes.length; i++) {
+            payId = calculatePayId(_payHashes[i], msgSender);
+            PayInfo storage payInfo = payInfoMap[payId];
+            payInfo.amount = _amts[i];
+            payInfo.resolveDeadline = _deadlines[i];
+
+            emit PayInfoUpdate(payId, _amts[i], _deadlines[i]);
+        }
+    }
+
+    /**
+     * @notice Get the amounts of a list of queried pays
+     * @dev pay results must have been unchangable before calling this function.
+     *   This API is for CelerLedger
+     * @param _payIds ids of queried pays
+     * @param _lastPayResolveDeadline the last pay resolve deadline of all queried pays
+     * @return queried pay amounts
+     */
+    function getPayAmounts(
+        bytes32[] calldata _payIds,
+        uint256 _lastPayResolveDeadline
+    )
+        external view returns(uint256[] memory)
+    {
+        uint256[] memory amounts = new uint256[](_payIds.length);
+        for (uint256 i = 0; i < _payIds.length; i++) {
+            if (payInfoMap[_payIds[i]].resolveDeadline == 0) {
+                // should pass last pay resolve deadline if never resolved
+                require(block.number > _lastPayResolveDeadline, "Payment is not finalized");
+            } else {
+                // should pass resolve deadline if resolved
+                require(
+                    block.number > payInfoMap[_payIds[i]].resolveDeadline,
+                    "Payment is not finalized"
+                );
+            }
+            amounts[i] = payInfoMap[_payIds[i]].amount;
+        }
+        return amounts;
+    }
+
+    function getPayInfo(bytes32 _payId) external view returns(uint256, uint256) {
+        PayInfo storage payInfo = payInfoMap[_payId];
+        return (payInfo.amount, payInfo.resolveDeadline);
+    }
+}

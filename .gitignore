@@ -1,0 +1,14 @@
+.vscode/
+.DS_Store
+
+# Forge build artifacts
+cache/
+out/
+
+# Broadcast deployment logs
+broadcast/
+
+# Local environment file
+.env
+
+deployments/

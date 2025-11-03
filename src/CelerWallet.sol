@@ -12,18 +12,14 @@ import "@openzeppelin/contracts/access/Ownable.sol";
  * @notice A multi-owner, multi-token, operator-centric wallet designed for CelerLedger.
  *   This wallet can run independetly and doesn't rely on trust of any external contracts
  *   even CelerLedger to maximize its security.
- * @notice Pausable contract and drainToken() function should only be used for handling
- *   unexpected emergencies in the initial stage of the mainnet operation for a very short
- *   period of time. The pauser accounts should only call pause() and drainToken() functions
- *   when some fatal bugs or crucial errors happen in order to ensure the safety of the
- *   funds stored in CelerWallet. After the system is stable and comprehensively audited,
- *   all pauser accounts should renounce their pauser roles so that no one will ever be able
- *   to pause() or drainToken() anymore.
  */
 contract CelerWallet is ICelerWallet, Pausable, Ownable {
     using SafeERC20 for IERC20;
 
-    enum MathOperation { Add, Sub }
+    enum MathOperation {
+        Add,
+        Sub
+    }
 
     struct Wallet {
         // corresponding to peers in CelerLedger
@@ -31,7 +27,7 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
         // corresponding to CelerLedger
         address operator;
         // adderss(0) for ETH
-    mapping(address => uint256) balances;
+        mapping(address => uint256) balances;
         address proposedNewOperator;
         mapping(address => bool) proposalVotes;
     }
@@ -67,14 +63,10 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
      * @param _nonce nonce given by caller to generate the wallet id
      * @return id of created wallet
      */
-    function create(
-        address[] memory _owners,
-        address _operator,
-        bytes32 _nonce
-    )
+    function create(address[] memory _owners, address _operator, bytes32 _nonce)
         public
         whenNotPaused
-        returns(bytes32)
+        returns (bytes32)
     {
         require(_operator != address(0), "New operator is address(0)");
 
@@ -95,9 +87,9 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
      * @param _walletId id of the wallet to deposit into
      */
     function depositETH(bytes32 _walletId) public payable whenNotPaused {
-    uint256 amount = msg.value;
-    _updateBalance(_walletId, address(0), amount, MathOperation.Add);
-    emit DepositToWallet(_walletId, address(0), amount);
+        uint256 amount = msg.value;
+        _updateBalance(_walletId, address(0), amount, MathOperation.Add);
+        emit DepositToWallet(_walletId, address(0), amount);
     }
 
     /**
@@ -106,18 +98,11 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
      * @param _tokenAddress address of token to deposit
      * @param _amount deposit token amount
      */
-    function depositERC20(
-        bytes32 _walletId,
-        address _tokenAddress,
-    uint256 _amount
-    )
-        public
-        whenNotPaused
-    {
+    function depositERC20(bytes32 _walletId, address _tokenAddress, uint256 _amount) public whenNotPaused {
         _updateBalance(_walletId, _tokenAddress, _amount, MathOperation.Add);
         emit DepositToWallet(_walletId, _tokenAddress, _amount);
 
-    IERC20(_tokenAddress).safeTransferFrom(msg.sender, address(this), _amount);
+        IERC20(_tokenAddress).safeTransferFrom(msg.sender, address(this), _amount);
     }
 
     /**
@@ -126,18 +111,12 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
      *   allows non externally-owned account (EOA) to be a peer of the channel namely an owner
      *   of the wallet, CelerLedger should implement a withdraw pattern for ETH to avoid
      *   maliciously fund locking. Withdraw pattern reference:
-     *   https://solidity.readthedocs.io/en/v0.5.9/common-patterns.html#withdrawal-from-contracts
      * @param _walletId id of the wallet to withdraw from
      * @param _tokenAddress address of token to withdraw
      * @param _receiver token receiver
      * @param _amount withdrawal token amount
      */
-    function withdraw(
-        bytes32 _walletId,
-        address _tokenAddress,
-    address _receiver,
-    uint256 _amount
-    )
+    function withdraw(bytes32 _walletId, address _tokenAddress, address _receiver, uint256 _amount)
         public
         whenNotPaused
         onlyOperator(_walletId)
@@ -163,8 +142,8 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
         bytes32 _fromWalletId,
         bytes32 _toWalletId,
         address _tokenAddress,
-    address _receiver,
-    uint256 _amount
+        address _receiver,
+        uint256 _amount
     )
         public
         whenNotPaused
@@ -182,10 +161,7 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
      * @param _walletId id of wallet to transfer the operatorship
      * @param _newOperator the new operator
      */
-    function transferOperatorship(
-        bytes32 _walletId,
-        address _newOperator
-    )
+    function transferOperatorship(bytes32 _walletId, address _newOperator)
         public
         whenNotPaused
         onlyOperator(_walletId)
@@ -200,10 +176,7 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
      * @param _walletId id of wallet which owners propose new operator of
      * @param _newOperator the new operator proposal
      */
-    function proposeNewOperator(
-        bytes32 _walletId,
-        address _newOperator
-    )
+    function proposeNewOperator(bytes32 _walletId, address _newOperator)
         public
         onlyWalletOwner(_walletId, msg.sender)
     {
@@ -231,28 +204,10 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
      * @param _receiver token receiver
      * @param _amount drained token amount
      */
-    function drainToken(
-        address _tokenAddress,
-    address _receiver,
-    uint256 _amount
-    )
-        public
-        whenPaused
-        onlyOwner
-    {
+    function drainToken(address _tokenAddress, address _receiver, uint256 _amount) public whenPaused onlyOwner {
         emit DrainToken(_tokenAddress, _receiver, _amount);
 
         _withdrawToken(_tokenAddress, _receiver, _amount);
-
-    }
-
-    // Expose pause/unpause controls to the owner (replacing old PauserRole)
-    function pause() external onlyOwner {
-        _pause();
-    }
-
-    function unpause() external onlyOwner {
-        _unpause();
     }
 
     /**
@@ -260,7 +215,7 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
      * @param _walletId id of the queried wallet
      * @return wallet's owners
      */
-    function getWalletOwners(bytes32 _walletId) external view returns(address[] memory) {
+    function getWalletOwners(bytes32 _walletId) external view returns (address[] memory) {
         return wallets[_walletId].owners;
     }
 
@@ -269,7 +224,7 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
      * @param _walletId id of the queried wallet
      * @return wallet's operator
      */
-    function getOperator(bytes32 _walletId) public view returns(address) {
+    function getOperator(bytes32 _walletId) public view returns (address) {
         return wallets[_walletId].operator;
     }
 
@@ -279,7 +234,7 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
      * @param _tokenAddress address of the queried token
      * @return amount of the given token in the wallet
      */
-    function getBalance(bytes32 _walletId, address _tokenAddress) public view returns(uint256) {
+    function getBalance(bytes32 _walletId, address _tokenAddress) public view returns (uint256) {
         return wallets[_walletId].balances[_tokenAddress];
     }
 
@@ -288,9 +243,8 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
      * @param _walletId id of the queried wallet
      * @return wallet's proposedNewOperator
      */
-    function getProposedNewOperator(bytes32 _walletId) external view returns(address) {
+    function getProposedNewOperator(bytes32 _walletId) external view returns (address) {
         return wallets[_walletId].proposedNewOperator;
-
     }
 
     /**
@@ -299,14 +253,11 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
      * @param _owner owner to be checked
      * @return the owner's vote for the proposedNewOperator
      */
-    function getProposalVote(
-        bytes32 _walletId,
-        address _owner
-    )
+    function getProposalVote(bytes32 _walletId, address _owner)
         external
         view
         onlyWalletOwner(_walletId, _owner)
-        returns(bool)
+        returns (bool)
     {
         return wallets[_walletId].proposalVotes[_owner];
     }
@@ -319,7 +270,7 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
      */
     function _withdrawToken(address _tokenAddress, address _receiver, uint256 _amount) internal {
         if (_tokenAddress == address(0)) {
-            (bool success, ) = payable(_receiver).call{value: _amount}("");
+            (bool success,) = payable(_receiver).call{value: _amount}("");
             require(success, "ETH transfer failed");
         } else {
             IERC20(_tokenAddress).safeTransfer(_receiver, _amount);
@@ -333,14 +284,7 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
      * @param _amount update amount
      * @param _op update operation
      */
-    function _updateBalance(
-        bytes32 _walletId,
-        address _tokenAddress,
-        uint256 _amount,
-        MathOperation _op
-    )
-        internal
-    {
+    function _updateBalance(bytes32 _walletId, address _tokenAddress, uint256 _amount, MathOperation _op) internal {
         Wallet storage w = wallets[_walletId];
         if (_op == MathOperation.Add) {
             w.balances[_tokenAddress] = w.balances[_tokenAddress] + _amount;
@@ -380,7 +324,7 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
      * @param _w the wallet
      * @return true if all owners have voted for a same operator; otherwise false
      */
-    function _checkAllVotes(Wallet storage _w) internal view returns(bool) {
+    function _checkAllVotes(Wallet storage _w) internal view returns (bool) {
         for (uint256 i = 0; i < _w.owners.length; i++) {
             if (_w.proposalVotes[_w.owners[i]] == false) {
                 return false;
@@ -395,7 +339,7 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
      * @param _addr address to check
      * @return true if this address is an owner of the wallet; otherwise false
      */
-    function _isWalletOwner(bytes32 _walletId, address _addr) internal view returns(bool) {
+    function _isWalletOwner(bytes32 _walletId, address _addr) internal view returns (bool) {
         Wallet storage w = wallets[_walletId];
         for (uint256 i = 0; i < w.owners.length; i++) {
             if (_addr == w.owners[i]) {
@@ -403,5 +347,14 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
             }
         }
         return false;
+    }
+
+    // Expose pause/unpause controls to the owner (replacing old PauserRole)
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
     }
 }

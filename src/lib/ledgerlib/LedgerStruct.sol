@@ -11,7 +11,13 @@ import "../data/PbEntity.sol";
  * @notice CelerLedger library defining all used structs
  */
 library LedgerStruct {
-    enum ChannelStatus { Uninitialized, Operable, Settling, Closed, Migrated }
+    enum ChannelStatus {
+        Uninitialized,
+        Operable,
+        Settling,
+        Closed,
+        Migrated
+    }
 
     struct PeerState {
         uint256 seqNum;

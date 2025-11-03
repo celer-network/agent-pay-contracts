@@ -18,9 +18,7 @@ library LedgerBalanceLimit {
         LedgerStruct.Ledger storage _self,
         address[] calldata _tokenAddrs,
         uint256[] calldata _limits
-    )
-        external
-    {
+    ) external {
         require(_tokenAddrs.length == _limits.length, "Lengths do not match");
         for (uint256 i = 0; i < _tokenAddrs.length; i++) {
             _self.balanceLimits[_tokenAddrs[i]] = _limits[i];
@@ -49,14 +47,7 @@ library LedgerBalanceLimit {
      * @param _tokenAddr query token address
      * @return token balance limit
      */
-    function getBalanceLimit(
-        LedgerStruct.Ledger storage _self,
-        address _tokenAddr
-    )
-        external
-        view
-        returns(uint256)
-    {
+    function getBalanceLimit(LedgerStruct.Ledger storage _self, address _tokenAddr) external view returns (uint256) {
         return _self.balanceLimits[_tokenAddr];
     }
 
@@ -65,7 +56,7 @@ library LedgerBalanceLimit {
      * @param _self storage data of CelerLedger contract
      * @return balanceLimitsEnabled
      */
-    function getBalanceLimitsEnabled(LedgerStruct.Ledger storage _self) external view returns(bool) {
+    function getBalanceLimitsEnabled(LedgerStruct.Ledger storage _self) external view returns (bool) {
         return _self.balanceLimitsEnabled;
     }
 }

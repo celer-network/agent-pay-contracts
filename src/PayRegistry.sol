@@ -5,8 +5,7 @@ import "./lib/interface/IPayRegistry.sol";
 
 /**
  * @title Pay Registry contract
- * @notice Implementation of a global registry to record payment results
- *   reported by different PayResolvers.
+ * @notice Implementation of a global registry to record payment results reported by different PayResolvers.
  */
 contract PayRegistry is IPayRegistry {
     struct PayInfo {
@@ -23,7 +22,7 @@ contract PayRegistry is IPayRegistry {
      * @param _setter payment info setter, i.e. pay resolver
      * @return calculated pay id
      */
-    function calculatePayId(bytes32 _payHash, address _setter) public pure returns(bytes32) {
+    function calculatePayId(bytes32 _payHash, address _setter) public pure returns (bytes32) {
         return keccak256(abi.encodePacked(_payHash, _setter));
     }
 
@@ -57,7 +56,7 @@ contract PayRegistry is IPayRegistry {
 
         bytes32 payId;
         address msgSender = msg.sender;
-    for (uint256 i = 0; i < _payHashes.length; i++) {
+        for (uint256 i = 0; i < _payHashes.length; i++) {
             payId = calculatePayId(_payHashes[i], msgSender);
             PayInfo storage payInfo = payInfoMap[payId];
             payInfo.amount = _amts[i];
@@ -71,7 +70,7 @@ contract PayRegistry is IPayRegistry {
 
         bytes32 payId;
         address msgSender = msg.sender;
-    for (uint256 i = 0; i < _payHashes.length; i++) {
+        for (uint256 i = 0; i < _payHashes.length; i++) {
             payId = calculatePayId(_payHashes[i], msgSender);
             PayInfo storage payInfo = payInfoMap[payId];
             payInfo.resolveDeadline = _deadlines[i];
@@ -80,15 +79,14 @@ contract PayRegistry is IPayRegistry {
         }
     }
 
-    function setPayInfos(bytes32[] calldata _payHashes, uint256[] calldata _amts, uint256[] calldata _deadlines) external {
-        require(
-            _payHashes.length == _amts.length && _payHashes.length == _deadlines.length,
-            "Lengths do not match"
-        );
+    function setPayInfos(bytes32[] calldata _payHashes, uint256[] calldata _amts, uint256[] calldata _deadlines)
+        external
+    {
+        require(_payHashes.length == _amts.length && _payHashes.length == _deadlines.length, "Lengths do not match");
 
         bytes32 payId;
         address msgSender = msg.sender;
-    for (uint256 i = 0; i < _payHashes.length; i++) {
+        for (uint256 i = 0; i < _payHashes.length; i++) {
             payId = calculatePayId(_payHashes[i], msgSender);
             PayInfo storage payInfo = payInfoMap[payId];
             payInfo.amount = _amts[i];
@@ -106,11 +104,10 @@ contract PayRegistry is IPayRegistry {
      * @param _lastPayResolveDeadline the last pay resolve deadline of all queried pays
      * @return queried pay amounts
      */
-    function getPayAmounts(
-        bytes32[] calldata _payIds,
-        uint256 _lastPayResolveDeadline
-    )
-        external view returns(uint256[] memory)
+    function getPayAmounts(bytes32[] calldata _payIds, uint256 _lastPayResolveDeadline)
+        external
+        view
+        returns (uint256[] memory)
     {
         uint256[] memory amounts = new uint256[](_payIds.length);
         for (uint256 i = 0; i < _payIds.length; i++) {
@@ -119,17 +116,14 @@ contract PayRegistry is IPayRegistry {
                 require(block.number > _lastPayResolveDeadline, "Payment is not finalized");
             } else {
                 // should pass resolve deadline if resolved
-                require(
-                    block.number > payInfoMap[_payIds[i]].resolveDeadline,
-                    "Payment is not finalized"
-                );
+                require(block.number > payInfoMap[_payIds[i]].resolveDeadline, "Payment is not finalized");
             }
             amounts[i] = payInfoMap[_payIds[i]].amount;
         }
         return amounts;
     }
 
-    function getPayInfo(bytes32 _payId) external view returns(uint256, uint256) {
+    function getPayInfo(bytes32 _payId) external view returns (uint256, uint256) {
         PayInfo storage payInfo = payInfoMap[_payId];
         return (payInfo.amount, payInfo.resolveDeadline);
     }

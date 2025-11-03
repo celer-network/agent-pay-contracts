@@ -6,6 +6,6 @@ pragma solidity ^0.8.20;
  */
 interface IBooleanCond {
     function isFinalized(bytes calldata _query) external view returns (bool);
-    
+
     function getOutcome(bytes calldata _query) external view returns (bool);
 }

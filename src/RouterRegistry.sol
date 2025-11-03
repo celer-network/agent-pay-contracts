@@ -8,7 +8,7 @@ import "./lib/interface/IRouterRegistry.sol";
  * @notice Implementation of a global registry to enable external routers to join
  */
 contract RouterRegistry is IRouterRegistry {
-    // mapping to store the registered routers address as key 
+    // mapping to store the registered routers address as key
     // and the lastest registered/refreshed block number as value
     mapping(address => uint256) public routerInfo;
 

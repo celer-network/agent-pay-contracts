@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-
 /**
  * @title RouterRegistry interface for routing
  */
 interface IRouterRegistry {
-    enum RouterOperation { Add, Remove, Refresh }
+    enum RouterOperation {
+        Add,
+        Remove,
+        Refresh
+    }
 
     function registerRouter() external;
 

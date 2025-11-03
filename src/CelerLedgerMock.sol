@@ -1,4 +1,3 @@
-pragma solidity ^0.8.20;
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
@@ -10,7 +9,6 @@ import "./lib/ledgerlib/LedgerChannel.sol";
 import "./lib/interface/ICelerWallet.sol";
 import "./lib/interface/IEthPool.sol";
 import "./lib/interface/IPayRegistry.sol";
-// Ownable not used in this mock; SafeMath removed in ^0.8
 
 contract CelerLedgerMock {
     using LedgerChannel for LedgerStruct.Channel;
@@ -39,9 +37,7 @@ contract CelerLedgerMock {
         uint256 _tokenType,
         address[2] calldata _peerAddrs,
         uint256[2] calldata _deposits
-    )
-        external
-    {
+    ) external {
         tmpChannelId = _channelId;
 
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
@@ -63,22 +59,10 @@ contract CelerLedgerMock {
         // silence unused
         require(_openRequest.length >= 0, "");
         LedgerStruct.Channel storage c = ledger.channelMap[tmpChannelId];
-        address[2] memory peerAddrs = [
-            c.peerProfiles[0].peerAddr,
-            c.peerProfiles[1].peerAddr
-        ];
-        uint256[2] memory amounts = [
-            c.peerProfiles[0].deposit,
-            c.peerProfiles[1].deposit
-        ];
+        address[2] memory peerAddrs = [c.peerProfiles[0].peerAddr, c.peerProfiles[1].peerAddr];
+        uint256[2] memory amounts = [c.peerProfiles[0].deposit, c.peerProfiles[1].deposit];
 
-        emit OpenChannel(
-            tmpChannelId,
-            uint256(c.token.tokenType),
-            c.token.tokenAddress,
-            peerAddrs,
-            amounts
-        );
+        emit OpenChannel(tmpChannelId, uint256(c.token.tokenType), c.token.tokenAddress, peerAddrs, amounts);
     }
 
     /**
@@ -89,23 +73,13 @@ contract CelerLedgerMock {
      * @param _transferFromAmount amount of funds to be transfered from EthPool for ETH
      *   or ERC20 contract for ERC20 tokens
      */
-    function deposit(
-        bytes32 _channelId,
-        address _receiver,
-        uint256 _transferFromAmount
-    )
-        external payable
-    {
+    function deposit(bytes32 _channelId, address _receiver, uint256 _transferFromAmount) external payable {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
         uint256 rid = c._getPeerId(_receiver);
-    uint256 amount = _transferFromAmount + msg.value;
-    c.peerProfiles[rid].deposit = c.peerProfiles[rid].deposit + amount;
+        uint256 amount = _transferFromAmount + msg.value;
+        c.peerProfiles[rid].deposit = c.peerProfiles[rid].deposit + amount;
 
-        (
-            address[2] memory peerAddrs,
-            uint256[2] memory deposits,
-            uint256[2] memory withdrawals
-        ) = c.getBalanceMap();
+        (address[2] memory peerAddrs, uint256[2] memory deposits, uint256[2] memory withdrawals) = c.getBalanceMap();
         emit Deposit(_channelId, peerAddrs, deposits, withdrawals);
     }
 
@@ -115,14 +89,12 @@ contract CelerLedgerMock {
         uint256[] calldata _seqNums,
         uint256[] calldata _transferOuts,
         uint256[] calldata _pendingPayOuts
-    )
-        external
-    {
+    ) external {
         for (uint256 i = 0; i < _channelIds.length; i++) {
             LedgerStruct.Channel storage c = ledger.channelMap[_channelIds[i]];
             uint256 peerFromId = c._getPeerId(_peerFroms[i]);
             LedgerStruct.PeerState storage state = c.peerProfiles[peerFromId].state;
-            
+
             state.seqNum = _seqNums[i];
             state.transferOut = _transferOuts[i];
             state.pendingPayOut = _pendingPayOuts[i];
@@ -145,16 +117,11 @@ contract CelerLedgerMock {
         require(_signedSimplexStateArray.length >= 0, "");
         for (uint256 i = 0; i < tmpChannelIds.length; i++) {
             LedgerStruct.Channel storage c = ledger.channelMap[tmpChannelIds[i]];
-                emit SnapshotStates(tmpChannelIds[i], c._getStateSeqNums());
+            emit SnapshotStates(tmpChannelIds[i], c._getStateSeqNums());
         }
     }
 
-    function intendWithdrawMockSet(
-        bytes32 _channelId,
-        uint256 _amount,
-        bytes32 _recipientChannelId,
-        address _receiver
-    )
+    function intendWithdrawMockSet(bytes32 _channelId, uint256 _amount, bytes32 _recipientChannelId, address _receiver)
         external
     {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
@@ -193,12 +160,12 @@ contract CelerLedgerMock {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
 
         address receiver = c.withdrawIntent.receiver;
-    uint256 amount = c.withdrawIntent.amount;
+        uint256 amount = c.withdrawIntent.amount;
         bytes32 recipientChannelId = c.withdrawIntent.recipientChannelId;
         delete c.withdrawIntent;
 
         c._addWithdrawal(receiver, amount);
-        
+
         (, uint256[2] memory deposits, uint256[2] memory withdrawals) = c.getBalanceMap();
         emit ConfirmWithdraw(_channelId, amount, receiver, recipientChannelId, deposits, withdrawals);
     }
@@ -229,9 +196,7 @@ contract CelerLedgerMock {
         bytes32 _nextPayIdListHash,
         uint256 _lastPayResolveDeadline,
         uint256 _pendingPayOut
-    )
-        external
-    {
+    ) external {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
         uint256 peerFromId = c._getPeerId(_peerFrom);
         LedgerStruct.PeerState storage state = c.peerProfiles[peerFromId].state;
@@ -276,7 +241,7 @@ contract CelerLedgerMock {
      */
     function confirmSettle(bytes32 _channelId) external {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
-    (bool validBalance, uint256[2] memory settleBalance) = c._validateSettleBalance();
+        (bool validBalance, uint256[2] memory settleBalance) = c._validateSettleBalance();
         if (!validBalance) {
             _resetDuplexState(c);
             emit ConfirmSettleFail(_channelId);
@@ -293,7 +258,7 @@ contract CelerLedgerMock {
      * @param _channelId ID of the channel to be viewed
      * @return channel confirm settle open time
      */
-    function getSettleFinalizedTime(bytes32 _channelId) public view returns(uint256) {
+    function getSettleFinalizedTime(bytes32 _channelId) public view returns (uint256) {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
         return c.getSettleFinalizedTime();
     }
@@ -303,10 +268,9 @@ contract CelerLedgerMock {
      * @param _channelId ID of the channel to be viewed
      * @return channel token contract address
      */
-    function getTokenContract(bytes32 _channelId) public view returns(address) {
+    function getTokenContract(bytes32 _channelId) public view returns (address) {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
         return c.getTokenContract();
-
     }
 
     /**
@@ -314,7 +278,7 @@ contract CelerLedgerMock {
      * @param _channelId ID of the channel to be viewed
      * @return channel token type
      */
-    function getTokenType(bytes32 _channelId) public view returns(PbEntity.TokenType) {
+    function getTokenType(bytes32 _channelId) public view returns (PbEntity.TokenType) {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
         return c.getTokenType();
     }
@@ -324,7 +288,7 @@ contract CelerLedgerMock {
      * @param _channelId ID of the channel to be viewed
      * @return channel status
      */
-    function getChannelStatus(bytes32 _channelId) public view returns(LedgerStruct.ChannelStatus) {
+    function getChannelStatus(bytes32 _channelId) public view returns (LedgerStruct.ChannelStatus) {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
         return c.getChannelStatus();
     }
@@ -334,7 +298,7 @@ contract CelerLedgerMock {
      * @param _channelId ID of the channel to be viewed
      * @return cooperative withdraw seqNum
      */
-    function getCooperativeWithdrawSeqNum(bytes32 _channelId) public view returns(uint256) {
+    function getCooperativeWithdrawSeqNum(bytes32 _channelId) public view returns (uint256) {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
         return c.getCooperativeWithdrawSeqNum();
     }
@@ -344,7 +308,7 @@ contract CelerLedgerMock {
      * @param _channelId ID of the channel to be viewed
      * @return channel's balance amount
      */
-    function getTotalBalance(bytes32 _channelId) public view returns(uint256) {
+    function getTotalBalance(bytes32 _channelId) public view returns (uint256) {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
         return c.getTotalBalance();
     }
@@ -357,8 +321,10 @@ contract CelerLedgerMock {
      * @return corresponding deposits of the peers (with matched index)
      * @return corresponding withdrawals of the peers (with matched index)
      */
-    function getBalanceMap(bytes32 _channelId) public view
-        returns(address[2] memory, uint256[2] memory, uint256[2] memory)
+    function getBalanceMap(bytes32 _channelId)
+        public
+        view
+        returns (address[2] memory, uint256[2] memory, uint256[2] memory)
     {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
         return c.getBalanceMap();
@@ -372,7 +338,7 @@ contract CelerLedgerMock {
      * @return channel token address
      * @return sequence number of cooperative withdraw
      */
-    function getChannelMigrationArgs(bytes32 _channelId) external view returns(uint256, uint256, address, uint256) {
+    function getChannelMigrationArgs(bytes32 _channelId) external view returns (uint256, uint256, address, uint256) {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
         return c.getChannelMigrationArgs();
     }
@@ -387,14 +353,18 @@ contract CelerLedgerMock {
      * @return peers' transferOut map
      * @return peers' pendingPayOut map
      */
-    function getPeersMigrationInfo(bytes32 _channelId) external view returns(
-        address[2] memory,
-        uint256[2] memory,
-        uint256[2] memory,
-        uint256[2] memory,
-        uint256[2] memory,
-        uint256[2] memory
-    ) {
+    function getPeersMigrationInfo(bytes32 _channelId)
+        external
+        view
+        returns (
+            address[2] memory,
+            uint256[2] memory,
+            uint256[2] memory,
+            uint256[2] memory,
+            uint256[2] memory,
+            uint256[2] memory
+        )
+    {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
         return c.getPeersMigrationInfo();
     }
@@ -404,7 +374,7 @@ contract CelerLedgerMock {
      * @param _channelId ID of the channel to be viewed
      * @return channel's dispute timeout
      */
-    function getDisputeTimeout(bytes32 _channelId) external view returns(uint256) {
+    function getDisputeTimeout(bytes32 _channelId) external view returns (uint256) {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
         return c.getDisputeTimeout();
     }
@@ -414,7 +384,7 @@ contract CelerLedgerMock {
      * @param _channelId ID of the channel to be viewed
      * @return channel's migratedTo address
      */
-    function getMigratedTo(bytes32 _channelId) external view returns(address) {
+    function getMigratedTo(bytes32 _channelId) external view returns (address) {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
         return c.getMigratedTo();
     }
@@ -425,10 +395,7 @@ contract CelerLedgerMock {
      * @return peers' addresses
      * @return two simplex state sequence numbers
      */
-    function getStateSeqNumMap(bytes32 _channelId) external view returns(
-        address[2] memory,
-        uint256[2] memory
-    ) {
+    function getStateSeqNumMap(bytes32 _channelId) external view returns (address[2] memory, uint256[2] memory) {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
         return c.getStateSeqNumMap();
     }
@@ -439,10 +406,7 @@ contract CelerLedgerMock {
      * @return peers' addresses
      * @return transferOuts of two simplex channels
      */
-    function getTransferOutMap(bytes32 _channelId) external view returns(
-        address[2] memory,
-        uint256[2] memory
-    ) {
+    function getTransferOutMap(bytes32 _channelId) external view returns (address[2] memory, uint256[2] memory) {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
         return c.getTransferOutMap();
     }
@@ -453,10 +417,7 @@ contract CelerLedgerMock {
      * @return peers' addresses
      * @return nextPayIdListHashes of two simplex channels
      */
-    function getNextPayIdListHashMap(bytes32 _channelId) external view returns(
-        address[2] memory,
-        bytes32[2] memory
-    ) {
+    function getNextPayIdListHashMap(bytes32 _channelId) external view returns (address[2] memory, bytes32[2] memory) {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
         return c.getNextPayIdListHashMap();
     }
@@ -467,10 +428,11 @@ contract CelerLedgerMock {
      * @return peers' addresses
      * @return lastPayResolveDeadlines of two simplex channels
      */
-    function getLastPayResolveDeadlineMap(bytes32 _channelId) external view returns(
-        address[2] memory,
-        uint256[2] memory
-    ) {
+    function getLastPayResolveDeadlineMap(bytes32 _channelId)
+        external
+        view
+        returns (address[2] memory, uint256[2] memory)
+    {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
         return c.getLastPayResolveDeadlineMap();
     }
@@ -481,10 +443,7 @@ contract CelerLedgerMock {
      * @return peers' addresses
      * @return pendingPayOuts of two simplex channels
      */
-    function getPendingPayOutMap(bytes32 _channelId) external view returns(
-        address[2] memory,
-        uint256[2] memory
-    ) {
+    function getPendingPayOutMap(bytes32 _channelId) external view returns (address[2] memory, uint256[2] memory) {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
         return c.getPendingPayOutMap();
     }
@@ -497,7 +456,7 @@ contract CelerLedgerMock {
      * @return requestTime of the withdraw intent
      * @return recipientChannelId of the withdraw intent
      */
-    function getWithdrawIntent(bytes32 _channelId) external view returns(address, uint256, uint256, bytes32) {
+    function getWithdrawIntent(bytes32 _channelId) external view returns (address, uint256, uint256, bytes32) {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
         return c.getWithdrawIntent();
     }
@@ -507,7 +466,7 @@ contract CelerLedgerMock {
      * @param _channelStatus query channel status converted to uint
      * @return channel number of the status
      */
-    function getChannelStatusNum(uint256 _channelStatus) external view returns(uint256) {
+    function getChannelStatusNum(uint256 _channelStatus) external view returns (uint256) {
         return ledger.channelStatusNums[_channelStatus];
     }
 
@@ -515,7 +474,7 @@ contract CelerLedgerMock {
      * @notice Return EthPool used by this CelerLedger contract
      * @return EthPool address
      */
-    function getEthPool() external view returns(address) {
+    function getEthPool() external view returns (address) {
         return address(ledger.ethPool);
     }
 
@@ -523,7 +482,7 @@ contract CelerLedgerMock {
      * @notice Return PayRegistry used by this CelerLedger contract
      * @return PayRegistry address
      */
-    function getPayRegistry() external view returns(address) {
+    function getPayRegistry() external view returns (address) {
         return address(ledger.payRegistry);
     }
 
@@ -531,7 +490,7 @@ contract CelerLedgerMock {
      * @notice Return CelerWallet used by this CelerLedger contract
      * @return CelerWallet address
      */
-    function getCelerWallet() external view returns(address) {
+    function getCelerWallet() external view returns (address) {
         return address(ledger.celerWallet);
     }
 
@@ -540,7 +499,7 @@ contract CelerLedgerMock {
      * @param _tokenAddr query token address
      * @return token balance limit
      */
-    function getBalanceLimit(address _tokenAddr) external view returns(uint256) {
+    function getBalanceLimit(address _tokenAddr) external view returns (uint256) {
         return ledger.balanceLimits[_tokenAddr];
     }
 
@@ -548,7 +507,7 @@ contract CelerLedgerMock {
      * @notice Return balanceLimitsEnabled
      * @return balanceLimitsEnabled
      */
-    function getBalanceLimitsEnabled() external view returns(bool) {
+    function getBalanceLimitsEnabled() external view returns (bool) {
         return ledger.balanceLimitsEnabled;
     }
 
@@ -557,34 +516,25 @@ contract CelerLedgerMock {
      * @param _c the channel
      * @param _newStatus new channel status
      */
-    function _updateChannelStatus(
-        LedgerStruct.Channel storage _c,
-        LedgerStruct.ChannelStatus _newStatus
-    )
-        internal
-    {
+    function _updateChannelStatus(LedgerStruct.Channel storage _c, LedgerStruct.ChannelStatus _newStatus) internal {
         if (_c.status == _newStatus) {
             return;
         }
 
         // update counter of old status
-    if (_c.status != LedgerStruct.ChannelStatus.Uninitialized) {
-    ledger.channelStatusNums[uint256(_c.status)] = ledger.channelStatusNums[uint256(_c.status)] - 1;
+        if (_c.status != LedgerStruct.ChannelStatus.Uninitialized) {
+            ledger.channelStatusNums[uint256(_c.status)] = ledger.channelStatusNums[uint256(_c.status)] - 1;
         }
 
         // update counter of new status
-    ledger.channelStatusNums[uint256(_newStatus)] = ledger.channelStatusNums[uint256(_newStatus)] + 1;
+        ledger.channelStatusNums[uint256(_newStatus)] = ledger.channelStatusNums[uint256(_newStatus)] + 1;
 
         _c.status = _newStatus;
     }
 
-    function _updateOverallStatesByIntendState(
-        bytes32 _channelId
-    )
-        internal
-    {
+    function _updateOverallStatesByIntendState(bytes32 _channelId) internal {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
-    c.settleFinalizedTime = block.number + c.disputeTimeout;
+        c.settleFinalizedTime = block.number + c.disputeTimeout;
         _updateChannelStatus(c, LedgerStruct.ChannelStatus.Settling);
     }
 
@@ -592,11 +542,7 @@ contract CelerLedgerMock {
      * @notice Reset the state of the channel
      * @param _c the channel
      */
-    function _resetDuplexState(
-        LedgerStruct.Channel storage _c
-    )
-        internal
-    {
+    function _resetDuplexState(LedgerStruct.Channel storage _c) internal {
         delete _c.settleFinalizedTime;
         _updateChannelStatus(_c, LedgerStruct.ChannelStatus.Operable);
         delete _c.peerProfiles[0].state;
@@ -605,7 +551,9 @@ contract CelerLedgerMock {
         delete _c.withdrawIntent;
     }
 
-    /***** events *****/
+    /**
+     * events ****
+     */
     event OpenChannel(
         bytes32 indexed channelId,
         uint256 tokenType,

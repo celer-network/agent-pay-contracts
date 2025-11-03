@@ -14,12 +14,6 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 /**
  * @title CelerLedger wrapper contract
  * @notice A wrapper contract using libraries to provide CelerLedger's APIs.
- * @notice Ownable contract and LedgerBalanceLimit library should only be used
- *   in the initial stage of the mainnet operation for a very short period of
- *   time to limit the balance amount that can be deposit into each channel,
- *   so that any losses due to unknown bugs (if any) will be limited. The balance
- *   limits should be disabled and the owner account of CelerLedger should renounce
- *   its ownership after the system is stable and comprehensively audited.
  */
 contract CelerLedger is ICelerLedger, Ownable {
     using LedgerOperation for LedgerStruct.Ledger;
@@ -47,13 +41,7 @@ contract CelerLedger is ICelerLedger, Ownable {
      * @param _tokenAddrs addresses of the tokens (address(0) is for ETH)
      * @param _limits balance limits of the tokens
      */
-    function setBalanceLimits(
-        address[] calldata _tokenAddrs,
-        uint256[] calldata _limits
-    )
-        external
-        onlyOwner
-    {
+    function setBalanceLimits(address[] calldata _tokenAddrs, uint256[] calldata _limits) external onlyOwner {
         ledger.setBalanceLimits(_tokenAddrs, _limits);
     }
 
@@ -87,13 +75,7 @@ contract CelerLedger is ICelerLedger, Ownable {
      * @param _transferFromAmount amount of funds to be transfered from EthPool for ETH
      *   or ERC20 contract for ERC20 tokens
      */
-    function deposit(
-        bytes32 _channelId,
-        address _receiver,
-        uint256 _transferFromAmount
-    )
-        external payable
-    {
+    function deposit(bytes32 _channelId, address _receiver, uint256 _transferFromAmount) external payable {
         ledger.deposit(_channelId, _receiver, _transferFromAmount);
     }
 
@@ -110,9 +92,7 @@ contract CelerLedger is ICelerLedger, Ownable {
         bytes32[] calldata _channelIds,
         address[] calldata _receivers,
         uint256[] calldata _transferFromAmounts
-    )
-        external
-    {
+    ) external {
         require(
             _channelIds.length == _receivers.length && _receivers.length == _transferFromAmounts.length,
             "Lengths do not match"
@@ -192,13 +172,7 @@ contract CelerLedger is ICelerLedger, Ownable {
      * @param _peerFrom address of the peer who send out funds
      * @param _payIdList bytes of a pay hash list
      */
-    function clearPays(
-        bytes32 _channelId,
-        address _peerFrom,
-        bytes calldata _payIdList
-    )
-        external
-    {
+    function clearPays(bytes32 _channelId, address _peerFrom, bytes calldata _payIdList) external {
         ledger.clearPays(_channelId, _peerFrom, _payIdList);
     }
 
@@ -224,7 +198,7 @@ contract CelerLedger is ICelerLedger, Ownable {
      * @param _migrationRequest bytes of migration request message
      * @return migrated channel id
      */
-    function migrateChannelTo(bytes calldata _migrationRequest) external returns(bytes32) {
+    function migrateChannelTo(bytes calldata _migrationRequest) external returns (bytes32) {
         return ledger.migrateChannelTo(_migrationRequest);
     }
 
@@ -242,7 +216,7 @@ contract CelerLedger is ICelerLedger, Ownable {
      * @param _channelId ID of the channel to be viewed
      * @return channel confirm settle open time
      */
-    function getSettleFinalizedTime(bytes32 _channelId) public view returns(uint256) {
+    function getSettleFinalizedTime(bytes32 _channelId) public view returns (uint256) {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
         return c.getSettleFinalizedTime();
     }
@@ -252,10 +226,9 @@ contract CelerLedger is ICelerLedger, Ownable {
      * @param _channelId ID of the channel to be viewed
      * @return channel token contract address
      */
-    function getTokenContract(bytes32 _channelId) public view returns(address) {
+    function getTokenContract(bytes32 _channelId) public view returns (address) {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
         return c.getTokenContract();
-
     }
 
     /**
@@ -263,7 +236,7 @@ contract CelerLedger is ICelerLedger, Ownable {
      * @param _channelId ID of the channel to be viewed
      * @return channel token type
      */
-    function getTokenType(bytes32 _channelId) public view returns(PbEntity.TokenType) {
+    function getTokenType(bytes32 _channelId) public view returns (PbEntity.TokenType) {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
         return c.getTokenType();
     }
@@ -273,7 +246,7 @@ contract CelerLedger is ICelerLedger, Ownable {
      * @param _channelId ID of the channel to be viewed
      * @return channel status
      */
-    function getChannelStatus(bytes32 _channelId) public view returns(LedgerStruct.ChannelStatus) {
+    function getChannelStatus(bytes32 _channelId) public view returns (LedgerStruct.ChannelStatus) {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
         return c.getChannelStatus();
     }
@@ -283,7 +256,7 @@ contract CelerLedger is ICelerLedger, Ownable {
      * @param _channelId ID of the channel to be viewed
      * @return cooperative withdraw seqNum
      */
-    function getCooperativeWithdrawSeqNum(bytes32 _channelId) public view returns(uint256) {
+    function getCooperativeWithdrawSeqNum(bytes32 _channelId) public view returns (uint256) {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
         return c.getCooperativeWithdrawSeqNum();
     }
@@ -293,7 +266,7 @@ contract CelerLedger is ICelerLedger, Ownable {
      * @param _channelId ID of the channel to be viewed
      * @return channel's balance amount
      */
-    function getTotalBalance(bytes32 _channelId) public view returns(uint256) {
+    function getTotalBalance(bytes32 _channelId) public view returns (uint256) {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
         return c.getTotalBalance();
     }
@@ -306,8 +279,10 @@ contract CelerLedger is ICelerLedger, Ownable {
      * @return corresponding deposits of the peers (with matched index)
      * @return corresponding withdrawals of the peers (with matched index)
      */
-    function getBalanceMap(bytes32 _channelId) public view
-        returns(address[2] memory, uint256[2] memory, uint256[2] memory)
+    function getBalanceMap(bytes32 _channelId)
+        public
+        view
+        returns (address[2] memory, uint256[2] memory, uint256[2] memory)
     {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
         return c.getBalanceMap();
@@ -321,7 +296,7 @@ contract CelerLedger is ICelerLedger, Ownable {
      * @return channel token address
      * @return sequence number of cooperative withdraw
      */
-    function getChannelMigrationArgs(bytes32 _channelId) external view returns(uint256, uint256, address, uint256) {
+    function getChannelMigrationArgs(bytes32 _channelId) external view returns (uint256, uint256, address, uint256) {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
         return c.getChannelMigrationArgs();
     }
@@ -336,14 +311,18 @@ contract CelerLedger is ICelerLedger, Ownable {
      * @return peers' transferOut map
      * @return peers' pendingPayOut map
      */
-    function getPeersMigrationInfo(bytes32 _channelId) external view returns(
-        address[2] memory,
-        uint256[2] memory,
-        uint256[2] memory,
-        uint256[2] memory,
-        uint256[2] memory,
-        uint256[2] memory
-    ) {
+    function getPeersMigrationInfo(bytes32 _channelId)
+        external
+        view
+        returns (
+            address[2] memory,
+            uint256[2] memory,
+            uint256[2] memory,
+            uint256[2] memory,
+            uint256[2] memory,
+            uint256[2] memory
+        )
+    {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
         return c.getPeersMigrationInfo();
     }
@@ -353,7 +332,7 @@ contract CelerLedger is ICelerLedger, Ownable {
      * @param _channelId ID of the channel to be viewed
      * @return channel's dispute timeout
      */
-    function getDisputeTimeout(bytes32 _channelId) external view returns(uint256) {
+    function getDisputeTimeout(bytes32 _channelId) external view returns (uint256) {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
         return c.getDisputeTimeout();
     }
@@ -363,7 +342,7 @@ contract CelerLedger is ICelerLedger, Ownable {
      * @param _channelId ID of the channel to be viewed
      * @return channel's migratedTo address
      */
-    function getMigratedTo(bytes32 _channelId) external view returns(address) {
+    function getMigratedTo(bytes32 _channelId) external view returns (address) {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
         return c.getMigratedTo();
     }
@@ -374,10 +353,7 @@ contract CelerLedger is ICelerLedger, Ownable {
      * @return peers' addresses
      * @return two simplex state sequence numbers
      */
-    function getStateSeqNumMap(bytes32 _channelId) external view returns(
-        address[2] memory,
-        uint256[2] memory
-    ) {
+    function getStateSeqNumMap(bytes32 _channelId) external view returns (address[2] memory, uint256[2] memory) {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
         return c.getStateSeqNumMap();
     }
@@ -388,10 +364,7 @@ contract CelerLedger is ICelerLedger, Ownable {
      * @return peers' addresses
      * @return transferOuts of two simplex channels
      */
-    function getTransferOutMap(bytes32 _channelId) external view returns(
-        address[2] memory,
-        uint256[2] memory
-    ) {
+    function getTransferOutMap(bytes32 _channelId) external view returns (address[2] memory, uint256[2] memory) {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
         return c.getTransferOutMap();
     }
@@ -402,10 +375,7 @@ contract CelerLedger is ICelerLedger, Ownable {
      * @return peers' addresses
      * @return nextPayIdListHashes of two simplex channels
      */
-    function getNextPayIdListHashMap(bytes32 _channelId) external view returns(
-        address[2] memory,
-        bytes32[2] memory
-    ) {
+    function getNextPayIdListHashMap(bytes32 _channelId) external view returns (address[2] memory, bytes32[2] memory) {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
         return c.getNextPayIdListHashMap();
     }
@@ -416,10 +386,11 @@ contract CelerLedger is ICelerLedger, Ownable {
      * @return peers' addresses
      * @return lastPayResolveDeadlines of two simplex channels
      */
-    function getLastPayResolveDeadlineMap(bytes32 _channelId) external view returns(
-        address[2] memory,
-        uint256[2] memory
-    ) {
+    function getLastPayResolveDeadlineMap(bytes32 _channelId)
+        external
+        view
+        returns (address[2] memory, uint256[2] memory)
+    {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
         return c.getLastPayResolveDeadlineMap();
     }
@@ -430,10 +401,7 @@ contract CelerLedger is ICelerLedger, Ownable {
      * @return peers' addresses
      * @return pendingPayOuts of two simplex channels
      */
-    function getPendingPayOutMap(bytes32 _channelId) external view returns(
-        address[2] memory,
-        uint256[2] memory
-    ) {
+    function getPendingPayOutMap(bytes32 _channelId) external view returns (address[2] memory, uint256[2] memory) {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
         return c.getPendingPayOutMap();
     }
@@ -446,7 +414,7 @@ contract CelerLedger is ICelerLedger, Ownable {
      * @return requestTime of the withdraw intent
      * @return recipientChannelId of the withdraw intent
      */
-    function getWithdrawIntent(bytes32 _channelId) external view returns(address, uint256, uint256, bytes32) {
+    function getWithdrawIntent(bytes32 _channelId) external view returns (address, uint256, uint256, bytes32) {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
         return c.getWithdrawIntent();
     }
@@ -456,7 +424,7 @@ contract CelerLedger is ICelerLedger, Ownable {
      * @param _channelStatus query channel status converted to uint
      * @return channel number of the status
      */
-    function getChannelStatusNum(uint256 _channelStatus) external view returns(uint256) {
+    function getChannelStatusNum(uint256 _channelStatus) external view returns (uint256) {
         return ledger.getChannelStatusNum(_channelStatus);
     }
 
@@ -464,7 +432,7 @@ contract CelerLedger is ICelerLedger, Ownable {
      * @notice Return EthPool used by this CelerLedger contract
      * @return EthPool address
      */
-    function getEthPool() external view returns(address) {
+    function getEthPool() external view returns (address) {
         return ledger.getEthPool();
     }
 
@@ -472,7 +440,7 @@ contract CelerLedger is ICelerLedger, Ownable {
      * @notice Return PayRegistry used by this CelerLedger contract
      * @return PayRegistry address
      */
-    function getPayRegistry() external view returns(address) {
+    function getPayRegistry() external view returns (address) {
         return ledger.getPayRegistry();
     }
 
@@ -480,7 +448,7 @@ contract CelerLedger is ICelerLedger, Ownable {
      * @notice Return CelerWallet used by this CelerLedger contract
      * @return CelerWallet address
      */
-    function getCelerWallet() external view returns(address) {
+    function getCelerWallet() external view returns (address) {
         return ledger.getCelerWallet();
     }
 
@@ -489,7 +457,7 @@ contract CelerLedger is ICelerLedger, Ownable {
      * @param _tokenAddr query token address
      * @return token balance limit
      */
-    function getBalanceLimit(address _tokenAddr) external view returns(uint256) {
+    function getBalanceLimit(address _tokenAddr) external view returns (uint256) {
         return ledger.getBalanceLimit(_tokenAddr);
     }
 
@@ -497,7 +465,7 @@ contract CelerLedger is ICelerLedger, Ownable {
      * @notice Return balanceLimitsEnabled
      * @return balanceLimitsEnabled
      */
-    function getBalanceLimitsEnabled() external view returns(bool) {
+    function getBalanceLimitsEnabled() external view returns (bool) {
         return ledger.getBalanceLimitsEnabled();
     }
 }

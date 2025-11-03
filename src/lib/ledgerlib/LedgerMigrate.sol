@@ -22,24 +22,18 @@ library LedgerMigrate {
      * @param _migrationRequest bytes of migration request message
      * @return migrated channel id
      */
-    function migrateChannelTo(
-        LedgerStruct.Ledger storage _self,
-        bytes calldata _migrationRequest
-    )
-        external returns(bytes32) 
+    function migrateChannelTo(LedgerStruct.Ledger storage _self, bytes calldata _migrationRequest)
+        external
+        returns (bytes32)
     {
-        PbChain.ChannelMigrationRequest memory migrationRequest = 
-            PbChain.decChannelMigrationRequest(_migrationRequest);
-        PbEntity.ChannelMigrationInfo memory migrationInfo = 
+        PbChain.ChannelMigrationRequest memory migrationRequest = PbChain.decChannelMigrationRequest(_migrationRequest);
+        PbEntity.ChannelMigrationInfo memory migrationInfo =
             PbEntity.decChannelMigrationInfo(migrationRequest.channelMigrationInfo);
         bytes32 channelId = migrationInfo.channelId;
         LedgerStruct.Channel storage c = _self.channelMap[channelId];
         address toLedgerAddr = migrationInfo.toLedgerAddress;
 
-        require(
-            c.status == LedgerStruct.ChannelStatus.Operable ||
-            c.status == LedgerStruct.ChannelStatus.Settling
-        );
+        require(c.status == LedgerStruct.ChannelStatus.Operable || c.status == LedgerStruct.ChannelStatus.Settling);
         bytes32 h = keccak256(migrationRequest.channelMigrationInfo);
         // use Channel Library instead
         require(c._checkCoSignatures(h, migrationRequest.sigs), "Check co-sigs failed");
@@ -68,17 +62,12 @@ library LedgerMigrate {
         LedgerStruct.Ledger storage _self,
         address _fromLedgerAddr,
         bytes calldata _migrationRequest
-    )
-        external
-    {
+    ) external {
         address payable fromLedgerAddrPayable = payable(_fromLedgerAddr);
         bytes32 channelId = ICelerLedger(fromLedgerAddrPayable).migrateChannelTo(_migrationRequest);
         LedgerStruct.Channel storage c = _self.channelMap[channelId];
         require(c.status == LedgerStruct.ChannelStatus.Uninitialized, "Immigrated channel already exists");
-        require(
-            _self.celerWallet.getOperator(channelId) == address(this),
-            "Operatorship not transferred"
-        );
+        require(_self.celerWallet.getOperator(channelId) == address(this), "Operatorship not transferred");
 
         _self._updateChannelStatus(c, LedgerStruct.ChannelStatus.Operable);
         // Do not migrate WithdrawIntent, in other words, migration will implicitly veto
@@ -88,8 +77,8 @@ library LedgerMigrate {
 
         emit MigrateChannelFrom(channelId, _fromLedgerAddr);
     }
-    
+
     event MigrateChannelTo(bytes32 indexed channelId, address indexed newLedgerAddr);
-    
+
     event MigrateChannelFrom(bytes32 indexed channelId, address indexed oldLedgerAddr);
 }

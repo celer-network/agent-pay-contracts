@@ -12,8 +12,6 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 /**
  * @title Ledger Operation Library
  * @notice CelerLedger library of basic ledger operations
- * @dev This library doesn't need "withdraw pattern" because both peers must be
- *   External Owned Accounts(EOA) since their signatures are required in openChannel.
  */
 library LedgerOperation {
     using SafeERC20 for IERC20;
@@ -25,19 +23,13 @@ library LedgerOperation {
      * @param _self storage data of CelerLedger contract
      * @param _openRequest bytes of open channel request message
      */
-    function openChannel(
-        LedgerStruct.Ledger storage _self,
-        bytes calldata _openRequest
-    )
-        external
-    {
-        PbChain.OpenChannelRequest memory openRequest =
-            PbChain.decOpenChannelRequest(_openRequest);
+    function openChannel(LedgerStruct.Ledger storage _self, bytes calldata _openRequest) external {
+        PbChain.OpenChannelRequest memory openRequest = PbChain.decOpenChannelRequest(_openRequest);
         PbEntity.PaymentChannelInitializer memory channelInitializer =
             PbEntity.decPaymentChannelInitializer(openRequest.channelInitializer);
         require(channelInitializer.initDistribution.distribution.length == 2, "Wrong length");
         require(block.number <= channelInitializer.openDeadline, "Open deadline passed");
-        
+
         PbEntity.TokenInfo memory token = channelInitializer.initDistribution.token;
         uint256[2] memory amounts = [
             channelInitializer.initDistribution.distribution[0].amt,
@@ -52,10 +44,7 @@ library LedgerOperation {
 
         ICelerWallet celerWallet = _self.celerWallet;
         bytes32 h = keccak256(openRequest.channelInitializer);
-        (
-            bytes32 channelId,
-            LedgerStruct.Channel storage c
-        ) = _createWallet(_self, celerWallet, peerAddrs, h);
+        (bytes32 channelId, LedgerStruct.Channel storage c) = _createWallet(_self, celerWallet, peerAddrs, h);
 
         c.disputeTimeout = channelInitializer.disputeTimeout;
         _updateChannelStatus(_self, c, LedgerStruct.ChannelStatus.Operable);
@@ -69,7 +58,7 @@ library LedgerOperation {
 
         emit OpenChannel(channelId, uint256(token.tokenType), token.tokenAddress, peerAddrs, amounts);
 
-    uint256 amtSum = amounts[0] + amounts[1];
+        uint256 amtSum = amounts[0] + amounts[1];
         // if total deposit is 0
         if (amtSum == 0) {
             require(msg.value == 0, "msg.value is not 0");
@@ -91,19 +80,14 @@ library LedgerOperation {
             // peer ID of non-msgValueReceiver
             uint256 pid = 1 - msgValueReceiver;
             if (amounts[pid] > 0) {
-                _self.ethPool.transferToCelerWallet(
-                    peerAddrs[pid],
-                    address(celerWallet),
-                    channelId,
-                    amounts[pid]
-                );
+                _self.ethPool.transferToCelerWallet(peerAddrs[pid], address(celerWallet), channelId, amounts[pid]);
             }
         } else if (token.tokenType == PbEntity.TokenType.ERC20) {
             require(msg.value == 0, "msg.value is not 0");
 
             IERC20 erc20Token = IERC20(token.tokenAddress);
             for (uint256 i = 0; i < 2; i++) {
-                if (amounts[i] == 0) { continue; }
+                if (amounts[i] == 0) continue;
 
                 erc20Token.safeTransferFrom(peerAddrs[i], address(this), amounts[i]);
             }
@@ -129,13 +113,11 @@ library LedgerOperation {
         bytes32 _channelId,
         address _receiver,
         uint256 _transferFromAmount
-    )
-        external
-    {
-    uint256 msgValue = msg.value;
+    ) external {
+        uint256 msgValue = msg.value;
         // this implicitly require _receiver be a peer
-    _addDeposit(_self, _channelId, _receiver, _transferFromAmount + msgValue);
-        
+        _addDeposit(_self, _channelId, _receiver, _transferFromAmount + msgValue);
+
         LedgerStruct.Channel storage c = _self.channelMap[_channelId];
         if (c.token.tokenType == PbEntity.TokenType.ETH) {
             if (msgValue > 0) {
@@ -143,10 +125,7 @@ library LedgerOperation {
             }
             if (_transferFromAmount > 0) {
                 _self.ethPool.transferToCelerWallet(
-                    msg.sender,
-                    address(_self.celerWallet),
-                    _channelId,
-                    _transferFromAmount
+                    msg.sender, address(_self.celerWallet), _channelId, _transferFromAmount
                 );
             }
         } else if (c.token.tokenType == PbEntity.TokenType.ERC20) {
@@ -171,20 +150,15 @@ library LedgerOperation {
      * @param _self storage data of CelerLedger contract
      * @param _signedSimplexStateArray bytes of SignedSimplexStateArray message
      */
-    function snapshotStates(
-        LedgerStruct.Ledger storage _self,
-        bytes calldata _signedSimplexStateArray
-    )
-        external
-    {
+    function snapshotStates(LedgerStruct.Ledger storage _self, bytes calldata _signedSimplexStateArray) external {
         PbChain.SignedSimplexStateArray memory signedSimplexStateArray =
             PbChain.decSignedSimplexStateArray(_signedSimplexStateArray);
-    uint256 simplexStatesNum = signedSimplexStateArray.signedSimplexStates.length;
+        uint256 simplexStatesNum = signedSimplexStateArray.signedSimplexStates.length;
 
         // snapshot each state
         PbEntity.SimplexPaymentChannel memory simplexState =
             PbEntity.decSimplexPaymentChannel(signedSimplexStateArray.signedSimplexStates[0].simplexState);
-    for (uint256 i = 0; i < simplexStatesNum; i++) {
+        for (uint256 i = 0; i < simplexStatesNum; i++) {
             bytes32 currentChannelId = simplexState.channelId;
             LedgerStruct.Channel storage c = _self.channelMap[currentChannelId];
 
@@ -205,9 +179,8 @@ library LedgerOperation {
             if (i == simplexStatesNum - 1) {
                 emit SnapshotStates(currentChannelId, c._getStateSeqNums());
             } else if (i < simplexStatesNum - 1) {
-                simplexState = PbEntity.decSimplexPaymentChannel(
-                    signedSimplexStateArray.signedSimplexStates[i+1].simplexState
-                );
+                simplexState =
+                    PbEntity.decSimplexPaymentChannel(signedSimplexStateArray.signedSimplexStates[i + 1].simplexState);
                 // enforce channelIds of simplex states are ascending
                 require(currentChannelId <= simplexState.channelId, "Non-ascending channelIds");
                 if (currentChannelId < simplexState.channelId) {
@@ -233,9 +206,7 @@ library LedgerOperation {
         bytes32 _channelId,
         uint256 _amount,
         bytes32 _recipientChannelId
-    )
-        external
-    {
+    ) external {
         LedgerStruct.Channel storage c = _self.channelMap[_channelId];
         LedgerStruct.WithdrawIntent storage withdrawIntent = c.withdrawIntent;
         address receiver = msg.sender;
@@ -259,39 +230,28 @@ library LedgerOperation {
      * @param _self storage data of CelerLedger contract
      * @param _channelId ID of the channel
      */
-    function confirmWithdraw(
-        LedgerStruct.Ledger storage _self,
-        bytes32 _channelId
-    )
-        external
-    {
+    function confirmWithdraw(LedgerStruct.Ledger storage _self, bytes32 _channelId) external {
         LedgerStruct.Channel storage c = _self.channelMap[_channelId];
         require(c.status == LedgerStruct.ChannelStatus.Operable, "Channel status error");
         require(c.withdrawIntent.receiver != address(0), "No pending withdraw intent");
-        require(
-            block.number >= c.withdrawIntent.requestTime + c.disputeTimeout,
-            "Dispute not timeout"
-        );
+        require(block.number >= c.withdrawIntent.requestTime + c.disputeTimeout, "Dispute not timeout");
 
         address receiver = c.withdrawIntent.receiver;
-    uint256 amount = c.withdrawIntent.amount;
+        uint256 amount = c.withdrawIntent.amount;
         bytes32 recipientChannelId = c.withdrawIntent.recipientChannelId;
         delete c.withdrawIntent;
 
         // check withdraw limit
-    uint256 rid = c._getPeerId(receiver);
-    uint256 pid = 1 - rid;
+        uint256 rid = c._getPeerId(receiver);
+        uint256 pid = 1 - rid;
         LedgerStruct.PeerProfile[2] storage peerProfiles = c.peerProfiles;
-        uint256 withdrawLimit = peerProfiles[rid].deposit
-            + peerProfiles[pid].state.transferOut
-            - peerProfiles[rid].withdrawal
-            - peerProfiles[rid].state.transferOut
-            - peerProfiles[rid].state.pendingPayOut;
+        uint256 withdrawLimit = peerProfiles[rid].deposit + peerProfiles[pid].state.transferOut
+            - peerProfiles[rid].withdrawal - peerProfiles[rid].state.transferOut - peerProfiles[rid].state.pendingPayOut;
         require(amount <= withdrawLimit, "Exceed withdraw limit");
 
         c._addWithdrawal(receiver, amount);
-        
-    (, uint256[2] memory deposits, uint256[2] memory withdrawals) = c.getBalanceMap();
+
+        (, uint256[2] memory deposits, uint256[2] memory withdrawals) = c.getBalanceMap();
         emit ConfirmWithdraw(_channelId, amount, receiver, recipientChannelId, deposits, withdrawals);
 
         _withdrawFunds(_self, _channelId, receiver, amount, recipientChannelId);
@@ -320,10 +280,7 @@ library LedgerOperation {
      * @param _self storage data of CelerLedger contract
      * @param _cooperativeWithdrawRequest bytes of cooperative withdraw request message
      */
-    function cooperativeWithdraw(
-        LedgerStruct.Ledger storage _self,
-        bytes calldata _cooperativeWithdrawRequest
-    )
+    function cooperativeWithdraw(LedgerStruct.Ledger storage _self, bytes calldata _cooperativeWithdrawRequest)
         external
     {
         PbChain.CooperativeWithdrawRequest memory cooperativeWithdrawRequest =
@@ -336,33 +293,21 @@ library LedgerOperation {
 
         require(c.status == LedgerStruct.ChannelStatus.Operable, "Channel status error");
         bytes32 h = keccak256(cooperativeWithdrawRequest.withdrawInfo);
-        require(
-            c._checkCoSignatures(h, cooperativeWithdrawRequest.sigs),
-            "Check co-sigs failed"
-        );
+        require(c._checkCoSignatures(h, cooperativeWithdrawRequest.sigs), "Check co-sigs failed");
         // require an increment of exactly 1 for seqNum of each cooperative withdraw request
-        require(
-            withdrawInfo.seqNum - c.cooperativeWithdrawSeqNum == 1,
-            "seqNum error"
-        );
+        require(withdrawInfo.seqNum - c.cooperativeWithdrawSeqNum == 1, "seqNum error");
         require(block.number <= withdrawInfo.withdrawDeadline, "Withdraw deadline passed");
 
         address receiver = withdrawInfo.withdraw.account;
         c.cooperativeWithdrawSeqNum = withdrawInfo.seqNum;
-    uint256 amount = withdrawInfo.withdraw.amt;
+        uint256 amount = withdrawInfo.withdraw.amt;
 
         // this implicitly require receiver be a peer
         c._addWithdrawal(receiver, amount);
 
-    (, uint256[2] memory deposits, uint256[2] memory withdrawals) = c.getBalanceMap();
+        (, uint256[2] memory deposits, uint256[2] memory withdrawals) = c.getBalanceMap();
         emit CooperativeWithdraw(
-            channelId,
-            amount,
-            receiver,
-            recipientChannelId,
-            deposits,
-            withdrawals,
-            withdrawInfo.seqNum
+            channelId, amount, receiver, recipientChannelId, deposits, withdrawals, withdrawInfo.seqNum
         );
 
         _withdrawFunds(_self, channelId, receiver, amount, recipientChannelId);
@@ -377,41 +322,33 @@ library LedgerOperation {
      * @param _self storage data of CelerLedger contract
      * @param _signedSimplexStateArray bytes of SignedSimplexStateArray message
      */
-    function intendSettle(
-        LedgerStruct.Ledger storage _self,
-        bytes calldata _signedSimplexStateArray
-    )
-        external
-    {
+    function intendSettle(LedgerStruct.Ledger storage _self, bytes calldata _signedSimplexStateArray) external {
         PbChain.SignedSimplexStateArray memory signedSimplexStateArray =
             PbChain.decSignedSimplexStateArray(_signedSimplexStateArray);
-    uint256 simplexStatesNum = signedSimplexStateArray.signedSimplexStates.length;
+        uint256 simplexStatesNum = signedSimplexStateArray.signedSimplexStates.length;
 
         PbEntity.SimplexPaymentChannel memory simplexState =
             PbEntity.decSimplexPaymentChannel(signedSimplexStateArray.signedSimplexStates[0].simplexState);
-    for (uint256 i = 0; i < simplexStatesNum; i++) {
+        for (uint256 i = 0; i < simplexStatesNum; i++) {
             bytes32 currentChannelId = simplexState.channelId;
             LedgerStruct.Channel storage c = _self.channelMap[currentChannelId];
-            
+
             if (c._isPeer(msg.sender)) {
                 require(
-                    c.status == LedgerStruct.ChannelStatus.Operable ||
-                    c.status == LedgerStruct.ChannelStatus.Settling,
+                    c.status == LedgerStruct.ChannelStatus.Operable || c.status == LedgerStruct.ChannelStatus.Settling,
                     "Peer channel status error"
                 );
             } else {
                 // A nonpeer cannot be the first one to call intendSettle
                 require(c.status == LedgerStruct.ChannelStatus.Settling, "Nonpeer channel status error");
             }
-            require(
-                c.settleFinalizedTime == 0 || block.number < c.settleFinalizedTime,
-                "Settle has already finalized"
-            );
-            
+            require(c.settleFinalizedTime == 0 || block.number < c.settleFinalizedTime, "Settle has already finalized");
+
             bytes32 stateHash = keccak256(signedSimplexStateArray.signedSimplexStates[i].simplexState);
             bytes[] memory sigs = signedSimplexStateArray.signedSimplexStates[i].sigs;
 
-            if (simplexState.seqNum > 0) {  // non-null state
+            if (simplexState.seqNum > 0) {
+                // non-null state
                 require(c._checkCoSignatures(stateHash, sigs), "Check co-sigs failed");
                 uint256 peerFromId = c._getPeerId(simplexState.peerFrom);
                 LedgerStruct.PeerState storage state = c.peerProfiles[peerFromId].state;
@@ -438,13 +375,11 @@ library LedgerOperation {
                 }
 
                 _clearPays(_self, currentChannelId, peerFromId, simplexState.pendingPayIds);
-            } else if (simplexState.seqNum == 0) {  // null state
+            } else if (simplexState.seqNum == 0) {
+                // null state
                 // this implies both stored seqNums are 0
                 require(c.settleFinalizedTime == 0, "intendSettle before");
-                require(
-                    sigs.length == 1 && c._checkSingleSignature(stateHash, sigs[0]),
-                    "Check sig failed"
-                );
+                require(sigs.length == 1 && c._checkSingleSignature(stateHash, sigs[0]), "Check sig failed");
             } else {
                 assert(false);
             }
@@ -452,9 +387,8 @@ library LedgerOperation {
             if (i == simplexStatesNum - 1) {
                 _updateOverallStatesByIntendState(_self, currentChannelId);
             } else if (i < simplexStatesNum - 1) {
-                simplexState = PbEntity.decSimplexPaymentChannel(
-                    signedSimplexStateArray.signedSimplexStates[i+1].simplexState
-                );
+                simplexState =
+                    PbEntity.decSimplexPaymentChannel(signedSimplexStateArray.signedSimplexStates[i + 1].simplexState);
                 // enforce channelIds of simplex states are ascending
                 require(currentChannelId <= simplexState.channelId, "Non-ascending channelIds");
                 if (currentChannelId < simplexState.channelId) {
@@ -478,12 +412,10 @@ library LedgerOperation {
         bytes32 _channelId,
         address _peerFrom,
         bytes calldata _payIdList
-    )
-        external
-    {
+    ) external {
         LedgerStruct.Channel storage c = _self.channelMap[_channelId];
         require(c.status == LedgerStruct.ChannelStatus.Settling, "Channel status error");
-    uint256 peerFromId = c._getPeerId(_peerFrom);
+        uint256 peerFromId = c._getPeerId(_peerFrom);
 
         bytes32 listHash = keccak256(_payIdList);
         LedgerStruct.PeerState storage state = c.peerProfiles[peerFromId].state;
@@ -500,15 +432,10 @@ library LedgerOperation {
      * @param _self storage data of CelerLedger contract
      * @param _channelId ID of the channel
      */
-    function confirmSettle(
-        LedgerStruct.Ledger storage _self,
-        bytes32 _channelId
-    )
-        external
-    {
+    function confirmSettle(LedgerStruct.Ledger storage _self, bytes32 _channelId) external {
         LedgerStruct.Channel storage c = _self.channelMap[_channelId];
         LedgerStruct.PeerProfile[2] storage peerProfiles = c.peerProfiles;
-    uint256 blockNumber = block.number;
+        uint256 blockNumber = block.number;
         require(c.status == LedgerStruct.ChannelStatus.Settling, "Channel status error");
         // require no new intendSettle can be called
         require(blockNumber >= c.settleFinalizedTime, "Settle is not finalized");
@@ -523,14 +450,18 @@ library LedgerOperation {
         // TODO: add an additional clearSafeMargin param or change the semantics of
         //   lastPayResolveDeadline to also include clearPays safe margin and rename it.
         require(
-            (peerProfiles[0].state.nextPayIdListHash == bytes32(0) ||
-                blockNumber > peerProfiles[0].state.lastPayResolveDeadline) &&
-            (peerProfiles[1].state.nextPayIdListHash == bytes32(0) ||
-                blockNumber > peerProfiles[1].state.lastPayResolveDeadline),
+            (
+                peerProfiles[0].state.nextPayIdListHash == bytes32(0)
+                    || blockNumber > peerProfiles[0].state.lastPayResolveDeadline
+            )
+                && (
+                    peerProfiles[1].state.nextPayIdListHash == bytes32(0)
+                        || blockNumber > peerProfiles[1].state.lastPayResolveDeadline
+                ),
             "Payments are not finalized"
         );
 
-    (bool validBalance, uint256[2] memory settleBalance) = c._validateSettleBalance();
+        (bool validBalance, uint256[2] memory settleBalance) = c._validateSettleBalance();
         if (!validBalance) {
             _resetDuplexState(_self, c);
             emit ConfirmSettleFail(_channelId);
@@ -544,11 +475,7 @@ library LedgerOperation {
         // Withdrawal from Contracts pattern is needless here,
         // because peers need to sign messages which implies that they can't be contracts
         _batchTransferOut(
-            _self,
-            _channelId,
-            c.token.tokenAddress,
-            [peerProfiles[0].peerAddr, peerProfiles[1].peerAddr],
-            settleBalance
+            _self, _channelId, c.token.tokenAddress, [peerProfiles[0].peerAddr, peerProfiles[1].peerAddr], settleBalance
         );
     }
 
@@ -557,21 +484,13 @@ library LedgerOperation {
      * @param _self storage data of CelerLedger contract
      * @param _settleRequest bytes of cooperative settle request message
      */
-    function cooperativeSettle(
-        LedgerStruct.Ledger storage _self,
-        bytes calldata _settleRequest
-    )
-        external
-    {
-        PbChain.CooperativeSettleRequest memory settleRequest =
-            PbChain.decCooperativeSettleRequest(_settleRequest);
-        PbEntity.CooperativeSettleInfo memory settleInfo =
-            PbEntity.decCooperativeSettleInfo(settleRequest.settleInfo);
+    function cooperativeSettle(LedgerStruct.Ledger storage _self, bytes calldata _settleRequest) external {
+        PbChain.CooperativeSettleRequest memory settleRequest = PbChain.decCooperativeSettleRequest(_settleRequest);
+        PbEntity.CooperativeSettleInfo memory settleInfo = PbEntity.decCooperativeSettleInfo(settleRequest.settleInfo);
         bytes32 channelId = settleInfo.channelId;
         LedgerStruct.Channel storage c = _self.channelMap[channelId];
         require(
-            c.status == LedgerStruct.ChannelStatus.Operable ||
-            c.status == LedgerStruct.ChannelStatus.Settling,
+            c.status == LedgerStruct.ChannelStatus.Operable || c.status == LedgerStruct.ChannelStatus.Settling,
             "Channel status error"
         );
 
@@ -580,23 +499,18 @@ library LedgerOperation {
 
         address[2] memory peerAddrs = [c.peerProfiles[0].peerAddr, c.peerProfiles[1].peerAddr];
         require(
-            settleInfo.seqNum > c.peerProfiles[0].state.seqNum &&
-                settleInfo.seqNum > c.peerProfiles[1].state.seqNum,
+            settleInfo.seqNum > c.peerProfiles[0].state.seqNum && settleInfo.seqNum > c.peerProfiles[1].state.seqNum,
             "seqNum error"
         );
         require(settleInfo.settleDeadline >= block.number, "Settle deadline passed");
         // require distribution is consistent with the order of peerAddrs in channel
         require(
-            settleInfo.settleBalance[0].account == peerAddrs[0] &&
-                settleInfo.settleBalance[1].account == peerAddrs[1],
+            settleInfo.settleBalance[0].account == peerAddrs[0] && settleInfo.settleBalance[1].account == peerAddrs[1],
             "Settle accounts mismatch"
         );
 
-        uint256[2] memory settleBalance = [
-            settleInfo.settleBalance[0].amt,
-            settleInfo.settleBalance[1].amt
-        ];
-    require(settleBalance[0] + settleBalance[1] == c.getTotalBalance(), "Balance sum mismatch");
+        uint256[2] memory settleBalance = [settleInfo.settleBalance[0].amt, settleInfo.settleBalance[1].amt];
+        require(settleBalance[0] + settleBalance[1] == c.getTotalBalance(), "Balance sum mismatch");
 
         _updateChannelStatus(_self, c, LedgerStruct.ChannelStatus.Closed);
 
@@ -611,13 +525,10 @@ library LedgerOperation {
      * @param _channelStatus query channel status converted to uint
      * @return channel number of the status
      */
-    function getChannelStatusNum(
-        LedgerStruct.Ledger storage _self,
-        uint256 _channelStatus
-    )
+    function getChannelStatusNum(LedgerStruct.Ledger storage _self, uint256 _channelStatus)
         external
         view
-        returns(uint256)
+        returns (uint256)
     {
         return _self.channelStatusNums[_channelStatus];
     }
@@ -627,7 +538,7 @@ library LedgerOperation {
      * @param _self storage data of CelerLedger contract
      * @return EthPool address
      */
-    function getEthPool(LedgerStruct.Ledger storage _self) external view returns(address) {
+    function getEthPool(LedgerStruct.Ledger storage _self) external view returns (address) {
         return address(_self.ethPool);
     }
 
@@ -636,7 +547,7 @@ library LedgerOperation {
      * @param _self storage data of CelerLedger contract
      * @return PayRegistry address
      */
-    function getPayRegistry(LedgerStruct.Ledger storage _self) external view returns(address) {
+    function getPayRegistry(LedgerStruct.Ledger storage _self) external view returns (address) {
         return address(_self.payRegistry);
     }
 
@@ -645,7 +556,7 @@ library LedgerOperation {
      * @param _self storage data of CelerLedger contract
      * @return CelerWallet address
      */
-    function getCelerWallet(LedgerStruct.Ledger storage _self) external view returns(address) {
+    function getCelerWallet(LedgerStruct.Ledger storage _self) external view returns (address) {
         return address(_self.celerWallet);
     }
 
@@ -658,25 +569,20 @@ library LedgerOperation {
      * @return channel id, which is same as the created wallet id
      * @return storage pointer of the channel
      */
-    function _createWallet(
-        LedgerStruct.Ledger storage _self,
-        ICelerWallet _w,
-        address[2] memory _peers,
-        bytes32 _nonce
-    )
+    function _createWallet(LedgerStruct.Ledger storage _self, ICelerWallet _w, address[2] memory _peers, bytes32 _nonce)
         internal
-        returns(bytes32, LedgerStruct.Channel storage)
+        returns (bytes32, LedgerStruct.Channel storage)
     {
         address[] memory owners = new address[](2);
-    owners[0] = _peers[0];
-    owners[1] = _peers[1];
+        owners[0] = _peers[0];
+        owners[1] = _peers[1];
         // it is safe to use abi.encodePacked() with only one dynamic variable
         // use walletId as channelId
         bytes32 channelId = _w.create(owners, address(this), _nonce);
         // 0 is reserved for non-channel indication
         require(channelId != bytes32(0), "channelId gets 0");
         LedgerStruct.Channel storage c = _self.channelMap[channelId];
-        // No harm in having this check in case of keccak256 being broken 
+        // No harm in having this check in case of keccak256 being broken
         require(c.status == LedgerStruct.ChannelStatus.Uninitialized, "Occupied channelId");
 
         return (channelId, c);
@@ -689,12 +595,7 @@ library LedgerOperation {
      * @param _receiver address of the receiver
      * @param _amount the amount to be deposited
      */
-    function _addDeposit(
-        LedgerStruct.Ledger storage _self,
-        bytes32 _channelId,
-        address _receiver,
-        uint256 _amount
-    )
+    function _addDeposit(LedgerStruct.Ledger storage _self, bytes32 _channelId, address _receiver, uint256 _amount)
         internal
     {
         LedgerStruct.Channel storage c = _self.channelMap[_channelId];
@@ -703,19 +604,12 @@ library LedgerOperation {
         // this implicitly require _receiver be a peer
         uint256 rid = c._getPeerId(_receiver);
         if (_self.balanceLimitsEnabled) {
-            require(
-                _amount + c.getTotalBalance() <= _self.balanceLimits[c.token.tokenAddress],
-                "Balance exceeds limit"
-            );
+            require(_amount + c.getTotalBalance() <= _self.balanceLimits[c.token.tokenAddress], "Balance exceeds limit");
         }
 
-    c.peerProfiles[rid].deposit = c.peerProfiles[rid].deposit + _amount;
+        c.peerProfiles[rid].deposit = c.peerProfiles[rid].deposit + _amount;
 
-        (
-            address[2] memory peerAddrs,
-            uint256[2] memory deposits,
-            uint256[2] memory withdrawals
-        ) = c.getBalanceMap();
+        (address[2] memory peerAddrs, uint256[2] memory deposits, uint256[2] memory withdrawals) = c.getBalanceMap();
         emit Deposit(_channelId, peerAddrs, deposits, withdrawals);
     }
 
@@ -733,11 +627,9 @@ library LedgerOperation {
         address _tokenAddr,
         address[2] memory _receivers,
         uint256[2] memory _amounts
-    )
-        internal
-    {
+    ) internal {
         for (uint256 i = 0; i < 2; i++) {
-            if (_amounts[i] == 0) { continue; }
+            if (_amounts[i] == 0) continue;
 
             _self.celerWallet.withdraw(_channelId, _tokenAddr, _receivers[i], _amounts[i]);
         }
@@ -757,10 +649,8 @@ library LedgerOperation {
         address _receiver,
         uint256 _amount,
         bytes32 _recipientChannelId
-    )
-        internal
-    {
-        if (_amount == 0) { return; }
+    ) internal {
+        if (_amount == 0) return;
 
         LedgerStruct.Channel storage c = _self.channelMap[_channelId];
         if (_recipientChannelId == bytes32(0)) {
@@ -768,19 +658,15 @@ library LedgerOperation {
         } else {
             LedgerStruct.Channel storage recipientChannel = _self.channelMap[_recipientChannelId];
             require(
-                c.token.tokenType == recipientChannel.token.tokenType &&
-                    c.token.tokenAddress == recipientChannel.token.tokenAddress,
+                c.token.tokenType == recipientChannel.token.tokenType
+                    && c.token.tokenAddress == recipientChannel.token.tokenAddress,
                 "Token mismatch of recipient channel"
             );
             _addDeposit(_self, _recipientChannelId, _receiver, _amount);
 
             // move funds from one channel's wallet to another channel's wallet
             _self.celerWallet.transferToWallet(
-                _channelId,
-                _recipientChannelId,
-                c.token.tokenAddress,
-                _receiver,
-                _amount
+                _channelId, _recipientChannelId, c.token.tokenAddress, _receiver, _amount
             );
         }
     }
@@ -790,12 +676,7 @@ library LedgerOperation {
      * @param _self storage data of CelerLedger contract
      * @param _c the channel
      */
-    function _resetDuplexState(
-        LedgerStruct.Ledger storage _self,
-        LedgerStruct.Channel storage _c
-    )
-        internal
-    {
+    function _resetDuplexState(LedgerStruct.Ledger storage _self, LedgerStruct.Channel storage _c) internal {
         delete _c.settleFinalizedTime;
         _updateChannelStatus(_self, _c, LedgerStruct.ChannelStatus.Operable);
         delete _c.peerProfiles[0].state;
@@ -816,22 +697,17 @@ library LedgerOperation {
         bytes32 _channelId,
         uint256 _peerId,
         PbEntity.PayIdList memory _payIdList
-    )
-        internal
-    {
+    ) internal {
         LedgerStruct.Channel storage c = _self.channelMap[_channelId];
-        uint256[] memory outAmts = _self.payRegistry.getPayAmounts(
-            _payIdList.payIds,
-            c.peerProfiles[_peerId].state.lastPayResolveDeadline
-        );
+        uint256[] memory outAmts =
+            _self.payRegistry.getPayAmounts(_payIdList.payIds, c.peerProfiles[_peerId].state.lastPayResolveDeadline);
 
         uint256 totalAmtOut = 0;
         for (uint256 i = 0; i < outAmts.length; i++) {
             totalAmtOut = totalAmtOut + outAmts[i];
             emit ClearOnePay(_channelId, _payIdList.payIds[i], c.peerProfiles[_peerId].peerAddr, outAmts[i]);
         }
-        c.peerProfiles[_peerId].state.transferOut =
-            c.peerProfiles[_peerId].state.transferOut + totalAmtOut;
+        c.peerProfiles[_peerId].state.transferOut = c.peerProfiles[_peerId].state.transferOut + totalAmtOut;
         // updating pendingPayOut is only needed when migrating ledger during settling phrase, which will
         // affect the withdraw limit after the migration.
         if (_payIdList.nextListHash == bytes32(0)) {
@@ -844,8 +720,7 @@ library LedgerOperation {
             //   pendingPayOut. This will lead to decreasing the maximum withdraw amount (withdrawLimit)
             //   of the peer in non-cooperative withdraw flow, but protect the fund in the channel
             //   from potentially malicious non-cooperative withdraw.
-            c.peerProfiles[_peerId].state.pendingPayOut =
-                c.peerProfiles[_peerId].state.pendingPayOut - totalAmtOut;
+            c.peerProfiles[_peerId].state.pendingPayOut = c.peerProfiles[_peerId].state.pendingPayOut - totalAmtOut;
         }
     }
 
@@ -854,14 +729,9 @@ library LedgerOperation {
      * @param _self storage data of CelerLedger contract
      * @param _channelId the channel ID
      */
-    function _updateOverallStatesByIntendState(
-        LedgerStruct.Ledger storage _self,
-        bytes32 _channelId
-    )
-        internal
-    {
+    function _updateOverallStatesByIntendState(LedgerStruct.Ledger storage _self, bytes32 _channelId) internal {
         LedgerStruct.Channel storage c = _self.channelMap[_channelId];
-    c.settleFinalizedTime = block.number + c.disputeTimeout;
+        c.settleFinalizedTime = block.number + c.disputeTimeout;
         _updateChannelStatus(_self, c, LedgerStruct.ChannelStatus.Settling);
 
         emit IntendSettle(_channelId, c._getStateSeqNums());
@@ -877,9 +747,7 @@ library LedgerOperation {
         LedgerStruct.Ledger storage _self,
         LedgerStruct.Channel storage _c,
         LedgerStruct.ChannelStatus _newStatus
-    )
-        internal
-    {
+    ) internal {
         if (_c.status == _newStatus) {
             return;
         }
@@ -890,7 +758,7 @@ library LedgerOperation {
         }
 
         // update counter of new status
-    _self.channelStatusNums[uint256(_newStatus)] = _self.channelStatusNums[uint256(_newStatus)] + 1;
+        _self.channelStatusNums[uint256(_newStatus)] = _self.channelStatusNums[uint256(_newStatus)] + 1;
 
         _c.status = _newStatus;
     }
@@ -900,11 +768,7 @@ library LedgerOperation {
      * @param _token token info to be validated
      * @return validated token info
      */
-    function _validateTokenInfo(PbEntity.TokenInfo memory _token)
-        internal
-        view
-        returns(PbEntity.TokenInfo memory)
-    {
+    function _validateTokenInfo(PbEntity.TokenInfo memory _token) internal view returns (PbEntity.TokenInfo memory) {
         if (_token.tokenType == PbEntity.TokenType.ETH) {
             require(_token.tokenAddress == address(0));
         } else if (_token.tokenType == PbEntity.TokenType.ERC20) {

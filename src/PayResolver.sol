@@ -42,12 +42,12 @@ contract PayResolver is IPayResolver {
      * @param _resolvePayRequest bytes of PbChain.ResolvePayByConditionsRequest
      */
     function resolvePaymentByConditions(bytes calldata _resolvePayRequest) external {
-        PbChain.ResolvePayByConditionsRequest memory resolvePayRequest = 
+        PbChain.ResolvePayByConditionsRequest memory resolvePayRequest =
             PbChain.decResolvePayByConditionsRequest(_resolvePayRequest);
         PbEntity.ConditionalPay memory pay = PbEntity.decConditionalPay(resolvePayRequest.condPay);
 
         // onchain resolve this payment and get result
-    uint256 amount;
+        uint256 amount;
         PbEntity.TransferFunctionType funcType = pay.transferFunc.logicType;
         if (funcType == PbEntity.TransferFunctionType.BOOLEAN_AND) {
             amount = _calculateBooleanAndPayment(pay, resolvePayRequest.hashPreimages);
@@ -69,24 +69,16 @@ contract PayResolver is IPayResolver {
      * @param _vouchedPayResult bytes of PbEntity.VouchedCondPayResult
      */
     function resolvePaymentByVouchedResult(bytes calldata _vouchedPayResult) external {
-        PbEntity.VouchedCondPayResult memory vouchedPayResult = 
-            PbEntity.decVouchedCondPayResult(_vouchedPayResult);
-        PbEntity.CondPayResult memory payResult = 
-            PbEntity.decCondPayResult(vouchedPayResult.condPayResult);
+        PbEntity.VouchedCondPayResult memory vouchedPayResult = PbEntity.decVouchedCondPayResult(_vouchedPayResult);
+        PbEntity.CondPayResult memory payResult = PbEntity.decCondPayResult(vouchedPayResult.condPayResult);
         PbEntity.ConditionalPay memory pay = PbEntity.decConditionalPay(payResult.condPay);
 
-        require(
-            payResult.amount <= pay.transferFunc.maxTransfer.receiver.amt,
-            "Exceed max transfer amount"
-        );
+        require(payResult.amount <= pay.transferFunc.maxTransfer.receiver.amt, "Exceed max transfer amount");
         // check signatures
-    bytes32 hash = keccak256(vouchedPayResult.condPayResult).toEthSignedMessageHash();
+        bytes32 hash = keccak256(vouchedPayResult.condPayResult).toEthSignedMessageHash();
         address recoveredSrc = hash.recover(vouchedPayResult.sigOfSrc);
         address recoveredDest = hash.recover(vouchedPayResult.sigOfDest);
-        require(
-            recoveredSrc == address(pay.src) && recoveredDest == address(pay.dest),
-            "Check sigs failed"
-        );
+        require(recoveredSrc == address(pay.src) && recoveredDest == address(pay.dest), "Check sigs failed");
 
         bytes32 payHash = keccak256(payResult.condPay);
         _resolvePayment(pay, payHash, payResult.amount);
@@ -98,24 +90,15 @@ contract PayResolver is IPayResolver {
      * @param _payHash hash of serialized condPay
      * @param _amount payment amount to resolve
      */
-    function _resolvePayment(
-        PbEntity.ConditionalPay memory _pay,
-        bytes32 _payHash,
-        uint256 _amount
-    )
-        internal
-    {
-    uint256 blockNumber = block.number;
+    function _resolvePayment(PbEntity.ConditionalPay memory _pay, bytes32 _payHash, uint256 _amount) internal {
+        uint256 blockNumber = block.number;
         require(blockNumber <= _pay.resolveDeadline, "Passed pay resolve deadline in condPay msg");
 
         bytes32 payId = _calculatePayId(_payHash, address(this));
-    (uint256 currentAmt, uint256 currentDeadline) = payRegistry.getPayInfo(payId);
+        (uint256 currentAmt, uint256 currentDeadline) = payRegistry.getPayInfo(payId);
 
         // should never resolve a pay before or not reaching onchain resolve deadline
-        require(
-            currentDeadline == 0 || blockNumber <= currentDeadline,
-            "Passed onchain resolve pay deadline"
-        );
+        require(currentDeadline == 0 || blockNumber <= currentDeadline, "Passed onchain resolve pay deadline");
 
         if (currentDeadline > 0) {
             // currentDeadline > 0 implies that this pay has been updated
@@ -136,10 +119,7 @@ contract PayResolver is IPayResolver {
             if (_amount == _pay.transferFunc.maxTransfer.receiver.amt) {
                 newDeadline = blockNumber;
             } else {
-                newDeadline = Math.min(
-                    blockNumber + _pay.resolveTimeout,
-                    _pay.resolveDeadline
-                );
+                newDeadline = Math.min(blockNumber + _pay.resolveTimeout, _pay.resolveDeadline);
                 // 0 is reserved for unresolved status of a payment
                 require(newDeadline > 0, "New resolve deadline is 0");
             }
@@ -155,24 +135,21 @@ contract PayResolver is IPayResolver {
      * @param _preimages preimages for hash lock conditions
      * @return pay amount
      */
-    function _calculateBooleanAndPayment(
-        PbEntity.ConditionalPay memory _pay,
-        bytes[] memory _preimages
-    )
+    function _calculateBooleanAndPayment(PbEntity.ConditionalPay memory _pay, bytes[] memory _preimages)
         internal
         view
-        returns(uint256)
+        returns (uint256)
     {
         uint256 j = 0;
         bool hasFalseContractCond = false;
-    for (uint256 i = 0; i < _pay.conditions.length; i++) {
+        for (uint256 i = 0; i < _pay.conditions.length; i++) {
             PbEntity.Condition memory cond = _pay.conditions[i];
             if (cond.conditionType == PbEntity.ConditionType.HASH_LOCK) {
                 require(keccak256(_preimages[j]) == cond.hashLock, "Wrong preimage");
                 j++;
             } else if (
-                cond.conditionType == PbEntity.ConditionType.DEPLOYED_CONTRACT || 
-                cond.conditionType == PbEntity.ConditionType.VIRTUAL_CONTRACT
+                cond.conditionType == PbEntity.ConditionType.DEPLOYED_CONTRACT
+                    || cond.conditionType == PbEntity.ConditionType.VIRTUAL_CONTRACT
             ) {
                 address addr = _getCondAddress(cond);
                 IBooleanCond dependent = IBooleanCond(addr);
@@ -199,26 +176,23 @@ contract PayResolver is IPayResolver {
      * @param _preimages preimages for hash lock conditions
      * @return pay amount
      */
-    function _calculateBooleanOrPayment(
-        PbEntity.ConditionalPay memory _pay,
-        bytes[] memory _preimages
-    )
+    function _calculateBooleanOrPayment(PbEntity.ConditionalPay memory _pay, bytes[] memory _preimages)
         internal
         view
-        returns(uint256)
+        returns (uint256)
     {
         uint256 j = 0;
         // whether there are any contract based conditions, i.e. DEPLOYED_CONTRACT or VIRTUAL_CONTRACT
         bool hasContractCond = false;
         bool hasTrueContractCond = false;
-    for (uint256 i = 0; i < _pay.conditions.length; i++) {
+        for (uint256 i = 0; i < _pay.conditions.length; i++) {
             PbEntity.Condition memory cond = _pay.conditions[i];
             if (cond.conditionType == PbEntity.ConditionType.HASH_LOCK) {
                 require(keccak256(_preimages[j]) == cond.hashLock, "Wrong preimage");
                 j++;
             } else if (
-                cond.conditionType == PbEntity.ConditionType.DEPLOYED_CONTRACT || 
-                cond.conditionType == PbEntity.ConditionType.VIRTUAL_CONTRACT
+                cond.conditionType == PbEntity.ConditionType.DEPLOYED_CONTRACT
+                    || cond.conditionType == PbEntity.ConditionType.VIRTUAL_CONTRACT
             ) {
                 address addr = _getCondAddress(cond);
                 IBooleanCond dependent = IBooleanCond(addr);
@@ -252,22 +226,18 @@ contract PayResolver is IPayResolver {
         PbEntity.ConditionalPay memory _pay,
         bytes[] memory _preimages,
         PbEntity.TransferFunctionType _funcType
-    )
-        internal
-        view
-        returns(uint256)
-    {
+    ) internal view returns (uint256) {
         uint256 amount = 0;
         uint256 j = 0;
         bool hasContractCond = false;
-    for (uint256 i = 0; i < _pay.conditions.length; i++) {
+        for (uint256 i = 0; i < _pay.conditions.length; i++) {
             PbEntity.Condition memory cond = _pay.conditions[i];
             if (cond.conditionType == PbEntity.ConditionType.HASH_LOCK) {
                 require(keccak256(_preimages[j]) == cond.hashLock, "Wrong preimage");
                 j++;
             } else if (
-                cond.conditionType == PbEntity.ConditionType.DEPLOYED_CONTRACT || 
-                cond.conditionType == PbEntity.ConditionType.VIRTUAL_CONTRACT
+                cond.conditionType == PbEntity.ConditionType.DEPLOYED_CONTRACT
+                    || cond.conditionType == PbEntity.ConditionType.VIRTUAL_CONTRACT
             ) {
                 address addr = _getCondAddress(cond);
                 INumericCond dependent = INumericCond(addr);
@@ -286,7 +256,7 @@ contract PayResolver is IPayResolver {
                 } else {
                     assert(false);
                 }
-                
+
                 hasContractCond = true;
             } else {
                 assert(false);
@@ -306,7 +276,7 @@ contract PayResolver is IPayResolver {
      * @param _cond condition
      * @return contract address of the condition
      */
-    function _getCondAddress(PbEntity.Condition memory _cond) internal view returns(address) {
+    function _getCondAddress(PbEntity.Condition memory _cond) internal view returns (address) {
         // We need to take into account that contract may not be deployed.
         // However, this is automatically handled for us
         // because calling a non-existent function will cause an revert.
@@ -324,10 +294,10 @@ contract PayResolver is IPayResolver {
      * @param _funcType transfer function type
      * @return true if it is a numeric logic, otherwise false
      */
-    function _isNumericLogic(PbEntity.TransferFunctionType _funcType) internal pure returns(bool) {
-        return _funcType == PbEntity.TransferFunctionType.NUMERIC_ADD ||
-            _funcType == PbEntity.TransferFunctionType.NUMERIC_MAX ||
-            _funcType == PbEntity.TransferFunctionType.NUMERIC_MIN;
+    function _isNumericLogic(PbEntity.TransferFunctionType _funcType) internal pure returns (bool) {
+        return _funcType == PbEntity.TransferFunctionType.NUMERIC_ADD
+            || _funcType == PbEntity.TransferFunctionType.NUMERIC_MAX
+            || _funcType == PbEntity.TransferFunctionType.NUMERIC_MIN;
     }
 
     /**
@@ -336,7 +306,7 @@ contract PayResolver is IPayResolver {
      * @param _setter payment info setter, i.e. pay resolver
      * @return calculated pay id
      */
-    function _calculatePayId(bytes32 _payHash, address _setter) internal pure returns(bytes32) {
+    function _calculatePayId(bytes32 _payHash, address _setter) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked(_payHash, _setter));
     }
 }

@@ -17,7 +17,7 @@ contract VirtContractResolver is IVirtContractResolver {
      * @param _nonce nonce associated to virtual contract code
      * @return true if deployment succeeds
      */
-    function deploy(bytes calldata _code, uint256 _nonce) external returns(bool) {
+    function deploy(bytes calldata _code, uint256 _nonce) external returns (bool) {
         bytes32 virtAddr = keccak256(abi.encodePacked(_code, _nonce));
         bytes memory c = _code;
         require(virtToRealMap[virtAddr] == address(0), "Current real address is not 0");
@@ -25,7 +25,7 @@ contract VirtContractResolver is IVirtContractResolver {
         assembly {
             deployedAddress := create(0, add(c, 32), mload(c))
         }
-        require(deployedAddress != address(0), 'Create contract failed.');
+        require(deployedAddress != address(0), "Create contract failed.");
 
         virtToRealMap[virtAddr] = deployedAddress;
         emit Deploy(virtAddr);
@@ -37,8 +37,8 @@ contract VirtContractResolver is IVirtContractResolver {
      * @param _virtAddr the virtual address to be looked up
      * @return the deployed address of the input virtual address
      */
-    function resolve(bytes32 _virtAddr) external view returns(address) {
-        require(virtToRealMap[_virtAddr] != address(0), 'Nonexistent virtual address');
+    function resolve(bytes32 _virtAddr) external view returns (address) {
+        require(virtToRealMap[_virtAddr] != address(0), "Nonexistent virtual address");
         return virtToRealMap[_virtAddr];
     }
 }

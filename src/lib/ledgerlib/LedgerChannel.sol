@@ -10,8 +10,7 @@ import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 /**
  * @title Ledger Channel Library
  * @notice CelerLedger library about Channel struct
- * @dev this can be included in LedgerOperation to save some gas,
- *   however, keep this for now for clearness.
+ * @dev this can be included in LedgerOperation to save some gas, keep this for now for clearness.
  */
 library LedgerChannel {
     using ECDSA for bytes32;
@@ -22,7 +21,7 @@ library LedgerChannel {
      * @param _c the channel being used
      * @return channel confirm settle open time
      */
-    function getSettleFinalizedTime(LedgerStruct.Channel storage _c) public view returns(uint256) {
+    function getSettleFinalizedTime(LedgerStruct.Channel storage _c) public view returns (uint256) {
         return _c.settleFinalizedTime;
     }
 
@@ -31,7 +30,7 @@ library LedgerChannel {
      * @param _c the channel being used
      * @return channel token contract address
      */
-    function getTokenContract(LedgerStruct.Channel storage _c) public view returns(address) {
+    function getTokenContract(LedgerStruct.Channel storage _c) public view returns (address) {
         return _c.token.tokenAddress;
     }
 
@@ -40,7 +39,7 @@ library LedgerChannel {
      * @param _c the channel being used
      * @return channel token type
      */
-    function getTokenType(LedgerStruct.Channel storage _c) public view returns(PbEntity.TokenType) {
+    function getTokenType(LedgerStruct.Channel storage _c) public view returns (PbEntity.TokenType) {
         return _c.token.tokenType;
     }
 
@@ -49,13 +48,7 @@ library LedgerChannel {
      * @param _c the channel being used
      * @return channel status
      */
-    function getChannelStatus(
-        LedgerStruct.Channel storage _c
-    )
-        public
-        view
-        returns(LedgerStruct.ChannelStatus)
-    {
+    function getChannelStatus(LedgerStruct.Channel storage _c) public view returns (LedgerStruct.ChannelStatus) {
         return _c.status;
     }
 
@@ -64,7 +57,7 @@ library LedgerChannel {
      * @param _c the channel being used
      * @return cooperative withdraw seqNum
      */
-    function getCooperativeWithdrawSeqNum(LedgerStruct.Channel storage _c) public view returns(uint256) {
+    function getCooperativeWithdrawSeqNum(LedgerStruct.Channel storage _c) public view returns (uint256) {
         return _c.cooperativeWithdrawSeqNum;
     }
 
@@ -73,10 +66,8 @@ library LedgerChannel {
      * @param _c the channel
      * @return channel's balance amount
      */
-    function getTotalBalance(LedgerStruct.Channel storage _c) public view returns(uint256) {
-        uint256 balance = _c.peerProfiles[0].deposit
-            + _c.peerProfiles[1].deposit
-            - _c.peerProfiles[0].withdrawal
+    function getTotalBalance(LedgerStruct.Channel storage _c) public view returns (uint256) {
+        uint256 balance = _c.peerProfiles[0].deposit + _c.peerProfiles[1].deposit - _c.peerProfiles[0].withdrawal
             - _c.peerProfiles[1].withdrawal;
         return balance;
     }
@@ -89,8 +80,10 @@ library LedgerChannel {
      * @return corresponding deposits of the peers (with matched index)
      * @return corresponding withdrawals of the peers (with matched index)
      */
-    function getBalanceMap(LedgerStruct.Channel storage _c) public view
-        returns(address[2] memory, uint256[2] memory, uint256[2] memory)
+    function getBalanceMap(LedgerStruct.Channel storage _c)
+        public
+        view
+        returns (address[2] memory, uint256[2] memory, uint256[2] memory)
     {
         address[2] memory peerAddrs = [_c.peerProfiles[0].peerAddr, _c.peerProfiles[1].peerAddr];
         uint256[2] memory deposits = [_c.peerProfiles[0].deposit, _c.peerProfiles[1].deposit];
@@ -107,19 +100,12 @@ library LedgerChannel {
      * @return sequence number of cooperative withdraw
      * @dev related to Ledger Migration
      */
-    function getChannelMigrationArgs(
-        LedgerStruct.Channel storage _c
-    )
+    function getChannelMigrationArgs(LedgerStruct.Channel storage _c)
         external
         view
-        returns(uint256, uint256, address, uint256)
+        returns (uint256, uint256, address, uint256)
     {
-        return (
-            _c.disputeTimeout,
-            uint256(_c.token.tokenType),
-            _c.token.tokenAddress,
-            _c.cooperativeWithdrawSeqNum
-        );
+        return (_c.disputeTimeout, uint256(_c.token.tokenType), _c.token.tokenAddress, _c.cooperativeWithdrawSeqNum);
     }
 
     /**
@@ -133,19 +119,17 @@ library LedgerChannel {
      * @return peers' pendingPayOut map
      * @dev related to Ledger Migration
      */
-    function getPeersMigrationInfo(
-        LedgerStruct.Channel storage _c
-    )
+    function getPeersMigrationInfo(LedgerStruct.Channel storage _c)
         external
         view
-        returns(
-        address[2] memory,
-        uint256[2] memory,
-        uint256[2] memory,
-        uint256[2] memory,
-        uint256[2] memory,
-        uint256[2] memory
-    )
+        returns (
+            address[2] memory,
+            uint256[2] memory,
+            uint256[2] memory,
+            uint256[2] memory,
+            uint256[2] memory,
+            uint256[2] memory
+        )
     {
         LedgerStruct.PeerProfile[2] memory peerProfiles = _c.peerProfiles;
         return (
@@ -163,7 +147,7 @@ library LedgerChannel {
      * @param _c the channel to be viewed
      * @return channel's dispute timeout
      */
-    function getDisputeTimeout(LedgerStruct.Channel storage _c) external view returns(uint256) {
+    function getDisputeTimeout(LedgerStruct.Channel storage _c) external view returns (uint256) {
         return _c.disputeTimeout;
     }
 
@@ -172,7 +156,7 @@ library LedgerChannel {
      * @param _c the channel to be viewed
      * @return channel's migratedTo address
      */
-    function getMigratedTo(LedgerStruct.Channel storage _c) external view returns(address) {
+    function getMigratedTo(LedgerStruct.Channel storage _c) external view returns (address) {
         return _c.migratedTo;
     }
 
@@ -182,12 +166,10 @@ library LedgerChannel {
      * @return peers' addresses
      * @return two simplex state sequence numbers
      */
-    function getStateSeqNumMap(
-        LedgerStruct.Channel storage _c
-    )
+    function getStateSeqNumMap(LedgerStruct.Channel storage _c)
         external
         view
-        returns(address[2] memory, uint256[2] memory)
+        returns (address[2] memory, uint256[2] memory)
     {
         LedgerStruct.PeerProfile[2] memory peerProfiles = _c.peerProfiles;
         return (
@@ -202,12 +184,10 @@ library LedgerChannel {
      * @return peers' addresses
      * @return transferOuts of two simplex channels
      */
-    function getTransferOutMap(
-        LedgerStruct.Channel storage _c
-    )
+    function getTransferOutMap(LedgerStruct.Channel storage _c)
         external
         view
-        returns(address[2] memory, uint256[2] memory)
+        returns (address[2] memory, uint256[2] memory)
     {
         LedgerStruct.PeerProfile[2] memory peerProfiles = _c.peerProfiles;
         return (
@@ -222,12 +202,10 @@ library LedgerChannel {
      * @return peers' addresses
      * @return nextPayIdListHashes of two simplex channels
      */
-    function getNextPayIdListHashMap(
-        LedgerStruct.Channel storage _c
-    )
+    function getNextPayIdListHashMap(LedgerStruct.Channel storage _c)
         external
         view
-        returns(address[2] memory, bytes32[2] memory)
+        returns (address[2] memory, bytes32[2] memory)
     {
         LedgerStruct.PeerProfile[2] memory peerProfiles = _c.peerProfiles;
         return (
@@ -242,12 +220,10 @@ library LedgerChannel {
      * @return peers' addresses
      * @return lastPayResolveDeadlines of two simplex channels
      */
-    function getLastPayResolveDeadlineMap(
-        LedgerStruct.Channel storage _c
-    )
+    function getLastPayResolveDeadlineMap(LedgerStruct.Channel storage _c)
         external
         view
-        returns(address[2] memory, uint256[2] memory)
+        returns (address[2] memory, uint256[2] memory)
     {
         LedgerStruct.PeerProfile[2] memory peerProfiles = _c.peerProfiles;
         return (
@@ -262,12 +238,10 @@ library LedgerChannel {
      * @return peers' addresses
      * @return pendingPayOuts of two simplex channels
      */
-    function getPendingPayOutMap(
-        LedgerStruct.Channel storage _c
-    )
+    function getPendingPayOutMap(LedgerStruct.Channel storage _c)
         external
         view
-        returns(address[2] memory, uint256[2] memory)
+        returns (address[2] memory, uint256[2] memory)
     {
         LedgerStruct.PeerProfile[2] memory peerProfiles = _c.peerProfiles;
         return (
@@ -284,12 +258,10 @@ library LedgerChannel {
      * @return requestTime of the withdraw intent
      * @return recipientChannelId of the withdraw intent
      */
-    function getWithdrawIntent(
-        LedgerStruct.Channel storage _c
-    )
+    function getWithdrawIntent(LedgerStruct.Channel storage _c)
         external
         view
-        returns(address, uint256, uint256, bytes32)
+        returns (address, uint256, uint256, bytes32)
     {
         LedgerStruct.WithdrawIntent memory withdrawIntent = _c.withdrawIntent;
         return (
@@ -312,16 +284,10 @@ library LedgerChannel {
         LedgerStruct.Channel storage _c,
         address payable _fromLedgerAddr,
         bytes32 _channelId
-    )
-        internal
-    {
-    uint256 tokenType;
-        (
-            _c.disputeTimeout,
-            tokenType,
-            _c.token.tokenAddress,
-            _c.cooperativeWithdrawSeqNum
-        ) = ICelerLedger(_fromLedgerAddr).getChannelMigrationArgs(_channelId);
+    ) internal {
+        uint256 tokenType;
+        (_c.disputeTimeout, tokenType, _c.token.tokenAddress, _c.cooperativeWithdrawSeqNum) =
+            ICelerLedger(_fromLedgerAddr).getChannelMigrationArgs(_channelId);
         _c.token.tokenType = PbEntity.TokenType(tokenType);
     }
 
@@ -336,9 +302,7 @@ library LedgerChannel {
         LedgerStruct.Channel storage _c,
         address payable _fromLedgerAddr,
         bytes32 _channelId
-    )
-        internal
-    {
+    ) internal {
         (
             address[2] memory peersAddrs,
             uint256[2] memory deposits,
@@ -363,7 +327,7 @@ library LedgerChannel {
      * @notice Get the seqNums of two simplex channel states
      * @param _c the channel
      */
-    function _getStateSeqNums(LedgerStruct.Channel storage _c) internal view returns(uint256[2] memory) {
+    function _getStateSeqNums(LedgerStruct.Channel storage _c) internal view returns (uint256[2] memory) {
         return [_c.peerProfiles[0].state.seqNum, _c.peerProfiles[1].state.seqNum];
     }
 
@@ -373,7 +337,7 @@ library LedgerChannel {
      * @param _addr the address to check
      * @return is peer or not
      */
-    function _isPeer(LedgerStruct.Channel storage _c, address _addr) internal view returns(bool) {
+    function _isPeer(LedgerStruct.Channel storage _c, address _addr) internal view returns (bool) {
         return _addr == _c.peerProfiles[0].peerAddr || _addr == _c.peerProfiles[1].peerAddr;
     }
 
@@ -383,7 +347,7 @@ library LedgerChannel {
      * @param _peer address of peer
      * @return peer's ID
      */
-     function _getPeerId(LedgerStruct.Channel storage _c, address _peer) internal view returns(uint256) {
+    function _getPeerId(LedgerStruct.Channel storage _c, address _peer) internal view returns (uint256) {
         if (_peer == _c.peerProfiles[0].peerAddr) {
             return 0;
         } else if (_peer == _c.peerProfiles[1].peerAddr) {
@@ -400,14 +364,10 @@ library LedgerChannel {
      * @param _sig signature of the peer
      * @return message is signed by one of the peers or not
      */
-    function _checkSingleSignature(
-        LedgerStruct.Channel storage _c,
-        bytes32 _h,
-        bytes memory _sig
-    )
+    function _checkSingleSignature(LedgerStruct.Channel storage _c, bytes32 _h, bytes memory _sig)
         internal
         view
-        returns(bool)
+        returns (bool)
     {
         address addr = _h.toEthSignedMessageHash().recover(_sig);
         return _isPeer(_c, addr);
@@ -420,14 +380,10 @@ library LedgerChannel {
      * @param _sigs signatures of the peers
      * @return message are signed by both peers or not
      */
-    function _checkCoSignatures(
-        LedgerStruct.Channel storage _c,
-        bytes32 _h,
-        bytes[] memory _sigs
-    )
+    function _checkCoSignatures(LedgerStruct.Channel storage _c, bytes32 _h, bytes[] memory _sigs)
         internal
         view
-        returns(bool)
+        returns (bool)
     {
         if (_sigs.length != 2) {
             return false;
@@ -453,11 +409,7 @@ library LedgerChannel {
      * @param _c the channel
      * @return (balance is valid, settle balance)
      */
-    function _validateSettleBalance(LedgerStruct.Channel storage _c)
-        internal
-        view
-        returns(bool, uint256[2] memory)
-    {
+    function _validateSettleBalance(LedgerStruct.Channel storage _c) internal view returns (bool, uint256[2] memory) {
         LedgerStruct.PeerProfile[2] memory peerProfiles = _c.peerProfiles;
         uint256[2] memory settleBalance = [
             peerProfiles[0].deposit + peerProfiles[1].state.transferOut,
@@ -481,13 +433,7 @@ library LedgerChannel {
      * @param _receiver receiver of this new withdrawal
      * @param _amount amount of this new withdrawal
      */
-    function _addWithdrawal(
-        LedgerStruct.Channel storage _c,
-        address _receiver,
-        uint256 _amount
-    )
-        internal
-    {
+    function _addWithdrawal(LedgerStruct.Channel storage _c, address _receiver, uint256 _amount) internal {
         // this implicitly require receiver be a peer
         uint256 rid = _getPeerId(_c, _receiver);
         _c.peerProfiles[rid].withdrawal = _c.peerProfiles[rid].withdrawal + _amount;

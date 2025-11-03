@@ -13,7 +13,9 @@ interface IEthPool {
 
     function transferFrom(address _from, address payable _to, uint256 _value) external returns (bool);
 
-    function transferToCelerWallet(address _from, address _walletAddr, bytes32 _walletId, uint256 _value) external returns (bool);
+    function transferToCelerWallet(address _from, address _walletAddr, bytes32 _walletId, uint256 _value)
+        external
+        returns (bool);
 
     function increaseAllowance(address _spender, uint256 _addedValue) external returns (bool);
 
@@ -24,9 +26,9 @@ interface IEthPool {
     function allowance(address _owner, address _spender) external view returns (uint256);
 
     event Deposit(address indexed receiver, uint256 value);
-    
+
     // transfer from "from" account inside EthPool to real "to" address outside EthPool
     event Transfer(address indexed from, address indexed to, uint256 value);
-    
+
     event Approval(address indexed owner, address indexed spender, uint256 value);
 }

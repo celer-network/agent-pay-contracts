@@ -1,4 +1,2 @@
 forge-std/=lib/forge-std/src/
 @openzeppelin/contracts/=lib/openzeppelin/contracts/
-@openzeppelin/contracts-v4/=lib/openzeppelin-v4/contracts/
-@security/=lib/security/src/

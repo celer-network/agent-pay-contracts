@@ -179,10 +179,7 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
      * @param _walletId id of wallet which owners propose new operator of
      * @param _newOperator the new operator proposal
      */
-    function proposeNewOperator(bytes32 _walletId, address _newOperator)
-        public
-        onlyWalletOwner(_walletId, msg.sender)
-    {
+    function proposeNewOperator(bytes32 _walletId, address _newOperator) public onlyWalletOwner(_walletId, msg.sender) {
         require(_newOperator != address(0), "New operator is address(0)");
 
         Wallet storage w = wallets[_walletId];

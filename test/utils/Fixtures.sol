@@ -317,11 +317,7 @@ library Fixtures {
     }
 
     /// @notice Encode `chain.ChannelMigrationRequest`.
-    function encChannelMigrationRequest(bytes memory _info, bytes[] memory _sigs)
-        internal
-        pure
-        returns (bytes memory)
-    {
+    function encChannelMigrationRequest(bytes memory _info, bytes[] memory _sigs) internal pure returns (bytes memory) {
         return encBodyAndSigs(_info, _sigs);
     }
 

@@ -148,11 +148,7 @@ library Proto {
     }
 
     /// @dev Encode a repeated `bytes32` field. Each element gets its own tag.
-    function repeatedBytes32Field(uint256 _fieldNum, bytes32[] memory _items)
-        internal
-        pure
-        returns (bytes memory out)
-    {
+    function repeatedBytes32Field(uint256 _fieldNum, bytes32[] memory _items) internal pure returns (bytes memory out) {
         for (uint256 i = 0; i < _items.length; i++) {
             out = cat(out, cat(key(_fieldNum, WIRE_LEN), lenPrefixed(abi.encodePacked(_items[i]))));
         }

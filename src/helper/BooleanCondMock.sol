@@ -10,7 +10,13 @@ import "../lib/interface/IBooleanCond.sol";
  *  exercise condition-evaluation paths. **Do not deploy to a production network.**
  */
 contract BooleanCondMock is IBooleanCond {
-    function isFinalized(bytes calldata /* _query */ ) external pure returns (bool) {
+    function isFinalized(
+        bytes calldata /* _query */
+    )
+        external
+        pure
+        returns (bool)
+    {
         return true;
     }
 

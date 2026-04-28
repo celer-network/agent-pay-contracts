@@ -128,9 +128,8 @@ library LedgerOperation {
                 _self.celerWallet.depositETH{value: msgValue}(_channelId);
             }
             if (_transferFromAmount > 0) {
-                _self.ethPool.transferToCelerWallet(
-                    msg.sender, address(_self.celerWallet), _channelId, _transferFromAmount
-                );
+                _self.ethPool
+                    .transferToCelerWallet(msg.sender, address(_self.celerWallet), _channelId, _transferFromAmount);
             }
         } else if (c.token.tokenType == PbEntity.TokenType.ERC20) {
             require(msgValue == 0, "msg.value is not 0");
@@ -454,14 +453,10 @@ library LedgerOperation {
         // TODO: add an additional clearSafeMargin param or change the semantics of
         //   lastPayResolveDeadline to also include clearPays safe margin and rename it.
         require(
-            (
-                peerProfiles[0].state.nextPayIdListHash == bytes32(0)
-                    || blockNumber > peerProfiles[0].state.lastPayResolveDeadline
-            )
-                && (
-                    peerProfiles[1].state.nextPayIdListHash == bytes32(0)
-                        || blockNumber > peerProfiles[1].state.lastPayResolveDeadline
-                ),
+            (peerProfiles[0].state.nextPayIdListHash == bytes32(0)
+                    || blockNumber > peerProfiles[0].state.lastPayResolveDeadline)
+                && (peerProfiles[1].state.nextPayIdListHash == bytes32(0)
+                    || blockNumber > peerProfiles[1].state.lastPayResolveDeadline),
             "Payments are not finalized"
         );
 
@@ -669,9 +664,8 @@ library LedgerOperation {
             _addDeposit(_self, _recipientChannelId, _receiver, _amount);
 
             // move funds from one channel's wallet to another channel's wallet
-            _self.celerWallet.transferToWallet(
-                _channelId, _recipientChannelId, c.token.tokenAddress, _receiver, _amount
-            );
+            _self.celerWallet
+                .transferToWallet(_channelId, _recipientChannelId, c.token.tokenAddress, _receiver, _amount);
         }
     }
 

@@ -267,12 +267,13 @@ library LedgerChannel {
         returns (address, uint256, uint256, bytes32)
     {
         LedgerStruct.WithdrawIntent memory withdrawIntent = _c.withdrawIntent;
-        return (
-            withdrawIntent.receiver,
-            withdrawIntent.amount,
-            withdrawIntent.requestTime,
-            withdrawIntent.recipientChannelId
-        );
+        return
+            (
+                withdrawIntent.receiver,
+                withdrawIntent.amount,
+                withdrawIntent.requestTime,
+                withdrawIntent.recipientChannelId
+            );
     }
 
     /**

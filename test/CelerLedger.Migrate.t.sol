@@ -126,10 +126,7 @@ contract CelerLedgerMigrateTest is LedgerTestBase {
         returns (bytes memory)
     {
         Fixtures.ChannelMigrationInfo memory info = Fixtures.ChannelMigrationInfo({
-            channelId: _channelId,
-            fromLedger: _fromLedger,
-            toLedger: _toLedger,
-            migrationDeadline: _deadline
+            channelId: _channelId, fromLedger: _fromLedger, toLedger: _toLedger, migrationDeadline: _deadline
         });
         bytes memory body = Fixtures.encChannelMigrationInfo(info);
         bytes[] memory sigs = SignUtil.coSign(peer0Pk, peer1Pk, body);

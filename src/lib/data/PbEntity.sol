@@ -416,11 +416,7 @@ library PbEntity {
         uint256 msgValueReceiver; // tag: 4
     } // end struct PaymentChannelInitializer
 
-    function decPaymentChannelInitializer(bytes memory raw)
-        internal
-        pure
-        returns (PaymentChannelInitializer memory m)
-    {
+    function decPaymentChannelInitializer(bytes memory raw) internal pure returns (PaymentChannelInitializer memory m) {
         Pb.Buffer memory buf = Pb.fromBytes(raw);
 
         uint256 tag;

@@ -10,7 +10,13 @@ import "../lib/interface/INumericCond.sol";
  *  {BooleanCondMock}. **Do not deploy to a production network.**
  */
 contract NumericCondMock is INumericCond {
-    function isFinalized(bytes calldata /* _query */ ) external pure returns (bool) {
+    function isFinalized(
+        bytes calldata /* _query */
+    )
+        external
+        pure
+        returns (bool)
+    {
         return true;
     }
 

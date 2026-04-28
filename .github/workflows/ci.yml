@@ -39,7 +39,10 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: stable
+          # Pin to a specific Foundry release so CI is reproducible. Bump this
+          # alongside any local `foundryup` upgrade, then re-run `forge fmt` to
+          # absorb any new formatter rules.
+          version: v1.5.1
 
       - name: Show versions
         run: forge --version
@@ -65,7 +68,10 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: stable
+          # Pin to a specific Foundry release so CI is reproducible. Bump this
+          # alongside any local `foundryup` upgrade, then re-run `forge fmt` to
+          # absorb any new formatter rules.
+          version: v1.5.1
 
       - name: Run tests
         run: forge test -vv

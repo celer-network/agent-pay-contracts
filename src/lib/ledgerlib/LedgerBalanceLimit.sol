@@ -4,8 +4,10 @@ pragma solidity ^0.8.20;
 import "./LedgerStruct.sol";
 
 /**
- * @title Ledger Balance Limit Library
- * @notice CelerLedger library about balance limits
+ * @title LedgerBalanceLimit
+ * @notice Library implementing optional per-token per-channel deposit caps. Enabled
+ *  by default in {CelerLedger}'s constructor; the owner can configure individual
+ *  limits or disable enforcement globally.
  */
 library LedgerBalanceLimit {
     /**

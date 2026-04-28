@@ -6,6 +6,8 @@ out = "out"
 libs = ["lib"]
 optimizer = true
 optimizer_runs = 200
+# Allow GasReport tests to write `test/gas_logs/*.txt` reports.
+fs_permissions = [{ access = "write", path = "./test/gas_logs" }]
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
 

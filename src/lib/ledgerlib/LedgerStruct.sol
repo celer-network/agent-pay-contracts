@@ -7,10 +7,18 @@ import "../interface/IPayRegistry.sol";
 import "../data/PbEntity.sol";
 
 /**
- * @title Ledger Struct Library
- * @notice CelerLedger library defining all used structs
+ * @title LedgerStruct
+ * @notice Shared struct and enum definitions used across all CelerLedger libraries.
+ *  No logic — types only. Field semantics map onto the protobuf messages defined in
+ *  `proto/entity.proto`; field numbers in those `.proto` files are noted alongside the
+ *  Solidity counterparts where relevant.
  */
 library LedgerStruct {
+    /**
+     * @notice Lifecycle status of a channel inside a CelerLedger instance.
+     * @dev `Uninitialized` is the implicit default when a channel id is not present in
+     *  `Ledger.channelMap`. State transitions: see `docs/architecture-summary.md`.
+     */
     enum ChannelStatus {
         Uninitialized,
         Operable,
@@ -19,24 +27,32 @@ library LedgerStruct {
         Migrated
     }
 
+    /**
+     * @notice Snapshot of a peer's simplex state as last accepted on-chain.
+     * @dev Mirrors fields 3, 4, 6, 7 of `entity.proto::SimplexPaymentChannel`.
+     *  Only the cumulative *transferOut* is tracked: the inverse direction's
+     *  transferOut is recorded on the other peer's PeerState.
+     */
     struct PeerState {
         uint256 seqNum;
-        // balance sent out to the other peer of the channel, no need to record amtIn
+        // Cumulative balance sent to the other peer; monotonically increasing.
         uint256 transferOut;
         bytes32 nextPayIdListHash;
         uint256 lastPayResolveDeadline;
         uint256 pendingPayOut;
     }
 
+    /// @notice Per-peer profile: account info + deposit/withdraw history + simplex state.
     struct PeerProfile {
         address peerAddr;
-        // the (monotone increasing) amount that this peer deposit into this channel
+        // Cumulative deposits into this channel; monotonically increasing.
         uint256 deposit;
-        // the (monotone increasing) amount that this peer withdraw from this channel
+        // Cumulative withdrawals from this channel; monotonically increasing.
         uint256 withdrawal;
         PeerState state;
     }
 
+    /// @notice Active unilateral withdraw intent (if any) for a channel.
     struct WithdrawIntent {
         address receiver;
         uint256 amount;
@@ -44,35 +60,43 @@ library LedgerStruct {
         bytes32 recipientChannelId;
     }
 
-    // Channel is a representation of the state channel between peers which puts the funds
-    // in CelerWallet and is hosted by a CelerLedger. The status of a state channel can
-    // be migrated from one CelerLedger instance to another CelerLedger instance with probably
-    // different operation logic.
+    /**
+     * @notice On-chain representation of a duplex state channel between two peers.
+     * @dev Funds physically reside in {ICelerWallet}; this struct holds only state
+     *  and metadata. Peers may cooperatively migrate a channel to a new CelerLedger
+     *  version, in which case `status = Migrated` and `migratedTo` is set on the old
+     *  ledger.
+     */
     struct Channel {
-        // the time after which peers can confirmSettle and before which peers can intendSettle
+        // Block number after which peers may call confirmSettle, and before which
+        // peers may still call intendSettle.
         uint256 settleFinalizedTime;
         uint256 disputeTimeout;
         PbEntity.TokenInfo token;
         ChannelStatus status;
-        // record the new CelerLedger address after channel migration
+        // Address of the successor CelerLedger after migration, if any.
         address migratedTo;
-        // only support 2-peer channel for now
+        // Two-peer channels only.
         PeerProfile[2] peerProfiles;
         uint256 cooperativeWithdrawSeqNum;
         WithdrawIntent withdrawIntent;
     }
 
-    // Ledger is a host to record and operate the activities of many state
-    // channels with specific operation logic.
+    /**
+     * @notice Top-level ledger storage: many channels under one operation logic.
+     * @dev Held in CelerLedger as a single private state variable. Each Ledger
+     *  binds to one CelerWallet (asset custody), one PayRegistry (resolved-pay
+     *  results), and one EthPool (ETH wrapper).
+     */
     struct Ledger {
-        // ChannelStatus => number of channels
+        // ChannelStatus value => number of channels currently in that status.
         mapping(uint256 => uint256) channelStatusNums;
         IEthPool ethPool;
         IPayRegistry payRegistry;
         ICelerWallet celerWallet;
-        // per-channel balance limits for different tokens
+        // Per-token per-channel deposit caps.
         mapping(address => uint256) balanceLimits;
-        // whether balance limits of all tokens have been enabled
+        // Whether balance-limit enforcement is currently active.
         bool balanceLimitsEnabled;
         mapping(bytes32 => Channel) channelMap;
     }

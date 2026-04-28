@@ -8,10 +8,13 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
- * @title CelerWallet contract
- * @notice A multi-owner, multi-token, operator-centric wallet designed for CelerLedger.
- *   This wallet can run independetly and doesn't rely on trust of any external contracts
- *   even CelerLedger to maximize its security.
+ * @title CelerWallet
+ * @notice Multi-owner, multi-token, operator-centric wallet that holds funds for every
+ *  channel in the AgentPay network. Designed as a permanent, audited custodian — it
+ *  has no business logic of its own and does not trust any external contract,
+ *  including CelerLedger. A single global instance is shared across ledger versions,
+ *  and operatorship can be transferred cooperatively to enable channel migration.
+ * @dev See {ICelerWallet} for canonical NatSpec on each function.
  */
 contract CelerWallet is ICelerWallet, Pausable, Ownable {
     using SafeERC20 for IERC20;
@@ -176,10 +179,7 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
      * @param _walletId id of wallet which owners propose new operator of
      * @param _newOperator the new operator proposal
      */
-    function proposeNewOperator(bytes32 _walletId, address _newOperator)
-        public
-        onlyWalletOwner(_walletId, msg.sender)
-    {
+    function proposeNewOperator(bytes32 _walletId, address _newOperator) public onlyWalletOwner(_walletId, msg.sender) {
         require(_newOperator != address(0), "New operator is address(0)");
 
         Wallet storage w = wallets[_walletId];
@@ -349,11 +349,12 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
         return false;
     }
 
-    // Expose pause/unpause controls to the owner (replacing old PauserRole)
+    /// @notice Pause the wallet. Owner-only. Blocks deposits / withdrawals / operator changes.
     function pause() external onlyOwner {
         _pause();
     }
 
+    /// @notice Resume normal operation after a pause. Owner-only.
     function unpause() external onlyOwner {
         _unpause();
     }

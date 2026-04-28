@@ -9,8 +9,13 @@ import "../data/PbChain.sol";
 import "../data/PbEntity.sol";
 
 /**
- * @title Ledger Migrate Library
- * @notice CelerLedger library about channel migration
+ * @title LedgerMigrate
+ * @notice Library implementing peer-controlled cross-version channel migration. The
+ *  new ledger's `migrateChannelFrom` orchestrates the flow end-to-end: validating
+ *  the co-signed migration request, calling `migrateChannelTo` on the old ledger,
+ *  verifying the wallet operatorship transfer, and importing the channel state.
+ *  Migration outranks `intendSettle` — a `Settling` channel returns to `Operable`
+ *  on the new ledger.
  */
 library LedgerMigrate {
     using LedgerChannel for LedgerStruct.Channel;

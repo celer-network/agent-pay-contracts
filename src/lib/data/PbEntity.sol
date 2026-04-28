@@ -5,6 +5,14 @@ pragma solidity ^0.8.20;
 
 import "./Pb.sol";
 
+/**
+ * @title PbEntity
+ * @notice **Auto-generated.** Solidity decoders for the protobuf messages defined in
+ *  [`proto/entity.proto`](proto/entity.proto). These messages are shared between
+ *  on-chain contracts and off-chain protocol code (simplex states, conditional pays,
+ *  conditions, transfer functions). Do not hand-edit — change `entity.proto` and
+ *  regenerate via [`pb3-gen-sol`](https://github.com/celer-network/pb3-gen-sol).
+ */
 library PbEntity {
     using Pb for Pb.Buffer; // so we can call Pb funcs on Buffer obj
 
@@ -408,11 +416,7 @@ library PbEntity {
         uint256 msgValueReceiver; // tag: 4
     } // end struct PaymentChannelInitializer
 
-    function decPaymentChannelInitializer(bytes memory raw)
-        internal
-        pure
-        returns (PaymentChannelInitializer memory m)
-    {
+    function decPaymentChannelInitializer(bytes memory raw) internal pure returns (PaymentChannelInitializer memory m) {
         Pb.Buffer memory buf = Pb.fromBytes(raw);
 
         uint256 tag;

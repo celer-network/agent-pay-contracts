@@ -5,10 +5,10 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /**
- * @title SimpleToken
- * @notice Very simple ERC20 Token example, where all tokens are pre-assigned to the creator.
- * Note they can later distribute these tokens as they wish using `transfer` and other
- * `ERC20` functions.
+ * @title ERC20ExampleToken
+ * @notice **Test-only.** Simple ERC-20 token whose entire supply is minted to the
+ *  deployer. Used to fund ERC-20 channels in CelerLedger tests. **Do not deploy to a
+ *  production network.**
  */
 contract ERC20ExampleToken is ERC20 {
     uint8 public constant DECIMALS = 18;
@@ -17,7 +17,7 @@ contract ERC20ExampleToken is ERC20 {
     /**
      * @notice Constructor that gives msg.sender all of existing tokens.
      */
-    constructor () ERC20("ERC20ExampleToken", "EET20") {
+    constructor() ERC20("ERC20ExampleToken", "EET20") {
         _mint(msg.sender, INITIAL_SUPPLY);
     }
 }

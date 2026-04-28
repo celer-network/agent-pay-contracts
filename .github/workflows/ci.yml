@@ -1,0 +1,77 @@
+name: CI
+
+# Run only on pull requests, and only when code-relevant files change.
+# Doc-only changes (README, docs/, gas_logs/, comments) skip CI.
+on:
+  pull_request:
+    paths:
+      # Solidity sources, tests, deploy scripts.
+      - 'src/**'
+      - 'test/**'
+      # Gas-report baselines are generated artifacts — exclude from CI triggers
+      # so a baseline refresh alone does not run the full suite.
+      - '!test/gas_logs/**'
+      - 'script/**'
+      # Submodule SHA bumps (forge-std, openzeppelin) record under lib/.
+      - 'lib/**'
+      # Build / dependency / import config.
+      - 'foundry.toml'
+      - 'remappings.txt'
+      - '.gitmodules'
+      # The workflow itself — catches changes to CI definitions.
+      - '.github/workflows/**'
+
+# Cancel an in-flight run if the PR is updated again.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-lint:
+    name: Build & lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          # Pin to a specific Foundry release so CI is reproducible. Bump this
+          # alongside any local `foundryup` upgrade, then re-run `forge fmt` to
+          # absorb any new formatter rules.
+          version: v1.5.1
+
+      - name: Show versions
+        run: forge --version
+
+      - name: Format check
+        run: forge fmt --check
+
+      - name: Lint
+        run: forge lint
+
+      - name: Build
+        run: forge build --sizes
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          # Pin to a specific Foundry release so CI is reproducible. Bump this
+          # alongside any local `foundryup` upgrade, then re-run `forge fmt` to
+          # absorb any new formatter rules.
+          version: v1.5.1
+
+      - name: Run tests
+        run: forge test -vv

@@ -5,14 +5,18 @@ import "./lib/interface/IEthPool.sol";
 import "./lib/interface/ICelerWallet.sol";
 
 /**
- * @title ETH Pool providing an ERC20 like interface
- * @notice Implementation of an ERC20 like pool for native ETH.
+ * @title EthPool
+ * @notice ERC20-shaped wrapper for native ETH. Lets `ICelerLedger.openChannel` and
+ *  `ICelerLedger.deposit` pull ETH via a uniform `transferFrom` flow regardless of
+ *  the underlying token type. ERC20-like metadata is exposed so that block-explorer
+ *  tooling can monitor the pool as if it were a token contract.
+ * @dev See {IEthPool} for canonical NatSpec on each function.
  */
 contract EthPool is IEthPool {
     mapping(address => uint256) private balances;
     mapping(address => mapping(address => uint256)) private allowed;
 
-    // mock ERC20 details to enable etherscan-like tools to monitor EthPool correctly
+    /// @dev ERC20-shaped metadata; lets etherscan-like tools track EthPool correctly.
     string public constant name = "EthInPool";
     string public constant symbol = "EthIP";
     uint8 public constant decimals = 18;

@@ -4,19 +4,17 @@ pragma solidity ^0.8.20;
 import "./lib/interface/IVirtContractResolver.sol";
 
 /**
- * @title Virtual Contract Resolver contract
- * @notice Implementation of the Virtual Contract Resolver.
- * @dev this resolver establishes the mapping from off-chain address to on-chain address
+ * @title VirtContractResolver
+ * @notice Materializes off-chain ("virtual") contracts on-chain when a dispute requires
+ *  them. Maps a deterministic virtual address — `keccak256(code, nonce)` — to the real
+ *  on-chain address produced by deploying the bytecode via the `CREATE` opcode.
+ * @dev See {IVirtContractResolver} for canonical NatSpec on the external API.
  */
 contract VirtContractResolver is IVirtContractResolver {
+    /// @dev `keccak256(code, nonce) → deployed address`.
     mapping(bytes32 => address) virtToRealMap;
 
-    /**
-     * @notice Deploy virtual contract to an on-chain address
-     * @param _code bytes of virtual contract code
-     * @param _nonce nonce associated to virtual contract code
-     * @return true if deployment succeeds
-     */
+    /// @inheritdoc IVirtContractResolver
     function deploy(bytes calldata _code, uint256 _nonce) external returns (bool) {
         bytes32 virtAddr = keccak256(abi.encodePacked(_code, _nonce));
         bytes memory c = _code;
@@ -32,11 +30,7 @@ contract VirtContractResolver is IVirtContractResolver {
         return true;
     }
 
-    /**
-     * @notice look up the deployed address of a virtual address
-     * @param _virtAddr the virtual address to be looked up
-     * @return the deployed address of the input virtual address
-     */
+    /// @inheritdoc IVirtContractResolver
     function resolve(bytes32 _virtAddr) external view returns (address) {
         require(virtToRealMap[_virtAddr] != address(0), "Nonexistent virtual address");
         return virtToRealMap[_virtAddr];

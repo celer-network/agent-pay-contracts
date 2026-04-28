@@ -12,8 +12,14 @@ import "./lib/interface/IPayRegistry.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
- * @title CelerLedger wrapper contract
- * @notice A wrapper contract using libraries to provide CelerLedger's APIs.
+ * @title CelerLedger
+ * @notice Channel state machine and primary user entry point for AgentPay. The
+ *  contract itself is a thin wrapper — the bulk of channel logic lives in the
+ *  libraries under `src/lib/ledgerlib/` (LedgerOperation, LedgerChannel, LedgerMigrate,
+ *  LedgerBalanceLimit) attached via `using ... for ...`. CelerLedger acts as the
+ *  operator of a {ICelerWallet}; cooperative migration to a future ledger version
+ *  is supported via {migrateChannelTo} / {migrateChannelFrom}.
+ * @dev See {ICelerLedger} for canonical NatSpec on each function.
  */
 contract CelerLedger is ICelerLedger, Ownable {
     using LedgerOperation for LedgerStruct.Ledger;
@@ -24,9 +30,13 @@ contract CelerLedger is ICelerLedger, Ownable {
     LedgerStruct.Ledger private ledger;
 
     /**
-     * @notice CelerLedger constructor
-     * @param _ethPool address of ETH pool
-     * @param _payRegistry address of PayRegistry
+     * @notice Construct the ledger and wire it to its dependencies.
+     * @dev Balance limits are enabled by default; configure or disable via the
+     *  owner-only admin functions.
+     * @param _ethPool Address of the deployed {IEthPool}.
+     * @param _payRegistry Address of the deployed {IPayRegistry}.
+     * @param _celerWallet Address of the deployed {ICelerWallet} — this ledger must
+     *  later become its operator (during channel opening or via wallet creation).
      */
     constructor(address _ethPool, address _payRegistry, address _celerWallet) Ownable(msg.sender) {
         ledger.ethPool = IEthPool(_ethPool);

@@ -10,8 +10,12 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
- * @title Ledger Operation Library
- * @notice CelerLedger library of basic ledger operations
+ * @title LedgerOperation
+ * @notice Library implementing the channel-lifecycle flows for CelerLedger: open,
+ *  deposit, snapshot, withdraw (cooperative + unilateral), and settle (cooperative +
+ *  unilateral). Attached to `LedgerStruct.Ledger` via `using ... for ...` in
+ *  {CelerLedger}; do not deploy directly. Library functions cannot be `payable` but
+ *  read `msg.value` from the calling contract's context.
  */
 library LedgerOperation {
     using SafeERC20 for IERC20;
@@ -124,9 +128,8 @@ library LedgerOperation {
                 _self.celerWallet.depositETH{value: msgValue}(_channelId);
             }
             if (_transferFromAmount > 0) {
-                _self.ethPool.transferToCelerWallet(
-                    msg.sender, address(_self.celerWallet), _channelId, _transferFromAmount
-                );
+                _self.ethPool
+                    .transferToCelerWallet(msg.sender, address(_self.celerWallet), _channelId, _transferFromAmount);
             }
         } else if (c.token.tokenType == PbEntity.TokenType.ERC20) {
             require(msgValue == 0, "msg.value is not 0");
@@ -450,14 +453,10 @@ library LedgerOperation {
         // TODO: add an additional clearSafeMargin param or change the semantics of
         //   lastPayResolveDeadline to also include clearPays safe margin and rename it.
         require(
-            (
-                peerProfiles[0].state.nextPayIdListHash == bytes32(0)
-                    || blockNumber > peerProfiles[0].state.lastPayResolveDeadline
-            )
-                && (
-                    peerProfiles[1].state.nextPayIdListHash == bytes32(0)
-                        || blockNumber > peerProfiles[1].state.lastPayResolveDeadline
-                ),
+            (peerProfiles[0].state.nextPayIdListHash == bytes32(0)
+                    || blockNumber > peerProfiles[0].state.lastPayResolveDeadline)
+                && (peerProfiles[1].state.nextPayIdListHash == bytes32(0)
+                    || blockNumber > peerProfiles[1].state.lastPayResolveDeadline),
             "Payments are not finalized"
         );
 
@@ -665,9 +664,8 @@ library LedgerOperation {
             _addDeposit(_self, _recipientChannelId, _receiver, _amount);
 
             // move funds from one channel's wallet to another channel's wallet
-            _self.celerWallet.transferToWallet(
-                _channelId, _recipientChannelId, c.token.tokenAddress, _receiver, _amount
-            );
+            _self.celerWallet
+                .transferToWallet(_channelId, _recipientChannelId, c.token.tokenAddress, _receiver, _amount);
         }
     }
 

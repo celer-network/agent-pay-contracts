@@ -15,31 +15,31 @@ import {BooleanCondMock} from "../src/helper/BooleanCondMock.sol";
 
 /**
  * @title Gas report generator
- * @notice Produces human-readable gas reports under [`gas_logs/`](../gas_logs/),
+ * @notice Produces human-readable gas reports under [`test/gas_logs/`](gas_logs/),
  *  one file per top-level component. Each report lists per-call gas for the
  *  operations a reviewer typically cares about; `fine_granularity/` adds scaling
  *  sweeps for the operations whose cost is parameterized (pay-list size, batch
  *  size).
  *
  * @dev Top-level reports (per-call gas):
- *  - `gas_logs/CelerLedger-ETH.txt`
- *  - `gas_logs/CelerLedger-ERC20.txt`
- *  - `gas_logs/CelerLedger-Migrate.txt`
- *  - `gas_logs/EthPool.txt`
- *  - `gas_logs/PayResolver.txt`
- *  - `gas_logs/VirtContractResolver.txt`
+ *  - `test/gas_logs/CelerLedger-ETH.txt`
+ *  - `test/gas_logs/CelerLedger-ERC20.txt`
+ *  - `test/gas_logs/CelerLedger-Migrate.txt`
+ *  - `test/gas_logs/EthPool.txt`
+ *  - `test/gas_logs/PayResolver.txt`
+ *  - `test/gas_logs/VirtContractResolver.txt`
  *
  *  Fine-granularity scaling sweeps:
- *  - `gas_logs/fine_granularity/IntendSettle-OneState.txt`
- *  - `gas_logs/fine_granularity/ClearPays.txt`
- *  - `gas_logs/fine_granularity/DepositEthInBatch.txt`
+ *  - `test/gas_logs/fine_granularity/IntendSettle-OneState.txt`
+ *  - `test/gas_logs/fine_granularity/ClearPays.txt`
+ *  - `test/gas_logs/fine_granularity/DepositEthInBatch.txt`
  *
  * @dev Run via:
  *      forge test --match-contract GasReport -vv
  *  Each test writes one report file. Measurements use `gasleft()` deltas around
  *  the operation under test, which closely tracks the actual gas cost. When
  *  running under `forge coverage`, file writes are skipped so coverage does not
- *  dirty the committed `gas_logs/` baselines with instrumentation-inflated numbers.
+ *  dirty the committed `test/gas_logs/` baselines with instrumentation-inflated numbers.
  */
 contract GasReport is LedgerTestBase {
     function setUp() public override {
@@ -90,7 +90,7 @@ contract GasReport is LedgerTestBase {
         s = string.concat(s, _row("confirmSettle()", _measure_confirmSettle()));
         s = string.concat(s, _row("cooperativeSettle()", _measure_cooperativeSettle()));
 
-        _writeReport("gas_logs/CelerLedger-ETH.txt", s);
+        _writeReport("test/gas_logs/CelerLedger-ETH.txt", s);
     }
 
     // =========================================================================
@@ -105,7 +105,7 @@ contract GasReport is LedgerTestBase {
         s = string.concat(s, _row("deposit()", _measure_deposit_erc20()));
         s = string.concat(s, _row("cooperativeWithdraw()", _measure_cooperativeWithdraw_erc20()));
         s = string.concat(s, _row("cooperativeSettle()", _measure_cooperativeSettle_erc20()));
-        _writeReport("gas_logs/CelerLedger-ERC20.txt", s);
+        _writeReport("test/gas_logs/CelerLedger-ERC20.txt", s);
     }
 
     // =========================================================================
@@ -118,7 +118,7 @@ contract GasReport is LedgerTestBase {
         s = string.concat(s, _row("migrateChannelFrom() an Operable ETH channel", _measure_migrate_operableEth()));
         s = string.concat(s, _row("migrateChannelFrom() a Settling ETH channel", _measure_migrate_settlingEth()));
         s = string.concat(s, _row("migrateChannelFrom() an Operable ERC20 channel", _measure_migrate_operableErc20()));
-        _writeReport("gas_logs/CelerLedger-Migrate.txt", s);
+        _writeReport("test/gas_logs/CelerLedger-Migrate.txt", s);
     }
 
     // =========================================================================
@@ -130,14 +130,14 @@ contract GasReport is LedgerTestBase {
         s = string.concat(s, "***** Function Calls Gas Used *****\n");
         s = string.concat(s, _row("resolvePaymentByConditions()", _measure_resolveByConditions()));
         s = string.concat(s, _row("resolvePaymentByVouchedResult()", _measure_resolveByVouchedResult()));
-        _writeReport("gas_logs/PayResolver.txt", s);
+        _writeReport("test/gas_logs/PayResolver.txt", s);
     }
 
     function test_writeReport_VirtContractResolver() public {
         string memory s = "********** Gas Measurement: VirtContractResolver **********\n\n";
         s = string.concat(s, "***** Function Calls Gas Used *****\n");
         s = string.concat(s, _row("deploy() - BooleanCondMock", _measure_virtDeploy()));
-        _writeReport("gas_logs/VirtContractResolver.txt", s);
+        _writeReport("test/gas_logs/VirtContractResolver.txt", s);
     }
 
     function test_writeReport_EthPool() public {
@@ -149,7 +149,7 @@ contract GasReport is LedgerTestBase {
         s = string.concat(s, _row("transferFrom()", _measure_ethPool_transferFrom()));
         s = string.concat(s, _row("increaseAllowance()", _measure_ethPool_increaseAllowance()));
         s = string.concat(s, _row("decreaseAllowance()", _measure_ethPool_decreaseAllowance()));
-        _writeReport("gas_logs/EthPool.txt", s);
+        _writeReport("test/gas_logs/EthPool.txt", s);
     }
 
     // =========================================================================
@@ -177,7 +177,7 @@ contract GasReport is LedgerTestBase {
             s = string.concat(s, vm.toString(sizes[i]), "\t", vm.toString(gasUsed), "\n");
         }
 
-        _writeReport("gas_logs/fine_granularity/IntendSettle-OneState.txt", s);
+        _writeReport("test/gas_logs/fine_granularity/IntendSettle-OneState.txt", s);
     }
 
     // =========================================================================
@@ -201,7 +201,7 @@ contract GasReport is LedgerTestBase {
             s = string.concat(s, vm.toString(sizes[i]), "\t", vm.toString(gasUsed), "\n");
         }
 
-        _writeReport("gas_logs/fine_granularity/DepositEthInBatch.txt", s);
+        _writeReport("test/gas_logs/fine_granularity/DepositEthInBatch.txt", s);
     }
 
     // =========================================================================
@@ -225,7 +225,7 @@ contract GasReport is LedgerTestBase {
             s = string.concat(s, vm.toString(sizes[i]), "\t", vm.toString(gasUsed), "\n");
         }
 
-        _writeReport("gas_logs/fine_granularity/ClearPays.txt", s);
+        _writeReport("test/gas_logs/fine_granularity/ClearPays.txt", s);
     }
 
     // =========================================================================

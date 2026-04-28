@@ -8,6 +8,9 @@ on:
       # Solidity sources, tests, deploy scripts.
       - 'src/**'
       - 'test/**'
+      # Gas-report baselines are generated artifacts — exclude from CI triggers
+      # so a baseline refresh alone does not run the full suite.
+      - '!test/gas_logs/**'
       - 'script/**'
       # Submodule SHA bumps (forge-std, openzeppelin) record under lib/.
       - 'lib/**'

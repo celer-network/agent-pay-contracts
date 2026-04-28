@@ -3,6 +3,12 @@ pragma solidity ^0.8.20;
 
 import "../lib/interface/ICelerWallet.sol";
 
+/**
+ * @title WalletTestHelper
+ * @notice **Test-only.** Thin wrapper used to create CelerWallet wallets from a
+ *  contract (rather than an EOA) so tests can exercise non-EOA owner / operator
+ *  paths and verify event emission. **Do not deploy to a production network.**
+ */
 contract WalletTestHelper {
     event NewWallet(bytes32 walletId);
 
@@ -12,13 +18,7 @@ contract WalletTestHelper {
         wallet = ICelerWallet(_celerWallet);
     }
 
-    function create(
-        address[] memory _owners,
-    address _operator,
-    uint256 _nonce
-    )
-        public
-    {
+    function create(address[] memory _owners, address _operator, uint256 _nonce) public {
         bytes32 n = keccak256(abi.encodePacked(_nonce));
         bytes32 walletId = wallet.create(_owners, _operator, n);
         emit NewWallet(walletId);

@@ -10,6 +10,14 @@ import "./lib/interface/ICelerWallet.sol";
 import "./lib/interface/IEthPool.sol";
 import "./lib/interface/IPayRegistry.sol";
 
+/**
+ * @title CelerLedgerMock
+ * @notice **Test-only.** Mock CelerLedger that exposes raw state-mutating helpers
+ *  (`*MockSet`) and minimal stubs of the production API (`openChannel`, `deposit`,
+ *  `intendSettle`, etc.) to set up isolated test scenarios without going through the
+ *  full ledger logic. Used primarily by the migration tests, which require two ledger
+ *  contracts to coexist. **Do not deploy to a production network.**
+ */
 contract CelerLedgerMock {
     using LedgerChannel for LedgerStruct.Channel;
 

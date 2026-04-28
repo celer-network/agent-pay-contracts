@@ -1,0 +1,6 @@
+********** Gas Measurement: CelerLedger Migration **********
+
+***** Function Calls Gas Used *****
+migrateChannelFrom() an Operable ETH channel: 312572
+migrateChannelFrom() a Settling ETH channel: 332521
+migrateChannelFrom() an Operable ERC20 channel: 312572

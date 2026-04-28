@@ -1,0 +1,4 @@
+********** Gas Measurement: VirtContractResolver **********
+
+***** Function Calls Gas Used *****
+deploy() - BooleanCondMock: 157249

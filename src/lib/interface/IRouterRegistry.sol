@@ -2,20 +2,37 @@
 pragma solidity ^0.8.20;
 
 /**
- * @title RouterRegistry interface for routing
+ * @title RouterRegistry interface
+ * @notice Optional global registry where relay-router operators advertise themselves
+ *  to the AgentPay network. The registry stores the latest registration / refresh
+ *  block number per router address; consumers may use it to discover live routers
+ *  off-chain.
  */
 interface IRouterRegistry {
+    /// @notice Type of a {RouterUpdated} event.
     enum RouterOperation {
         Add,
         Remove,
         Refresh
     }
 
+    /**
+     * @notice Register `msg.sender` as a router; reverts if already registered.
+     * @dev Stores the current `block.number` against the caller's address.
+     */
     function registerRouter() external;
 
+    /**
+     * @notice Deregister `msg.sender`; reverts if not currently registered.
+     */
     function deregisterRouter() external;
 
+    /**
+     * @notice Refresh `msg.sender`'s stored block number; reverts if not registered.
+     * @dev Used by routers to signal liveness without removing/re-adding.
+     */
     function refreshRouter() external;
 
+    /// @notice Emitted on every register / deregister / refresh.
     event RouterUpdated(RouterOperation indexed op, address indexed routerAddress);
 }

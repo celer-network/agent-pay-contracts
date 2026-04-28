@@ -3,8 +3,14 @@ pragma solidity ^0.8.20;
 
 import "../lib/interface/INumericCond.sol";
 
+/**
+ * @title NumericCondMock
+ * @notice **Test-only.** Minimal {INumericCond} that always reports finalized and
+ *  decodes its outcome straight from the query bytes. Numeric counterpart to
+ *  {BooleanCondMock}. **Do not deploy to a production network.**
+ */
 contract NumericCondMock is INumericCond {
-    function isFinalized(bytes calldata /* _query */) external pure returns (bool) {
+    function isFinalized(bytes calldata /* _query */ ) external pure returns (bool) {
         return true;
     }
 
@@ -18,9 +24,11 @@ contract NumericCondMock is INumericCond {
         }
 
         uint256 v;
-        assembly { v := mload(add(_b, 32)) }  // load all 32bytes to v
-        v = v >> (8 * (32 - _b.length));  // only first _b.length is valid
-        
+        assembly {
+            v := mload(add(_b, 32))
+        } // load all 32bytes to v
+        v = v >> (8 * (32 - _b.length)); // only first _b.length is valid
+
         return v;
     }
 }

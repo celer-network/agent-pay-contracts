@@ -13,34 +13,37 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 /**
- * @title Pay Resolver contract
- * @notice Payment resolver with different payment resolving logics.
+ * @title PayResolver
+ * @notice On-chain logic for resolving conditional payments. Versioned: each payment
+ *  pins the resolver address it trusts (field 8 of `ConditionalPay`), and the resolver
+ *  address is mixed into the pay id (`payId = keccak256(payHash, resolverAddress)`)
+ *  so a result is bound to the exact resolver version the payment source designated.
+ * @dev See {IPayResolver} for canonical NatSpec on the external API. Resolution rules:
+ *  HASH_LOCK conditions are present only to gate multi-hop secret reveal — they do not
+ *  affect the transfer amount, and are always required to be true. A payment with no
+ *  condition or only true hash-locks resolves to the max transfer amount.
  */
 contract PayResolver is IPayResolver {
     using ECDSA for bytes32;
     using MessageHashUtils for bytes32;
 
+    /// @notice Registry where resolved amounts are recorded.
     IPayRegistry public payRegistry;
+
+    /// @notice Resolver used to materialize virtual condition contracts on demand.
     IVirtContractResolver public virtResolver;
 
     /**
-     * @notice Pay registry constructor
-     * @param _registryAddr address of pay registry
-     * @param _virtResolverAddr address of virtual contract resolver
+     * @notice Construct the resolver and pin its dependencies.
+     * @param _registryAddr Address of the deployed {IPayRegistry}.
+     * @param _virtResolverAddr Address of the deployed {IVirtContractResolver}.
      */
     constructor(address _registryAddr, address _virtResolverAddr) {
         payRegistry = IPayRegistry(_registryAddr);
         virtResolver = IVirtContractResolver(_virtResolverAddr);
     }
 
-    /**
-     * @notice Resolve a payment by onchain getting its condition outcomes
-     * @dev HASH_LOCK should only be used for establishing multi-hop payments,
-     *   and is always required to be true for all transfer function logic types.
-     *   a pay with no condition or only true HASH_LOCK conditions will use max transfer amount.
-     *   The preimage order should align at the order of HASH_LOCK conditions in condition array.
-     * @param _resolvePayRequest bytes of PbChain.ResolvePayByConditionsRequest
-     */
+    /// @inheritdoc IPayResolver
     function resolvePaymentByConditions(bytes calldata _resolvePayRequest) external {
         PbChain.ResolvePayByConditionsRequest memory resolvePayRequest =
             PbChain.decResolvePayByConditionsRequest(_resolvePayRequest);
@@ -64,10 +67,7 @@ contract PayResolver is IPayResolver {
         _resolvePayment(pay, payHash, amount);
     }
 
-    /**
-     * @notice Resolve a payment by submitting an offchain vouched result
-     * @param _vouchedPayResult bytes of PbEntity.VouchedCondPayResult
-     */
+    /// @inheritdoc IPayResolver
     function resolvePaymentByVouchedResult(bytes calldata _vouchedPayResult) external {
         PbEntity.VouchedCondPayResult memory vouchedPayResult = PbEntity.decVouchedCondPayResult(_vouchedPayResult);
         PbEntity.CondPayResult memory payResult = PbEntity.decCondPayResult(vouchedPayResult.condPayResult);

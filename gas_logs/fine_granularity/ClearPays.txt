@@ -1,0 +1,9 @@
+********** Gas Measurement of clearPays() - N pays per following list **********
+
+pay number per following payIdList	used gas
+1	15203
+5	44774
+10	81743
+25	193526
+50	382734
+100	771773

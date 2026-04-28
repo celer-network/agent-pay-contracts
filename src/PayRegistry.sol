@@ -4,28 +4,29 @@ pragma solidity ^0.8.20;
 import "./lib/interface/IPayRegistry.sol";
 
 /**
- * @title Pay Registry contract
- * @notice Implementation of a global registry to record payment results reported by different PayResolvers.
+ * @title PayRegistry
+ * @notice Append-only global record of resolved conditional-payment results. Pay ids
+ *  are namespaced by setter address (`payId = keccak256(payHash, msg.sender)`), so
+ *  only the {PayResolver} version explicitly designated by a payment's source can
+ *  produce a matching entry for that payment.
+ * @dev See {IPayRegistry} for canonical NatSpec on each function.
  */
 contract PayRegistry is IPayRegistry {
+    /// @dev Per-pay registry entry. Stored under the namespaced `payId`.
     struct PayInfo {
         uint256 amount;
         uint256 resolveDeadline;
     }
 
-    // bytes32 payId => PayInfo payInfo
+    /// @notice `payId → (amount, resolveDeadline)`. Public auto-getter.
     mapping(bytes32 => PayInfo) public payInfoMap;
 
-    /**
-     * @notice Calculate pay id
-     * @param _payHash hash of serialized condPay
-     * @param _setter payment info setter, i.e. pay resolver
-     * @return calculated pay id
-     */
+    /// @inheritdoc IPayRegistry
     function calculatePayId(bytes32 _payHash, address _setter) public pure returns (bytes32) {
         return keccak256(abi.encodePacked(_payHash, _setter));
     }
 
+    /// @inheritdoc IPayRegistry
     function setPayAmount(bytes32 _payHash, uint256 _amt) external {
         bytes32 payId = calculatePayId(_payHash, msg.sender);
         PayInfo storage payInfo = payInfoMap[payId];
@@ -34,6 +35,7 @@ contract PayRegistry is IPayRegistry {
         emit PayInfoUpdate(payId, _amt, payInfo.resolveDeadline);
     }
 
+    /// @inheritdoc IPayRegistry
     function setPayDeadline(bytes32 _payHash, uint256 _deadline) external {
         bytes32 payId = calculatePayId(_payHash, msg.sender);
         PayInfo storage payInfo = payInfoMap[payId];
@@ -42,6 +44,7 @@ contract PayRegistry is IPayRegistry {
         emit PayInfoUpdate(payId, payInfo.amount, _deadline);
     }
 
+    /// @inheritdoc IPayRegistry
     function setPayInfo(bytes32 _payHash, uint256 _amt, uint256 _deadline) external {
         bytes32 payId = calculatePayId(_payHash, msg.sender);
         PayInfo storage payInfo = payInfoMap[payId];
@@ -51,6 +54,7 @@ contract PayRegistry is IPayRegistry {
         emit PayInfoUpdate(payId, _amt, _deadline);
     }
 
+    /// @inheritdoc IPayRegistry
     function setPayAmounts(bytes32[] calldata _payHashes, uint256[] calldata _amts) external {
         require(_payHashes.length == _amts.length, "Lengths do not match");
 
@@ -65,6 +69,7 @@ contract PayRegistry is IPayRegistry {
         }
     }
 
+    /// @inheritdoc IPayRegistry
     function setPayDeadlines(bytes32[] calldata _payHashes, uint256[] calldata _deadlines) external {
         require(_payHashes.length == _deadlines.length, "Lengths do not match");
 
@@ -79,6 +84,7 @@ contract PayRegistry is IPayRegistry {
         }
     }
 
+    /// @inheritdoc IPayRegistry
     function setPayInfos(bytes32[] calldata _payHashes, uint256[] calldata _amts, uint256[] calldata _deadlines)
         external
     {
@@ -96,14 +102,7 @@ contract PayRegistry is IPayRegistry {
         }
     }
 
-    /**
-     * @notice Get the amounts of a list of queried pays
-     * @dev pay results must have been unchangable before calling this function.
-     *   This API is for CelerLedger
-     * @param _payIds ids of queried pays
-     * @param _lastPayResolveDeadline the last pay resolve deadline of all queried pays
-     * @return queried pay amounts
-     */
+    /// @inheritdoc IPayRegistry
     function getPayAmounts(bytes32[] calldata _payIds, uint256 _lastPayResolveDeadline)
         external
         view
@@ -123,6 +122,7 @@ contract PayRegistry is IPayRegistry {
         return amounts;
     }
 
+    /// @inheritdoc IPayRegistry
     function getPayInfo(bytes32 _payId) external view returns (uint256, uint256) {
         PayInfo storage payInfo = payInfoMap[_payId];
         return (payInfo.amount, payInfo.resolveDeadline);

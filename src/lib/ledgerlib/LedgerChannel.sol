@@ -8,9 +8,12 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 /**
- * @title Ledger Channel Library
- * @notice CelerLedger library about Channel struct
- * @dev this can be included in LedgerOperation to save some gas, keep this for now for clearness.
+ * @title LedgerChannel
+ * @notice Library of `Channel` view helpers and per-channel state derivations used
+ *  by {CelerLedger}'s getters. Also hosts shared signature-verification helpers used
+ *  by other ledger libraries.
+ * @dev Could be folded into LedgerOperation for marginal gas savings; kept separate
+ *  for code clarity.
  */
 library LedgerChannel {
     using ECDSA for bytes32;

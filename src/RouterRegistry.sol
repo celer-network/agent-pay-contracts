@@ -4,12 +4,15 @@ pragma solidity ^0.8.20;
 import "./lib/interface/IRouterRegistry.sol";
 
 /**
- * @title Router Registry contract for external routers to join the Celer Network
- * @notice Implementation of a global registry to enable external routers to join
+ * @title RouterRegistry
+ * @notice Optional global registry where relay-router operators advertise themselves
+ *  to the AgentPay network. Each registered router stores the latest registration
+ *  or refresh `block.number`; off-chain consumers may use this for liveness signaling
+ *  and router discovery.
+ * @dev See {IRouterRegistry} for canonical NatSpec on each function.
  */
 contract RouterRegistry is IRouterRegistry {
-    // mapping to store the registered routers address as key
-    // and the lastest registered/refreshed block number as value
+    /// @notice Registered router addresses → most recent register/refresh block number.
     mapping(address => uint256) public routerInfo;
 
     /**

@@ -10,8 +10,12 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
- * @title Ledger Operation Library
- * @notice CelerLedger library of basic ledger operations
+ * @title LedgerOperation
+ * @notice Library implementing the channel-lifecycle flows for CelerLedger: open,
+ *  deposit, snapshot, withdraw (cooperative + unilateral), and settle (cooperative +
+ *  unilateral). Attached to `LedgerStruct.Ledger` via `using ... for ...` in
+ *  {CelerLedger}; do not deploy directly. Library functions cannot be `payable` but
+ *  read `msg.value` from the calling contract's context.
  */
 library LedgerOperation {
     using SafeERC20 for IERC20;

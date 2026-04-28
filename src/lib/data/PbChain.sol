@@ -5,6 +5,14 @@ pragma solidity ^0.8.20;
 
 import "./Pb.sol";
 
+/**
+ * @title PbChain
+ * @notice **Auto-generated.** Solidity decoders for the protobuf messages defined in
+ *  [`proto/chain.proto`](proto/chain.proto). These messages are used only by on-chain
+ *  contracts (channel-open requests, settle/withdraw requests, migration requests,
+ *  resolve-pay requests). Do not hand-edit — change `chain.proto` and regenerate
+ *  via [`pb3-gen-sol`](https://github.com/celer-network/pb3-gen-sol).
+ */
 library PbChain {
     using Pb for Pb.Buffer; // so we can call Pb funcs on Buffer obj
 

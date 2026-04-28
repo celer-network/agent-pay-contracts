@@ -1,0 +1,68 @@
+name: CI
+
+# Run only on pull requests, and only when code-relevant files change.
+# Doc-only changes (README, docs/, gas_logs/, comments) skip CI.
+on:
+  pull_request:
+    paths:
+      # Solidity sources, tests, deploy scripts.
+      - 'src/**'
+      - 'test/**'
+      - 'script/**'
+      # Submodule SHA bumps (forge-std, openzeppelin) record under lib/.
+      - 'lib/**'
+      # Build / dependency / import config.
+      - 'foundry.toml'
+      - 'remappings.txt'
+      - '.gitmodules'
+      # The workflow itself — catches changes to CI definitions.
+      - '.github/workflows/**'
+
+# Cancel an in-flight run if the PR is updated again.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-lint:
+    name: Build & lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Show versions
+        run: forge --version
+
+      - name: Format check
+        run: forge fmt --check
+
+      - name: Lint
+        run: forge lint
+
+      - name: Build
+        run: forge build --sizes
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Run tests
+        run: forge test -vv

@@ -12,3 +12,17 @@ broadcast/
 .env
 
 deployments/
+
+# Local-machine MCP server config (contains absolute paths)
+.mcp.json
+
+# AI assistant local docs — kept out of the public repo
+AGENTS.md
+CLAUDE.md
+.claude
+
+# Coverage output (forge coverage --report lcov)
+lcov.info
+coverage/
+
+local

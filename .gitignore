@@ -13,6 +13,10 @@ broadcast/
 
 deployments/
 
+# Filled-in deploy config (template lives at `script/example_config.json`).
+config.json
+script/config.json
+
 # Local-machine MCP server config (contains absolute paths)
 .mcp.json
 

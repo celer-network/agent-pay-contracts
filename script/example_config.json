@@ -1,0 +1,10 @@
+{
+    "_comment": "Copy this file to config.json and fill in the values for your target network.",
+    "core": {
+        "_comment": "Addresses of the four permanent core contracts. Set after running DeployCore.s.sol; reused by every CelerLedger / PayResolver version.",
+        "ethPool": "0x0000000000000000000000000000000000000000",
+        "payRegistry": "0x0000000000000000000000000000000000000000",
+        "virtResolver": "0x0000000000000000000000000000000000000000",
+        "celerWallet": "0x0000000000000000000000000000000000000000"
+    }
+}

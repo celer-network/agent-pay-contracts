@@ -4,5 +4,5 @@
 openChannel() with zero deposit: 324983
 openChannel() with non-zero ERC20 deposits: 488691
 deposit(): 150001
-cooperativeWithdraw(): 100936
-cooperativeSettle(): 111536
+cooperativeWithdraw(): 101138
+cooperativeSettle(): 111950

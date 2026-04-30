@@ -61,6 +61,10 @@ contract PayResolverTest is Test {
     event ResolvePayment(bytes32 indexed payId, uint256 amount, uint256 resolveDeadline);
 
     function setUp() public {
+        // Anchor block.timestamp far above zero so deadline math like
+        // `block.timestamp - 1` cannot underflow.
+        vm.warp(1_000_000);
+
         virtResolver = new VirtContractResolver();
         payRegistry = new PayRegistry();
         payResolver = new PayResolver(address(payRegistry), address(virtResolver));
@@ -176,7 +180,7 @@ contract PayResolverTest is Test {
         bytes32 expectedPayId = _payId(payBytes);
 
         vm.expectEmit(true, false, false, true, address(payResolver));
-        emit ResolvePayment(expectedPayId, 10, block.number);
+        emit ResolvePayment(expectedPayId, 10, block.timestamp);
 
         _resolveByConditions(payBytes, TRUE_PREIMAGE);
     }
@@ -186,7 +190,7 @@ contract PayResolverTest is Test {
         bytes32 expectedPayId = _payId(payBytes);
 
         vm.expectEmit(true, false, false, true, address(payResolver));
-        emit ResolvePayment(expectedPayId, 0, block.number + RESOLVE_TIMEOUT);
+        emit ResolvePayment(expectedPayId, 0, block.timestamp + RESOLVE_TIMEOUT);
 
         _resolveByConditions(payBytes, TRUE_PREIMAGE);
     }
@@ -196,7 +200,7 @@ contract PayResolverTest is Test {
         bytes32 expectedPayId = _payId(payBytes);
 
         vm.expectEmit(true, false, false, true, address(payResolver));
-        emit ResolvePayment(expectedPayId, 30, block.number);
+        emit ResolvePayment(expectedPayId, 30, block.timestamp);
 
         _resolveByConditions(payBytes, TRUE_PREIMAGE);
     }
@@ -206,7 +210,7 @@ contract PayResolverTest is Test {
         bytes32 expectedPayId = _payId(payBytes);
 
         vm.expectEmit(true, false, false, true, address(payResolver));
-        emit ResolvePayment(expectedPayId, 0, block.number + RESOLVE_TIMEOUT);
+        emit ResolvePayment(expectedPayId, 0, block.timestamp + RESOLVE_TIMEOUT);
 
         _resolveByConditions(payBytes, TRUE_PREIMAGE);
     }
@@ -220,7 +224,7 @@ contract PayResolverTest is Test {
         bytes32 expectedPayId = _payId(payBytes);
 
         vm.expectEmit(true, false, false, true, address(payResolver));
-        emit ResolvePayment(expectedPayId, 20, block.number + RESOLVE_TIMEOUT);
+        emit ResolvePayment(expectedPayId, 20, block.timestamp + RESOLVE_TIMEOUT);
 
         payResolver.resolvePaymentByVouchedResult(_vouched(payBytes, 20));
     }
@@ -231,7 +235,7 @@ contract PayResolverTest is Test {
 
         // First resolve at 20 (deadline = N + RESOLVE_TIMEOUT).
         payResolver.resolvePaymentByVouchedResult(_vouched(payBytes, 20));
-        uint256 firstDeadline = block.number + RESOLVE_TIMEOUT;
+        uint256 firstDeadline = block.timestamp + RESOLVE_TIMEOUT;
 
         // Second resolve at 25; deadline must be unchanged because amount < max.
         vm.expectEmit(true, false, false, true, address(payResolver));
@@ -245,7 +249,7 @@ contract PayResolverTest is Test {
         bytes32 expectedPayId = _payId(payBytes);
 
         payResolver.resolvePaymentByVouchedResult(_vouched(payBytes, 20));
-        uint256 firstDeadline = block.number + RESOLVE_TIMEOUT;
+        uint256 firstDeadline = block.timestamp + RESOLVE_TIMEOUT;
 
         // NUMERIC_ADD over [hashLock, num10, num25] = 35. Higher than 20 → updates,
         // deadline preserved (still partial vs max=100).
@@ -279,17 +283,15 @@ contract PayResolverTest is Test {
     // -------------------------------------------------------------------------
 
     function test_resolveByConditions_pastResolveDeadline_reverts() public {
-        // resolveDeadline = 1; roll past it.
-        bytes memory payBytes = _buildPay(5, 1, 0, 10, 1);
-        vm.roll(2);
+        // resolveDeadline already in the past.
+        bytes memory payBytes = _buildPay(5, 1, 0, 10, block.timestamp - 1);
 
         vm.expectRevert(bytes("Passed pay resolve deadline in condPay msg"));
         _resolveByConditions(payBytes, TRUE_PREIMAGE);
     }
 
     function test_resolveByVouchedResult_pastResolveDeadline_reverts() public {
-        bytes memory payBytes = _buildPay(6, 1, 0, 100, 1);
-        vm.roll(2);
+        bytes memory payBytes = _buildPay(6, 1, 0, 100, block.timestamp - 1);
 
         vm.expectRevert(bytes("Passed pay resolve deadline in condPay msg"));
         payResolver.resolvePaymentByVouchedResult(_vouched(payBytes, 20));
@@ -302,7 +304,7 @@ contract PayResolverTest is Test {
         payResolver.resolvePaymentByVouchedResult(_vouched(payBytes, 20));
 
         // Roll past the onchain resolve deadline.
-        vm.roll(block.number + RESOLVE_TIMEOUT + 1);
+        vm.warp(block.timestamp + RESOLVE_TIMEOUT + 1);
 
         vm.expectRevert(bytes("Passed onchain resolve pay deadline"));
         payResolver.resolvePaymentByVouchedResult(_vouched(payBytes, 30));
@@ -312,7 +314,7 @@ contract PayResolverTest is Test {
         bytes memory payBytes = _buildPay(8, 1, 0, 200, RESOLVE_DEADLINE);
 
         payResolver.resolvePaymentByVouchedResult(_vouched(payBytes, 20));
-        vm.roll(block.number + RESOLVE_TIMEOUT + 1);
+        vm.warp(block.timestamp + RESOLVE_TIMEOUT + 1);
 
         vm.expectRevert(bytes("Passed onchain resolve pay deadline"));
         _resolveByConditions(payBytes, TRUE_PREIMAGE);
@@ -339,7 +341,7 @@ contract PayResolverTest is Test {
         bytes32 expectedPayId = _payId(payBytes);
 
         vm.expectEmit(true, false, false, true, address(payResolver));
-        emit ResolvePayment(expectedPayId, 35, block.number + RESOLVE_TIMEOUT);
+        emit ResolvePayment(expectedPayId, 35, block.timestamp + RESOLVE_TIMEOUT);
 
         _resolveByConditions(payBytes, TRUE_PREIMAGE);
     }
@@ -349,7 +351,7 @@ contract PayResolverTest is Test {
         bytes32 expectedPayId = _payId(payBytes);
 
         vm.expectEmit(true, false, false, true, address(payResolver));
-        emit ResolvePayment(expectedPayId, 25, block.number + RESOLVE_TIMEOUT);
+        emit ResolvePayment(expectedPayId, 25, block.timestamp + RESOLVE_TIMEOUT);
 
         _resolveByConditions(payBytes, TRUE_PREIMAGE);
     }
@@ -359,7 +361,7 @@ contract PayResolverTest is Test {
         bytes32 expectedPayId = _payId(payBytes);
 
         vm.expectEmit(true, false, false, true, address(payResolver));
-        emit ResolvePayment(expectedPayId, 10, block.number + RESOLVE_TIMEOUT);
+        emit ResolvePayment(expectedPayId, 10, block.timestamp + RESOLVE_TIMEOUT);
 
         _resolveByConditions(payBytes, TRUE_PREIMAGE);
     }
@@ -377,28 +379,28 @@ contract PayResolverTest is Test {
             bytes32 expectedPayId = _payId(payBytes);
 
             vm.expectEmit(true, false, false, true, address(payResolver));
-            emit ResolvePayment(expectedPayId, 50, block.number);
+            emit ResolvePayment(expectedPayId, 50, block.timestamp);
 
             _resolveByConditions(payBytes, TRUE_PREIMAGE);
         }
     }
 
     // -------------------------------------------------------------------------
-    // Updating amount = max sets onchain deadline to current block
+    // Updating amount = max sets onchain deadline to current timestamp
     // -------------------------------------------------------------------------
 
-    function test_updatedAmountEqualsMax_setsOnchainDeadlineToCurrentBlock() public {
+    function test_updatedAmountEqualsMax_setsOnchainDeadlineToCurrentTimestamp() public {
         bytes memory payBytes = _buildPay(0, 5, 3, 35, RESOLVE_DEADLINE); // max = 35
         bytes32 expectedPayId = _payId(payBytes);
 
-        // First: vouched 20 → partial, deadline = block + timeout.
+        // First: vouched 20 → partial, deadline = timestamp + timeout.
         payResolver.resolvePaymentByVouchedResult(_vouched(payBytes, 20));
 
         // Second: resolve by conditions → 35 (= max). Deadline must collapse to
-        // current block.
-        vm.roll(block.number + 2);
+        // current timestamp.
+        vm.warp(block.timestamp + 2);
         vm.expectEmit(true, false, false, true, address(payResolver));
-        emit ResolvePayment(expectedPayId, 35, block.number);
+        emit ResolvePayment(expectedPayId, 35, block.timestamp);
 
         _resolveByConditions(payBytes, TRUE_PREIMAGE);
     }
@@ -436,12 +438,12 @@ contract PayResolverTest is Test {
 
         bytes[] memory preimages = new bytes[](0);
         vm.expectEmit(true, false, false, true, address(payResolver));
-        emit ResolvePayment(expectedPayId, 50, block.number);
+        emit ResolvePayment(expectedPayId, 50, block.timestamp);
 
         payResolver.resolvePaymentByConditions(Fixtures.encResolvePayByConditionsRequest(payBytes, preimages));
 
         (uint256 amount, uint256 deadline) = payRegistry.getPayInfo(expectedPayId);
         assertEq(amount, 50);
-        assertEq(deadline, block.number);
+        assertEq(deadline, block.timestamp);
     }
 }

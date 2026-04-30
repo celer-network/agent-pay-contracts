@@ -137,7 +137,7 @@ contract CelerLedgerMock {
 
         withdrawIntent.receiver = _receiver;
         withdrawIntent.amount = _amount;
-        withdrawIntent.requestTime = block.number;
+        withdrawIntent.requestTime = block.timestamp;
         withdrawIntent.recipientChannelId = _recipientChannelId;
 
         tmpChannelId = _channelId;
@@ -542,7 +542,7 @@ contract CelerLedgerMock {
 
     function _updateOverallStatesByIntendState(bytes32 _channelId) internal {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
-        c.settleFinalizedTime = block.number + c.disputeTimeout;
+        c.settleFinalizedTime = block.timestamp + c.disputeTimeout;
         _updateChannelStatus(c, LedgerStruct.ChannelStatus.Settling);
     }
 

@@ -23,6 +23,10 @@ contract PayRegistryTest is Test {
     event PayInfoUpdate(bytes32 indexed payId, uint256 amount, uint256 resolveDeadline);
 
     function setUp() public {
+        // Anchor block.timestamp far above zero so deadline math like
+        // `block.timestamp - 1` cannot underflow.
+        vm.warp(1_000_000);
+
         registry = new PayRegistry();
     }
 
@@ -194,29 +198,29 @@ contract PayRegistryTest is Test {
     function test_getPayAmounts_returnsResolvedAmounts_whenDeadlinePassed() public {
         // Set a pay with amount 50, deadline at block N.
         vm.prank(setterA);
-        registry.setPayInfo(payHash1, 50, block.number + 5);
+        registry.setPayInfo(payHash1, 50, block.timestamp + 5);
 
         bytes32[] memory ids = new bytes32[](1);
         ids[0] = registry.calculatePayId(payHash1, setterA);
 
         // Roll past the per-pay deadline so the pay is finalized.
-        vm.roll(block.number + 6);
+        vm.warp(block.timestamp + 6);
 
-        uint256[] memory amounts = registry.getPayAmounts(ids, block.number);
+        uint256[] memory amounts = registry.getPayAmounts(ids, block.timestamp);
         assertEq(amounts.length, 1);
         assertEq(amounts[0], 50);
     }
 
     function test_getPayAmounts_revertsIfPayNotFinalized() public {
         vm.prank(setterA);
-        registry.setPayInfo(payHash1, 50, block.number + 100);
+        registry.setPayInfo(payHash1, 50, block.timestamp + 100);
 
         bytes32[] memory ids = new bytes32[](1);
         ids[0] = registry.calculatePayId(payHash1, setterA);
 
         // Per-pay deadline is in the future; should revert.
         vm.expectRevert(bytes("Payment is not finalized"));
-        registry.getPayAmounts(ids, block.number);
+        registry.getPayAmounts(ids, block.timestamp);
     }
 
     function test_getPayAmounts_unsetPay_passesIfChannelDeadlineExceeded() public {
@@ -226,8 +230,8 @@ contract PayRegistryTest is Test {
         ids[0] = registry.calculatePayId(payHash1, setterA);
 
         // Channel-level lastPayResolveDeadline is in the past → ok to read.
-        vm.roll(block.number + 10);
-        uint256[] memory amounts = registry.getPayAmounts(ids, block.number - 1);
+        vm.warp(block.timestamp + 10);
+        uint256[] memory amounts = registry.getPayAmounts(ids, block.timestamp - 1);
         assertEq(amounts[0], 0);
     }
 
@@ -237,7 +241,7 @@ contract PayRegistryTest is Test {
 
         // Channel-level lastPayResolveDeadline is in the future → revert.
         vm.expectRevert(bytes("Payment is not finalized"));
-        registry.getPayAmounts(ids, block.number + 100);
+        registry.getPayAmounts(ids, block.timestamp + 100);
     }
 
     // -------------------------------------------------------------------------

@@ -20,10 +20,10 @@ depositInBatch() with 5 deposits: 382069
 intendWithdraw(): 72739
 vetoWithdraw(): 3995
 confirmWithdraw(): 57548
-cooperativeWithdraw(): 104112
-snapshotStates() with one non-null simplex state: 92579
+cooperativeWithdraw(): 104314
+snapshotStates() with one non-null simplex state: 92559
 intendSettle() with a null state: 108974
-intendSettle() with two 2-payment-hashList states: 324509
+intendSettle() with two 2-payment-hashList states: 324913
 clearPays() with 2 payments: 22595
 confirmSettle(): 48721
-cooperativeSettle(): 115705
+cooperativeSettle(): 116109

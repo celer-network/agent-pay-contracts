@@ -112,10 +112,10 @@ contract PayRegistry is IPayRegistry {
         for (uint256 i = 0; i < _payIds.length; i++) {
             if (payInfoMap[_payIds[i]].resolveDeadline == 0) {
                 // should pass last pay resolve deadline if never resolved
-                require(block.number > _lastPayResolveDeadline, "Payment is not finalized");
+                require(block.timestamp > _lastPayResolveDeadline, "Payment is not finalized");
             } else {
                 // should pass resolve deadline if resolved
-                require(block.number > payInfoMap[_payIds[i]].resolveDeadline, "Payment is not finalized");
+                require(block.timestamp > payInfoMap[_payIds[i]].resolveDeadline, "Payment is not finalized");
             }
             amounts[i] = payInfoMap[_payIds[i]].amount;
         }

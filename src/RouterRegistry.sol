@@ -6,13 +6,13 @@ import "./lib/interface/IRouterRegistry.sol";
 /**
  * @title RouterRegistry
  * @notice Optional global registry where relay-router operators advertise themselves
- *  to the AgentPay network. Each registered router stores the latest registration
- *  or refresh `block.number`; off-chain consumers may use this for liveness signaling
- *  and router discovery.
+ *  to the AgentPay network. Each registered router stores the unix timestamp
+ *  (seconds) of its most recent registration or refresh; off-chain consumers may
+ *  use this for liveness signaling and router discovery.
  * @dev See {IRouterRegistry} for canonical NatSpec on each function.
  */
 contract RouterRegistry is IRouterRegistry {
-    /// @notice Registered router addresses → most recent register/refresh block number.
+    /// @notice Registered router addresses → unix timestamp (seconds) of most recent register/refresh.
     mapping(address => uint256) public routerInfo;
 
     /**
@@ -21,7 +21,7 @@ contract RouterRegistry is IRouterRegistry {
     function registerRouter() external {
         require(routerInfo[msg.sender] == 0, "Router address already exists");
 
-        routerInfo[msg.sender] = block.number;
+        routerInfo[msg.sender] = block.timestamp;
 
         emit RouterUpdated(RouterOperation.Add, msg.sender);
     }
@@ -38,12 +38,12 @@ contract RouterRegistry is IRouterRegistry {
     }
 
     /**
-     * @notice Refresh the existed router's block number
+     * @notice Refresh the existed router's stored timestamp
      */
     function refreshRouter() external {
         require(routerInfo[msg.sender] != 0, "Router address does not exist");
 
-        routerInfo[msg.sender] = block.number;
+        routerInfo[msg.sender] = block.timestamp;
 
         emit RouterUpdated(RouterOperation.Refresh, msg.sender);
     }

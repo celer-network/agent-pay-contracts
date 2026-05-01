@@ -333,6 +333,75 @@ contract PayResolverTest is Test {
     }
 
     // -------------------------------------------------------------------------
+    // Dependent-contract not-finalized failure
+    // -------------------------------------------------------------------------
+
+    /// @dev Build a ConditionalPay containing a single deployed-contract condition
+    ///  pointing at `_addr`, with explicit `argsQueryFinalization` so the new
+    ///  unified mocks can simulate `isFinalized = false`. Used by the
+    ///  not-finalized revert tests below.
+    function _buildPaySingleDeployed(
+        uint256 _payTimestamp,
+        address _addr,
+        uint256 _logicType,
+        bytes memory _argsFinalization,
+        bytes memory _argsOutcome
+    ) internal view returns (bytes memory) {
+        Fixtures.Condition[] memory conds = new Fixtures.Condition[](1);
+        conds[0].conditionType = 1; // DEPLOYED_CONTRACT
+        conds[0].deployedAddress = _addr;
+        conds[0].argsQueryFinalization = _argsFinalization;
+        conds[0].argsQueryOutcome = _argsOutcome;
+
+        Fixtures.ConditionalPay memory pay = Fixtures.ConditionalPay({
+            payTimestamp: _payTimestamp,
+            src: payerSrc,
+            dest: payerDest,
+            conditions: conds,
+            logicType: _logicType,
+            maxAmount: 50,
+            resolveDeadline: RESOLVE_DEADLINE,
+            resolveTimeout: RESOLVE_TIMEOUT,
+            payResolver: address(payResolver)
+        });
+        return Fixtures.encConditionalPay(pay);
+    }
+
+    /// @dev `isFinalized` query byte that the unified mocks decode as `false`.
+    bytes internal constant NOT_FINALIZED_QUERY = hex"00";
+
+    function test_resolveByConditions_booleanAnd_dependentNotFinalized_reverts() public {
+        // BOOLEAN_AND with a single deployed-contract condition where
+        // argsQueryFinalization decodes to `false`.
+        bytes memory payBytes =
+            _buildPaySingleDeployed(20, address(boolMock), 0, NOT_FINALIZED_QUERY, abi.encodePacked(bytes1(0x01)));
+
+        bytes[] memory preimages = new bytes[](0);
+        vm.expectRevert(bytes("Condition is not finalized"));
+        payResolver.resolvePaymentByConditions(Fixtures.encResolvePayByConditionsRequest(payBytes, preimages));
+    }
+
+    function test_resolveByConditions_booleanOr_dependentNotFinalized_reverts() public {
+        // BOOLEAN_OR with the same shape.
+        bytes memory payBytes =
+            _buildPaySingleDeployed(21, address(boolMock), 1, NOT_FINALIZED_QUERY, abi.encodePacked(bytes1(0x01)));
+
+        bytes[] memory preimages = new bytes[](0);
+        vm.expectRevert(bytes("Condition is not finalized"));
+        payResolver.resolvePaymentByConditions(Fixtures.encResolvePayByConditionsRequest(payBytes, preimages));
+    }
+
+    function test_resolveByConditions_numericLogic_dependentNotFinalized_reverts() public {
+        // NUMERIC_ADD with a numeric condition where argsQueryFinalization decodes to `false`.
+        bytes memory payBytes =
+            _buildPaySingleDeployed(22, address(numMock), 3, NOT_FINALIZED_QUERY, abi.encodePacked(uint8(10)));
+
+        bytes[] memory preimages = new bytes[](0);
+        vm.expectRevert(bytes("Condition is not finalized"));
+        payResolver.resolvePaymentByConditions(Fixtures.encResolvePayByConditionsRequest(payBytes, preimages));
+    }
+
+    // -------------------------------------------------------------------------
     // Numeric logic
     // -------------------------------------------------------------------------
 

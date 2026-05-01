@@ -5,25 +5,31 @@ import "../lib/interface/IBooleanCond.sol";
 
 /**
  * @title BooleanCondMock
- * @notice **Test-only.** Minimal {IBooleanCond} that always reports finalized and
- *  decodes its outcome straight from the query bytes. Used by PayResolver tests to
- *  exercise condition-evaluation paths. **Do not deploy to a production network.**
+ * @notice **Test-only.** Minimal {IBooleanCond} that decodes both `isFinalized`
+ *  and `getOutcome` directly from their respective query bytes.
+ *
+ *  Encoding for both queries: a single byte where `0x00 → false` and any other
+ *  value → `true`. Empty query bytes default to `true` so callers that don't
+ *  care about a particular flag can leave the corresponding `argsQuery*` field
+ *  empty and get the "happy path" behavior.
+ *
+ *  This shape lets a single deployed instance simulate every combination of
+ *  (finalized, outcome) — useful for both Solidity tests and off-chain
+ *  integration tests. **Do not deploy to a production network.**
  */
 contract BooleanCondMock is IBooleanCond {
-    function isFinalized(
-        bytes calldata /* _query */
-    )
-        external
-        pure
-        returns (bool)
-    {
-        return true;
+    function isFinalized(bytes calldata _query) external pure returns (bool) {
+        if (_query.length == 0) {
+            return true;
+        }
+        return _bytesToBool(_query);
     }
 
     function getOutcome(bytes calldata _query) external pure returns (bool) {
         return _bytesToBool(_query);
     }
 
+    /// @dev Empty input → false (matches the "no outcome" notion for `getOutcome`).
     function _bytesToBool(bytes memory _b) internal pure returns (bool) {
         if (_b.length == 0) {
             return false;

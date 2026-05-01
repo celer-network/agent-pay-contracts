@@ -5,19 +5,24 @@ import "../lib/interface/INumericCond.sol";
 
 /**
  * @title NumericCondMock
- * @notice **Test-only.** Minimal {INumericCond} that always reports finalized and
- *  decodes its outcome straight from the query bytes. Numeric counterpart to
- *  {BooleanCondMock}. **Do not deploy to a production network.**
+ * @notice **Test-only.** Minimal {INumericCond} that decodes both `isFinalized`
+ *  and `getOutcome` directly from their respective query bytes.
+ *
+ *  - `isFinalized(_query)`: a single byte where `0x00 → false` and any other
+ *    value → `true`. Empty query defaults to `true`.
+ *  - `getOutcome(_query)`: big-endian unsigned integer parsed from the query
+ *    bytes. Empty query → `0`.
+ *
+ *  This shape lets a single deployed instance simulate every combination of
+ *  (finalized, outcome) — useful for both Solidity tests and off-chain
+ *  integration tests. **Do not deploy to a production network.**
  */
 contract NumericCondMock is INumericCond {
-    function isFinalized(
-        bytes calldata /* _query */
-    )
-        external
-        pure
-        returns (bool)
-    {
-        return true;
+    function isFinalized(bytes calldata _query) external pure returns (bool) {
+        if (_query.length == 0) {
+            return true;
+        }
+        return _bytesToUint(_query) != 0;
     }
 
     function getOutcome(bytes calldata _query) external pure returns (uint256) {

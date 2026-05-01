@@ -196,7 +196,6 @@ contract PayRegistryTest is Test {
     // -------------------------------------------------------------------------
 
     function test_getPayAmounts_returnsResolvedAmounts_whenDeadlinePassed() public {
-        // Set a pay with amount 50, deadline at block N.
         vm.prank(setterA);
         registry.setPayInfo(payHash1, 50, block.timestamp + 5);
 

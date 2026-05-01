@@ -1,11 +1,12 @@
-// Copyright 2018-2025 Celer Network
+// Copyright 2018-2026 Celer Network
 
 syntax = "proto3";
-option go_package = "github.com/celer-network/agent-pay/entity";
+
+package entity;
 
 import "google/protobuf/descriptor.proto";
 
-package entity;
+option go_package = "github.com/celer-network/agent-pay/entity";
 
 extend google.protobuf.FieldOptions {
   string soltype = 1001;
@@ -51,7 +52,7 @@ message SimplexPaymentChannel {
   TokenTransfer transfer_to_peer = 4;
   // head of the idlist chain of all pending conditional pays.
   PayIdList pending_pay_ids = 5;
-  // The last resolve deadline of all pending conditonal pays.
+  // The last resolve deadline of all pending conditional pays.
   // confirmSettle must be called after all pending pays have been finalized,
   // namely all pending pays have been resolved in the pay registry,
   // or after the last_pay_resolve_deadline.
@@ -62,11 +63,11 @@ message SimplexPaymentChannel {
 
 // Next Tag: 3
 message PayIdList {
-    // array of ids of serialized ConditionalPay
-    // pay_id is computed as hash(hash(cond_pay), pay_resolver_address)
-    repeated bytes pay_ids = 1 [(soltype) = "bytes32"];
-    // hash of serialized next PayIdList
-    bytes next_list_hash = 2 [(soltype) = "bytes32"];
+  // array of ids of serialized ConditionalPay
+  // pay_id is computed as hash(hash(cond_pay), pay_resolver_address)
+  repeated bytes pay_ids = 1 [(soltype) = "bytes32"];
+  // hash of serialized next PayIdList
+  bytes next_list_hash = 2 [(soltype) = "bytes32"];
 }
 
 enum TransferFunctionType {
@@ -95,7 +96,10 @@ message TransferFunction {
 message ConditionalPay {
   // pay_timestamp is set by payment source, to ensure no same condpay between src-dst
   // global unique pay id used on-chain is computed as hash(hash(cond_pay), pay_resolver_address)
-  uint64 pay_timestamp = 1 [(soltype) = "uint", jstype = JS_STRING];
+  uint64 pay_timestamp = 1 [
+    (soltype) = "uint",
+    jstype = JS_STRING
+  ];
   // src and dest are public keys of payment sender and receiver used to vouch the payment result.
   // For simplicity, current off-chain backend implementation requires these two fields to be the
   // sender and receiver account addresses. With better off-chain communication protocols in the
@@ -109,7 +113,7 @@ message ConditionalPay {
   // transfer_func.max_transfer.receiver.account is not needed for unicast payment
   TransferFunction transfer_func = 5;
   // resolve_deadline is the deadline for a cond_pay to be resolved on chain in the
-  // pay resgistry by either condition or vouched results, and the payment result
+  // pay registry by either condition or vouched results, and the payment result
   // is finalized after resolve_deadline.
   // Payment channel peers should apply a safe_margin for off-chain processing,
   // i.e., should take dispute action before [resolve_deadline - safe_margin]

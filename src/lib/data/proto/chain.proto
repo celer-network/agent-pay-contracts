@@ -1,9 +1,10 @@
-// Copyright 2018-2025 Celer Network
+// Copyright 2018-2026 Celer Network
 
 syntax = "proto3";
-option go_package = "github.com/celer-network/agent-pay/chain";
 
 package chain;
+
+option go_package = "github.com/celer-network/agent-pay/chain";
 
 // Next Tag: 3
 message OpenChannelRequest {
@@ -48,12 +49,12 @@ message SignedSimplexState {
 // Next Tag: 2
 // Using this message to intendSettle is flexible:
 //   * you can put multiple signed simplex states in one array as long as not exceeding gas limit
-//   * you can put signed simplex states of multiple channels in one array 
+//   * you can put signed simplex states of multiple channels in one array
 //       to intendSettle these channels in one function call
 // How to use:
 //   * channelIds of these simplex states must be ascending
 //   * non-null simplex states should be cosigned by both peers of the channel
-//   * null simplex states should set seqNum as 0 and be signed by 
+//   * null simplex states should set seqNum as 0 and be signed by
 //       exactly one of the peers of the channel
 // Note: if you are submitting one simplex state of the duplex channel,
 //   you are intending to settle the whole duplex channel.

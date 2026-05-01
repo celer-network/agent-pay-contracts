@@ -69,18 +69,18 @@ library PbEntity {
     function decAccountAmtPair(bytes memory raw) internal pure returns (AccountAmtPair memory m) {
         Pb.Buffer memory buf = Pb.fromBytes(raw);
 
-        uint256 tag;
-        Pb.WireType wire;
+        uint256 key;
         while (buf.hasMore()) {
-            (tag, wire) = buf.decKey();
-            if (false) {} // solidity has no switch/case
-            else if (tag == 1) {
-                m.account = Pb._address(buf.decBytes());
-            } else if (tag == 2) {
-                m.amt = Pb._uint256(buf.decBytes());
+            key = buf.decVarint();
+            if (key == 10) {
+                // tag 1
+                m.account = buf.decAddress();
+            } else if (key == 18) {
+                // tag 2
+                m.amt = buf.decUint256();
             } else {
-                buf.skipValue(wire);
-            } // skip value of unknown tag
+                buf.skipValue(Pb.WireType(key & 7)); // unknown tag or wrong wire
+            }
         }
     } // end decoder AccountAmtPair
 
@@ -92,18 +92,18 @@ library PbEntity {
     function decTokenInfo(bytes memory raw) internal pure returns (TokenInfo memory m) {
         Pb.Buffer memory buf = Pb.fromBytes(raw);
 
-        uint256 tag;
-        Pb.WireType wire;
+        uint256 key;
         while (buf.hasMore()) {
-            (tag, wire) = buf.decKey();
-            if (false) {} // solidity has no switch/case
-            else if (tag == 1) {
+            key = buf.decVarint();
+            if (key == 8) {
+                // tag 1
                 m.tokenType = TokenType(buf.decVarint());
-            } else if (tag == 2) {
-                m.tokenAddress = Pb._address(buf.decBytes());
+            } else if (key == 18) {
+                // tag 2
+                m.tokenAddress = buf.decAddress();
             } else {
-                buf.skipValue(wire);
-            } // skip value of unknown tag
+                buf.skipValue(Pb.WireType(key & 7)); // unknown tag or wrong wire
+            }
         }
     } // end decoder TokenInfo
 
@@ -115,24 +115,33 @@ library PbEntity {
     function decTokenDistribution(bytes memory raw) internal pure returns (TokenDistribution memory m) {
         Pb.Buffer memory buf = Pb.fromBytes(raw);
 
-        uint256[] memory cnts = buf.cntTags(2);
-        m.distribution = new AccountAmtPair[](cnts[2]);
-        cnts[2] = 0; // reset counter for later use
+        uint256[] memory _arr2 = new uint256[](raw.length / 2);
+        uint256 _cnt2 = 0;
 
-        uint256 tag;
-        Pb.WireType wire;
+        uint256 key;
         while (buf.hasMore()) {
-            (tag, wire) = buf.decKey();
-            if (false) {} // solidity has no switch/case
-            else if (tag == 1) {
+            key = buf.decVarint();
+            if (key == 10) {
+                // tag 1
                 m.token = decTokenInfo(buf.decBytes());
-            } else if (tag == 2) {
-                m.distribution[cnts[2]] = decAccountAmtPair(buf.decBytes());
-                cnts[2]++;
+            } else if (key == 18) {
+                // tag 2
+                AccountAmtPair memory _v2 = decAccountAmtPair(buf.decBytes());
+                assembly ("memory-safe") { mstore(add(add(_arr2, 32), shl(5, _cnt2)), _v2) }
+                unchecked {
+                    _cnt2++;
+                }
             } else {
-                buf.skipValue(wire);
-            } // skip value of unknown tag
+                buf.skipValue(Pb.WireType(key & 7)); // unknown tag or wrong wire
+            }
         }
+
+        AccountAmtPair[] memory _result2;
+        assembly ("memory-safe") {
+            mstore(_arr2, _cnt2)
+            _result2 := _arr2
+        }
+        m.distribution = _result2;
     } // end decoder TokenDistribution
 
     struct TokenTransfer {
@@ -143,18 +152,18 @@ library PbEntity {
     function decTokenTransfer(bytes memory raw) internal pure returns (TokenTransfer memory m) {
         Pb.Buffer memory buf = Pb.fromBytes(raw);
 
-        uint256 tag;
-        Pb.WireType wire;
+        uint256 key;
         while (buf.hasMore()) {
-            (tag, wire) = buf.decKey();
-            if (false) {} // solidity has no switch/case
-            else if (tag == 1) {
+            key = buf.decVarint();
+            if (key == 10) {
+                // tag 1
                 m.token = decTokenInfo(buf.decBytes());
-            } else if (tag == 2) {
+            } else if (key == 18) {
+                // tag 2
                 m.receiver = decAccountAmtPair(buf.decBytes());
             } else {
-                buf.skipValue(wire);
-            } // skip value of unknown tag
+                buf.skipValue(Pb.WireType(key & 7)); // unknown tag or wrong wire
+            }
         }
     } // end decoder TokenTransfer
 
@@ -171,28 +180,33 @@ library PbEntity {
     function decSimplexPaymentChannel(bytes memory raw) internal pure returns (SimplexPaymentChannel memory m) {
         Pb.Buffer memory buf = Pb.fromBytes(raw);
 
-        uint256 tag;
-        Pb.WireType wire;
+        uint256 key;
         while (buf.hasMore()) {
-            (tag, wire) = buf.decKey();
-            if (false) {} // solidity has no switch/case
-            else if (tag == 1) {
-                m.channelId = Pb._bytes32(buf.decBytes());
-            } else if (tag == 2) {
-                m.peerFrom = Pb._address(buf.decBytes());
-            } else if (tag == 3) {
+            key = buf.decVarint();
+            if (key == 10) {
+                // tag 1
+                m.channelId = buf.decBytes32();
+            } else if (key == 18) {
+                // tag 2
+                m.peerFrom = buf.decAddress();
+            } else if (key == 24) {
+                // tag 3
                 m.seqNum = buf.decVarint();
-            } else if (tag == 4) {
+            } else if (key == 34) {
+                // tag 4
                 m.transferToPeer = decTokenTransfer(buf.decBytes());
-            } else if (tag == 5) {
+            } else if (key == 42) {
+                // tag 5
                 m.pendingPayIds = decPayIdList(buf.decBytes());
-            } else if (tag == 6) {
+            } else if (key == 48) {
+                // tag 6
                 m.lastPayResolveDeadline = buf.decVarint();
-            } else if (tag == 7) {
-                m.totalPendingAmount = Pb._uint256(buf.decBytes());
+            } else if (key == 58) {
+                // tag 7
+                m.totalPendingAmount = buf.decUint256();
             } else {
-                buf.skipValue(wire);
-            } // skip value of unknown tag
+                buf.skipValue(Pb.WireType(key & 7)); // unknown tag or wrong wire
+            }
         }
     } // end decoder SimplexPaymentChannel
 
@@ -204,24 +218,28 @@ library PbEntity {
     function decPayIdList(bytes memory raw) internal pure returns (PayIdList memory m) {
         Pb.Buffer memory buf = Pb.fromBytes(raw);
 
-        uint256[] memory cnts = buf.cntTags(2);
-        m.payIds = new bytes32[](cnts[1]);
-        cnts[1] = 0; // reset counter for later use
+        bytes32[] memory _arr1 = new bytes32[](raw.length / 34);
+        uint256 _cnt1 = 0;
 
-        uint256 tag;
-        Pb.WireType wire;
+        uint256 key;
         while (buf.hasMore()) {
-            (tag, wire) = buf.decKey();
-            if (false) {} // solidity has no switch/case
-            else if (tag == 1) {
-                m.payIds[cnts[1]] = Pb._bytes32(buf.decBytes());
-                cnts[1]++;
-            } else if (tag == 2) {
-                m.nextListHash = Pb._bytes32(buf.decBytes());
+            key = buf.decVarint();
+            if (key == 10) {
+                // tag 1
+                _arr1[_cnt1] = buf.decBytes32();
+                unchecked {
+                    _cnt1++;
+                }
+            } else if (key == 18) {
+                // tag 2
+                m.nextListHash = buf.decBytes32();
             } else {
-                buf.skipValue(wire);
-            } // skip value of unknown tag
+                buf.skipValue(Pb.WireType(key & 7)); // unknown tag or wrong wire
+            }
         }
+
+        assembly ("memory-safe") { mstore(_arr1, _cnt1) }
+        m.payIds = _arr1;
     } // end decoder PayIdList
 
     struct TransferFunction {
@@ -232,18 +250,18 @@ library PbEntity {
     function decTransferFunction(bytes memory raw) internal pure returns (TransferFunction memory m) {
         Pb.Buffer memory buf = Pb.fromBytes(raw);
 
-        uint256 tag;
-        Pb.WireType wire;
+        uint256 key;
         while (buf.hasMore()) {
-            (tag, wire) = buf.decKey();
-            if (false) {} // solidity has no switch/case
-            else if (tag == 1) {
+            key = buf.decVarint();
+            if (key == 8) {
+                // tag 1
                 m.logicType = TransferFunctionType(buf.decVarint());
-            } else if (tag == 2) {
+            } else if (key == 18) {
+                // tag 2
                 m.maxTransfer = decTokenTransfer(buf.decBytes());
             } else {
-                buf.skipValue(wire);
-            } // skip value of unknown tag
+                buf.skipValue(Pb.WireType(key & 7)); // unknown tag or wrong wire
+            }
         }
     } // end decoder TransferFunction
 
@@ -261,36 +279,51 @@ library PbEntity {
     function decConditionalPay(bytes memory raw) internal pure returns (ConditionalPay memory m) {
         Pb.Buffer memory buf = Pb.fromBytes(raw);
 
-        uint256[] memory cnts = buf.cntTags(8);
-        m.conditions = new Condition[](cnts[4]);
-        cnts[4] = 0; // reset counter for later use
+        uint256[] memory _arr4 = new uint256[](raw.length / 2);
+        uint256 _cnt4 = 0;
 
-        uint256 tag;
-        Pb.WireType wire;
+        uint256 key;
         while (buf.hasMore()) {
-            (tag, wire) = buf.decKey();
-            if (false) {} // solidity has no switch/case
-            else if (tag == 1) {
+            key = buf.decVarint();
+            if (key == 8) {
+                // tag 1
                 m.payTimestamp = buf.decVarint();
-            } else if (tag == 2) {
-                m.src = Pb._address(buf.decBytes());
-            } else if (tag == 3) {
-                m.dest = Pb._address(buf.decBytes());
-            } else if (tag == 4) {
-                m.conditions[cnts[4]] = decCondition(buf.decBytes());
-                cnts[4]++;
-            } else if (tag == 5) {
+            } else if (key == 18) {
+                // tag 2
+                m.src = buf.decAddress();
+            } else if (key == 26) {
+                // tag 3
+                m.dest = buf.decAddress();
+            } else if (key == 34) {
+                // tag 4
+                Condition memory _v4 = decCondition(buf.decBytes());
+                assembly ("memory-safe") { mstore(add(add(_arr4, 32), shl(5, _cnt4)), _v4) }
+                unchecked {
+                    _cnt4++;
+                }
+            } else if (key == 42) {
+                // tag 5
                 m.transferFunc = decTransferFunction(buf.decBytes());
-            } else if (tag == 6) {
+            } else if (key == 48) {
+                // tag 6
                 m.resolveDeadline = buf.decVarint();
-            } else if (tag == 7) {
+            } else if (key == 56) {
+                // tag 7
                 m.resolveTimeout = buf.decVarint();
-            } else if (tag == 8) {
-                m.payResolver = Pb._address(buf.decBytes());
+            } else if (key == 66) {
+                // tag 8
+                m.payResolver = buf.decAddress();
             } else {
-                buf.skipValue(wire);
-            } // skip value of unknown tag
+                buf.skipValue(Pb.WireType(key & 7)); // unknown tag or wrong wire
+            }
         }
+
+        Condition[] memory _result4;
+        assembly ("memory-safe") {
+            mstore(_arr4, _cnt4)
+            _result4 := _arr4
+        }
+        m.conditions = _result4;
     } // end decoder ConditionalPay
 
     struct CondPayResult {
@@ -301,18 +334,18 @@ library PbEntity {
     function decCondPayResult(bytes memory raw) internal pure returns (CondPayResult memory m) {
         Pb.Buffer memory buf = Pb.fromBytes(raw);
 
-        uint256 tag;
-        Pb.WireType wire;
+        uint256 key;
         while (buf.hasMore()) {
-            (tag, wire) = buf.decKey();
-            if (false) {} // solidity has no switch/case
-            else if (tag == 1) {
-                m.condPay = bytes(buf.decBytes());
-            } else if (tag == 2) {
-                m.amount = Pb._uint256(buf.decBytes());
+            key = buf.decVarint();
+            if (key == 10) {
+                // tag 1
+                m.condPay = buf.decBytes();
+            } else if (key == 18) {
+                // tag 2
+                m.amount = buf.decUint256();
             } else {
-                buf.skipValue(wire);
-            } // skip value of unknown tag
+                buf.skipValue(Pb.WireType(key & 7)); // unknown tag or wrong wire
+            }
         }
     } // end decoder CondPayResult
 
@@ -325,20 +358,21 @@ library PbEntity {
     function decVouchedCondPayResult(bytes memory raw) internal pure returns (VouchedCondPayResult memory m) {
         Pb.Buffer memory buf = Pb.fromBytes(raw);
 
-        uint256 tag;
-        Pb.WireType wire;
+        uint256 key;
         while (buf.hasMore()) {
-            (tag, wire) = buf.decKey();
-            if (false) {} // solidity has no switch/case
-            else if (tag == 1) {
-                m.condPayResult = bytes(buf.decBytes());
-            } else if (tag == 2) {
-                m.sigOfSrc = bytes(buf.decBytes());
-            } else if (tag == 3) {
-                m.sigOfDest = bytes(buf.decBytes());
+            key = buf.decVarint();
+            if (key == 10) {
+                // tag 1
+                m.condPayResult = buf.decBytes();
+            } else if (key == 18) {
+                // tag 2
+                m.sigOfSrc = buf.decBytes();
+            } else if (key == 26) {
+                // tag 3
+                m.sigOfDest = buf.decBytes();
             } else {
-                buf.skipValue(wire);
-            } // skip value of unknown tag
+                buf.skipValue(Pb.WireType(key & 7)); // unknown tag or wrong wire
+            }
         }
     } // end decoder VouchedCondPayResult
 
@@ -354,26 +388,30 @@ library PbEntity {
     function decCondition(bytes memory raw) internal pure returns (Condition memory m) {
         Pb.Buffer memory buf = Pb.fromBytes(raw);
 
-        uint256 tag;
-        Pb.WireType wire;
+        uint256 key;
         while (buf.hasMore()) {
-            (tag, wire) = buf.decKey();
-            if (false) {} // solidity has no switch/case
-            else if (tag == 1) {
+            key = buf.decVarint();
+            if (key == 8) {
+                // tag 1
                 m.conditionType = ConditionType(buf.decVarint());
-            } else if (tag == 2) {
-                m.hashLock = Pb._bytes32(buf.decBytes());
-            } else if (tag == 3) {
-                m.deployedContractAddress = Pb._address(buf.decBytes());
-            } else if (tag == 4) {
-                m.virtualContractAddress = Pb._bytes32(buf.decBytes());
-            } else if (tag == 5) {
-                m.argsQueryFinalization = bytes(buf.decBytes());
-            } else if (tag == 6) {
-                m.argsQueryOutcome = bytes(buf.decBytes());
+            } else if (key == 18) {
+                // tag 2
+                m.hashLock = buf.decBytes32();
+            } else if (key == 26) {
+                // tag 3
+                m.deployedContractAddress = buf.decAddress();
+            } else if (key == 34) {
+                // tag 4
+                m.virtualContractAddress = buf.decBytes32();
+            } else if (key == 42) {
+                // tag 5
+                m.argsQueryFinalization = buf.decBytes();
+            } else if (key == 50) {
+                // tag 6
+                m.argsQueryOutcome = buf.decBytes();
             } else {
-                buf.skipValue(wire);
-            } // skip value of unknown tag
+                buf.skipValue(Pb.WireType(key & 7)); // unknown tag or wrong wire
+            }
         }
     } // end decoder Condition
 
@@ -388,24 +426,27 @@ library PbEntity {
     function decCooperativeWithdrawInfo(bytes memory raw) internal pure returns (CooperativeWithdrawInfo memory m) {
         Pb.Buffer memory buf = Pb.fromBytes(raw);
 
-        uint256 tag;
-        Pb.WireType wire;
+        uint256 key;
         while (buf.hasMore()) {
-            (tag, wire) = buf.decKey();
-            if (false) {} // solidity has no switch/case
-            else if (tag == 1) {
-                m.channelId = Pb._bytes32(buf.decBytes());
-            } else if (tag == 2) {
+            key = buf.decVarint();
+            if (key == 10) {
+                // tag 1
+                m.channelId = buf.decBytes32();
+            } else if (key == 16) {
+                // tag 2
                 m.seqNum = buf.decVarint();
-            } else if (tag == 3) {
+            } else if (key == 26) {
+                // tag 3
                 m.withdraw = decAccountAmtPair(buf.decBytes());
-            } else if (tag == 4) {
+            } else if (key == 32) {
+                // tag 4
                 m.withdrawDeadline = buf.decVarint();
-            } else if (tag == 5) {
-                m.recipientChannelId = Pb._bytes32(buf.decBytes());
+            } else if (key == 42) {
+                // tag 5
+                m.recipientChannelId = buf.decBytes32();
             } else {
-                buf.skipValue(wire);
-            } // skip value of unknown tag
+                buf.skipValue(Pb.WireType(key & 7)); // unknown tag or wrong wire
+            }
         }
     } // end decoder CooperativeWithdrawInfo
 
@@ -419,22 +460,24 @@ library PbEntity {
     function decPaymentChannelInitializer(bytes memory raw) internal pure returns (PaymentChannelInitializer memory m) {
         Pb.Buffer memory buf = Pb.fromBytes(raw);
 
-        uint256 tag;
-        Pb.WireType wire;
+        uint256 key;
         while (buf.hasMore()) {
-            (tag, wire) = buf.decKey();
-            if (false) {} // solidity has no switch/case
-            else if (tag == 1) {
+            key = buf.decVarint();
+            if (key == 10) {
+                // tag 1
                 m.initDistribution = decTokenDistribution(buf.decBytes());
-            } else if (tag == 2) {
+            } else if (key == 16) {
+                // tag 2
                 m.openDeadline = buf.decVarint();
-            } else if (tag == 3) {
+            } else if (key == 24) {
+                // tag 3
                 m.disputeTimeout = buf.decVarint();
-            } else if (tag == 4) {
+            } else if (key == 32) {
+                // tag 4
                 m.msgValueReceiver = buf.decVarint();
             } else {
-                buf.skipValue(wire);
-            } // skip value of unknown tag
+                buf.skipValue(Pb.WireType(key & 7)); // unknown tag or wrong wire
+            }
         }
     } // end decoder PaymentChannelInitializer
 
@@ -448,28 +491,39 @@ library PbEntity {
     function decCooperativeSettleInfo(bytes memory raw) internal pure returns (CooperativeSettleInfo memory m) {
         Pb.Buffer memory buf = Pb.fromBytes(raw);
 
-        uint256[] memory cnts = buf.cntTags(4);
-        m.settleBalance = new AccountAmtPair[](cnts[3]);
-        cnts[3] = 0; // reset counter for later use
+        uint256[] memory _arr3 = new uint256[](raw.length / 2);
+        uint256 _cnt3 = 0;
 
-        uint256 tag;
-        Pb.WireType wire;
+        uint256 key;
         while (buf.hasMore()) {
-            (tag, wire) = buf.decKey();
-            if (false) {} // solidity has no switch/case
-            else if (tag == 1) {
-                m.channelId = Pb._bytes32(buf.decBytes());
-            } else if (tag == 2) {
+            key = buf.decVarint();
+            if (key == 10) {
+                // tag 1
+                m.channelId = buf.decBytes32();
+            } else if (key == 16) {
+                // tag 2
                 m.seqNum = buf.decVarint();
-            } else if (tag == 3) {
-                m.settleBalance[cnts[3]] = decAccountAmtPair(buf.decBytes());
-                cnts[3]++;
-            } else if (tag == 4) {
+            } else if (key == 26) {
+                // tag 3
+                AccountAmtPair memory _v3 = decAccountAmtPair(buf.decBytes());
+                assembly ("memory-safe") { mstore(add(add(_arr3, 32), shl(5, _cnt3)), _v3) }
+                unchecked {
+                    _cnt3++;
+                }
+            } else if (key == 32) {
+                // tag 4
                 m.settleDeadline = buf.decVarint();
             } else {
-                buf.skipValue(wire);
-            } // skip value of unknown tag
+                buf.skipValue(Pb.WireType(key & 7)); // unknown tag or wrong wire
+            }
         }
+
+        AccountAmtPair[] memory _result3;
+        assembly ("memory-safe") {
+            mstore(_arr3, _cnt3)
+            _result3 := _arr3
+        }
+        m.settleBalance = _result3;
     } // end decoder CooperativeSettleInfo
 
     struct ChannelMigrationInfo {
@@ -482,22 +536,24 @@ library PbEntity {
     function decChannelMigrationInfo(bytes memory raw) internal pure returns (ChannelMigrationInfo memory m) {
         Pb.Buffer memory buf = Pb.fromBytes(raw);
 
-        uint256 tag;
-        Pb.WireType wire;
+        uint256 key;
         while (buf.hasMore()) {
-            (tag, wire) = buf.decKey();
-            if (false) {} // solidity has no switch/case
-            else if (tag == 1) {
-                m.channelId = Pb._bytes32(buf.decBytes());
-            } else if (tag == 2) {
-                m.fromLedgerAddress = Pb._address(buf.decBytes());
-            } else if (tag == 3) {
-                m.toLedgerAddress = Pb._address(buf.decBytes());
-            } else if (tag == 4) {
+            key = buf.decVarint();
+            if (key == 10) {
+                // tag 1
+                m.channelId = buf.decBytes32();
+            } else if (key == 18) {
+                // tag 2
+                m.fromLedgerAddress = buf.decAddress();
+            } else if (key == 26) {
+                // tag 3
+                m.toLedgerAddress = buf.decAddress();
+            } else if (key == 32) {
+                // tag 4
                 m.migrationDeadline = buf.decVarint();
             } else {
-                buf.skipValue(wire);
-            } // skip value of unknown tag
+                buf.skipValue(Pb.WireType(key & 7)); // unknown tag or wrong wire
+            }
         }
     } // end decoder ChannelMigrationInfo
 }

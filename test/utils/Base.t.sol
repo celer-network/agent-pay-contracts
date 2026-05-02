@@ -54,6 +54,11 @@ contract BaseTest is Test {
     address internal stranger;
 
     function setUp() public virtual {
+        // Anchor block.timestamp far above zero so deadline math like
+        // `block.timestamp - DISPUTE_TIMEOUT` cannot underflow in tests that
+        // simulate states predating the channel's open time.
+        vm.warp(1_000_000);
+
         // Deploy the full contract graph in dependency order.
         ethPool = new EthPool();
         payRegistry = new PayRegistry();

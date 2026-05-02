@@ -195,7 +195,7 @@ interface ICelerLedger {
     // LedgerChannel — view functions and channel-state derivations
     // =========================================================================
 
-    /// @notice Block number after which a settling channel can be confirmed.
+    /// @notice Unix timestamp (seconds) after which a settling channel can be confirmed.
     function getSettleFinalizedTime(bytes32 _channelId) external view returns (uint256);
 
     /// @notice ERC-20 token contract address for this channel (`address(0)` for ETH).
@@ -275,7 +275,7 @@ interface ICelerLedger {
      * @notice Active unilateral withdrawal intent for a channel, if any.
      * @return receiver Withdrawer address.
      * @return amount Pending withdraw amount.
-     * @return requestTime Block number when {intendWithdraw} fired.
+     * @return requestTime Unix timestamp (seconds) when {intendWithdraw} fired.
      * @return recipientChannelId Optional redirect target.
      */
     function getWithdrawIntent(bytes32 _channelId)

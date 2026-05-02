@@ -92,9 +92,9 @@ contract CelerLedgerMigrateTest is LedgerTestBase {
     function test_migrate_pastDeadline_reverts() public {
         bytes32 channelId = _openFundedEthChannel([uint256(100), 200]);
 
-        bytes memory request = _buildMigrationRequest(channelId, address(celerLedger), address(celerLedgerNew), 1);
+        bytes memory request =
+            _buildMigrationRequest(channelId, address(celerLedger), address(celerLedgerNew), block.timestamp - 1);
 
-        vm.roll(2);
         vm.expectRevert(bytes("Passed migration deadline"));
         celerLedgerNew.migrateChannelFrom(address(celerLedger), request);
     }
@@ -134,8 +134,9 @@ contract CelerLedgerMigrateTest is LedgerTestBase {
     }
 
     function _migrate(bytes32 _channelId) internal {
-        bytes memory request =
-            _buildMigrationRequest(_channelId, address(celerLedger), address(celerLedgerNew), block.number + 100_000);
+        bytes memory request = _buildMigrationRequest(
+            _channelId, address(celerLedger), address(celerLedgerNew), block.timestamp + 100_000
+        );
         celerLedgerNew.migrateChannelFrom(address(celerLedger), request);
     }
 

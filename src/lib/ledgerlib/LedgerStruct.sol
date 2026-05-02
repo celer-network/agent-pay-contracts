@@ -68,9 +68,10 @@ library LedgerStruct {
      *  ledger.
      */
     struct Channel {
-        // Block number after which peers may call confirmSettle, and before which
-        // peers may still call intendSettle.
+        // Unix timestamp (seconds) after which peers may call confirmSettle, and before
+        // which peers may still call intendSettle.
         uint256 settleFinalizedTime;
+        // Dispute-challenge window length in seconds.
         uint256 disputeTimeout;
         PbEntity.TokenInfo token;
         ChannelStatus status;

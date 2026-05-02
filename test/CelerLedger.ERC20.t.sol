@@ -104,7 +104,7 @@ contract CelerLedgerErc20Test is LedgerTestBase {
         celerLedger.disableBalanceLimits();
         bytes32 channelId = _openFundedErc20Channel([uint256(200), 0]);
 
-        bytes memory request = _buildCoopSettle(channelId, 1, [uint256(120), 80], block.number + 1000);
+        bytes memory request = _buildCoopSettle(channelId, 1, [uint256(120), 80], block.timestamp + 1000);
 
         uint256 peer0Before = erc20.balanceOf(peer0);
         uint256 peer1Before = erc20.balanceOf(peer1);
@@ -126,7 +126,7 @@ contract CelerLedgerErc20Test is LedgerTestBase {
         vm.prank(peer0);
         celerLedger.intendSettle(array);
 
-        vm.roll(block.number + DISPUTE_TIMEOUT + 1);
+        vm.warp(block.timestamp + DISPUTE_TIMEOUT + 1);
         uint256 peer0Before = erc20.balanceOf(peer0);
         celerLedger.confirmSettle(channelId);
 

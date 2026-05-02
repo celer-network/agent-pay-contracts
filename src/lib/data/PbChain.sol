@@ -24,24 +24,33 @@ library PbChain {
     function decOpenChannelRequest(bytes memory raw) internal pure returns (OpenChannelRequest memory m) {
         Pb.Buffer memory buf = Pb.fromBytes(raw);
 
-        uint256[] memory cnts = buf.cntTags(2);
-        m.sigs = new bytes[](cnts[2]);
-        cnts[2] = 0; // reset counter for later use
+        uint256[] memory _arr2 = new uint256[](raw.length / 2);
+        uint256 _cnt2 = 0;
 
-        uint256 tag;
-        Pb.WireType wire;
+        uint256 key;
         while (buf.hasMore()) {
-            (tag, wire) = buf.decKey();
-            if (false) {} // solidity has no switch/case
-            else if (tag == 1) {
-                m.channelInitializer = bytes(buf.decBytes());
-            } else if (tag == 2) {
-                m.sigs[cnts[2]] = bytes(buf.decBytes());
-                cnts[2]++;
+            key = buf.decVarint();
+            if (key == 10) {
+                // tag 1
+                m.channelInitializer = buf.decBytes();
+            } else if (key == 18) {
+                // tag 2
+                bytes memory _v2 = buf.decBytes();
+                assembly ("memory-safe") { mstore(add(add(_arr2, 32), shl(5, _cnt2)), _v2) }
+                unchecked {
+                    _cnt2++;
+                }
             } else {
-                buf.skipValue(wire);
-            } // skip value of unknown tag
+                buf.skipValue(Pb.WireType(key & 7)); // unknown tag or wrong wire
+            }
         }
+
+        bytes[] memory _result2;
+        assembly ("memory-safe") {
+            mstore(_arr2, _cnt2)
+            _result2 := _arr2
+        }
+        m.sigs = _result2;
     } // end decoder OpenChannelRequest
 
     struct CooperativeWithdrawRequest {
@@ -56,24 +65,33 @@ library PbChain {
     {
         Pb.Buffer memory buf = Pb.fromBytes(raw);
 
-        uint256[] memory cnts = buf.cntTags(2);
-        m.sigs = new bytes[](cnts[2]);
-        cnts[2] = 0; // reset counter for later use
+        uint256[] memory _arr2 = new uint256[](raw.length / 2);
+        uint256 _cnt2 = 0;
 
-        uint256 tag;
-        Pb.WireType wire;
+        uint256 key;
         while (buf.hasMore()) {
-            (tag, wire) = buf.decKey();
-            if (false) {} // solidity has no switch/case
-            else if (tag == 1) {
-                m.withdrawInfo = bytes(buf.decBytes());
-            } else if (tag == 2) {
-                m.sigs[cnts[2]] = bytes(buf.decBytes());
-                cnts[2]++;
+            key = buf.decVarint();
+            if (key == 10) {
+                // tag 1
+                m.withdrawInfo = buf.decBytes();
+            } else if (key == 18) {
+                // tag 2
+                bytes memory _v2 = buf.decBytes();
+                assembly ("memory-safe") { mstore(add(add(_arr2, 32), shl(5, _cnt2)), _v2) }
+                unchecked {
+                    _cnt2++;
+                }
             } else {
-                buf.skipValue(wire);
-            } // skip value of unknown tag
+                buf.skipValue(Pb.WireType(key & 7)); // unknown tag or wrong wire
+            }
         }
+
+        bytes[] memory _result2;
+        assembly ("memory-safe") {
+            mstore(_arr2, _cnt2)
+            _result2 := _arr2
+        }
+        m.sigs = _result2;
     } // end decoder CooperativeWithdrawRequest
 
     struct CooperativeSettleRequest {
@@ -84,24 +102,33 @@ library PbChain {
     function decCooperativeSettleRequest(bytes memory raw) internal pure returns (CooperativeSettleRequest memory m) {
         Pb.Buffer memory buf = Pb.fromBytes(raw);
 
-        uint256[] memory cnts = buf.cntTags(2);
-        m.sigs = new bytes[](cnts[2]);
-        cnts[2] = 0; // reset counter for later use
+        uint256[] memory _arr2 = new uint256[](raw.length / 2);
+        uint256 _cnt2 = 0;
 
-        uint256 tag;
-        Pb.WireType wire;
+        uint256 key;
         while (buf.hasMore()) {
-            (tag, wire) = buf.decKey();
-            if (false) {} // solidity has no switch/case
-            else if (tag == 1) {
-                m.settleInfo = bytes(buf.decBytes());
-            } else if (tag == 2) {
-                m.sigs[cnts[2]] = bytes(buf.decBytes());
-                cnts[2]++;
+            key = buf.decVarint();
+            if (key == 10) {
+                // tag 1
+                m.settleInfo = buf.decBytes();
+            } else if (key == 18) {
+                // tag 2
+                bytes memory _v2 = buf.decBytes();
+                assembly ("memory-safe") { mstore(add(add(_arr2, 32), shl(5, _cnt2)), _v2) }
+                unchecked {
+                    _cnt2++;
+                }
             } else {
-                buf.skipValue(wire);
-            } // skip value of unknown tag
+                buf.skipValue(Pb.WireType(key & 7)); // unknown tag or wrong wire
+            }
         }
+
+        bytes[] memory _result2;
+        assembly ("memory-safe") {
+            mstore(_arr2, _cnt2)
+            _result2 := _arr2
+        }
+        m.sigs = _result2;
     } // end decoder CooperativeSettleRequest
 
     struct ResolvePayByConditionsRequest {
@@ -116,24 +143,33 @@ library PbChain {
     {
         Pb.Buffer memory buf = Pb.fromBytes(raw);
 
-        uint256[] memory cnts = buf.cntTags(2);
-        m.hashPreimages = new bytes[](cnts[2]);
-        cnts[2] = 0; // reset counter for later use
+        uint256[] memory _arr2 = new uint256[](raw.length / 2);
+        uint256 _cnt2 = 0;
 
-        uint256 tag;
-        Pb.WireType wire;
+        uint256 key;
         while (buf.hasMore()) {
-            (tag, wire) = buf.decKey();
-            if (false) {} // solidity has no switch/case
-            else if (tag == 1) {
-                m.condPay = bytes(buf.decBytes());
-            } else if (tag == 2) {
-                m.hashPreimages[cnts[2]] = bytes(buf.decBytes());
-                cnts[2]++;
+            key = buf.decVarint();
+            if (key == 10) {
+                // tag 1
+                m.condPay = buf.decBytes();
+            } else if (key == 18) {
+                // tag 2
+                bytes memory _v2 = buf.decBytes();
+                assembly ("memory-safe") { mstore(add(add(_arr2, 32), shl(5, _cnt2)), _v2) }
+                unchecked {
+                    _cnt2++;
+                }
             } else {
-                buf.skipValue(wire);
-            } // skip value of unknown tag
+                buf.skipValue(Pb.WireType(key & 7)); // unknown tag or wrong wire
+            }
         }
+
+        bytes[] memory _result2;
+        assembly ("memory-safe") {
+            mstore(_arr2, _cnt2)
+            _result2 := _arr2
+        }
+        m.hashPreimages = _result2;
     } // end decoder ResolvePayByConditionsRequest
 
     struct SignedSimplexState {
@@ -144,24 +180,33 @@ library PbChain {
     function decSignedSimplexState(bytes memory raw) internal pure returns (SignedSimplexState memory m) {
         Pb.Buffer memory buf = Pb.fromBytes(raw);
 
-        uint256[] memory cnts = buf.cntTags(2);
-        m.sigs = new bytes[](cnts[2]);
-        cnts[2] = 0; // reset counter for later use
+        uint256[] memory _arr2 = new uint256[](raw.length / 2);
+        uint256 _cnt2 = 0;
 
-        uint256 tag;
-        Pb.WireType wire;
+        uint256 key;
         while (buf.hasMore()) {
-            (tag, wire) = buf.decKey();
-            if (false) {} // solidity has no switch/case
-            else if (tag == 1) {
-                m.simplexState = bytes(buf.decBytes());
-            } else if (tag == 2) {
-                m.sigs[cnts[2]] = bytes(buf.decBytes());
-                cnts[2]++;
+            key = buf.decVarint();
+            if (key == 10) {
+                // tag 1
+                m.simplexState = buf.decBytes();
+            } else if (key == 18) {
+                // tag 2
+                bytes memory _v2 = buf.decBytes();
+                assembly ("memory-safe") { mstore(add(add(_arr2, 32), shl(5, _cnt2)), _v2) }
+                unchecked {
+                    _cnt2++;
+                }
             } else {
-                buf.skipValue(wire);
-            } // skip value of unknown tag
+                buf.skipValue(Pb.WireType(key & 7)); // unknown tag or wrong wire
+            }
         }
+
+        bytes[] memory _result2;
+        assembly ("memory-safe") {
+            mstore(_arr2, _cnt2)
+            _result2 := _arr2
+        }
+        m.sigs = _result2;
     } // end decoder SignedSimplexState
 
     struct SignedSimplexStateArray {
@@ -171,22 +216,30 @@ library PbChain {
     function decSignedSimplexStateArray(bytes memory raw) internal pure returns (SignedSimplexStateArray memory m) {
         Pb.Buffer memory buf = Pb.fromBytes(raw);
 
-        uint256[] memory cnts = buf.cntTags(1);
-        m.signedSimplexStates = new SignedSimplexState[](cnts[1]);
-        cnts[1] = 0; // reset counter for later use
+        uint256[] memory _arr1 = new uint256[](raw.length / 2);
+        uint256 _cnt1 = 0;
 
-        uint256 tag;
-        Pb.WireType wire;
+        uint256 key;
         while (buf.hasMore()) {
-            (tag, wire) = buf.decKey();
-            if (false) {} // solidity has no switch/case
-            else if (tag == 1) {
-                m.signedSimplexStates[cnts[1]] = decSignedSimplexState(buf.decBytes());
-                cnts[1]++;
+            key = buf.decVarint();
+            if (key == 10) {
+                // tag 1
+                SignedSimplexState memory _v1 = decSignedSimplexState(buf.decBytes());
+                assembly ("memory-safe") { mstore(add(add(_arr1, 32), shl(5, _cnt1)), _v1) }
+                unchecked {
+                    _cnt1++;
+                }
             } else {
-                buf.skipValue(wire);
-            } // skip value of unknown tag
+                buf.skipValue(Pb.WireType(key & 7)); // unknown tag or wrong wire
+            }
         }
+
+        SignedSimplexState[] memory _result1;
+        assembly ("memory-safe") {
+            mstore(_arr1, _cnt1)
+            _result1 := _arr1
+        }
+        m.signedSimplexStates = _result1;
     } // end decoder SignedSimplexStateArray
 
     struct ChannelMigrationRequest {
@@ -197,23 +250,32 @@ library PbChain {
     function decChannelMigrationRequest(bytes memory raw) internal pure returns (ChannelMigrationRequest memory m) {
         Pb.Buffer memory buf = Pb.fromBytes(raw);
 
-        uint256[] memory cnts = buf.cntTags(2);
-        m.sigs = new bytes[](cnts[2]);
-        cnts[2] = 0; // reset counter for later use
+        uint256[] memory _arr2 = new uint256[](raw.length / 2);
+        uint256 _cnt2 = 0;
 
-        uint256 tag;
-        Pb.WireType wire;
+        uint256 key;
         while (buf.hasMore()) {
-            (tag, wire) = buf.decKey();
-            if (false) {} // solidity has no switch/case
-            else if (tag == 1) {
-                m.channelMigrationInfo = bytes(buf.decBytes());
-            } else if (tag == 2) {
-                m.sigs[cnts[2]] = bytes(buf.decBytes());
-                cnts[2]++;
+            key = buf.decVarint();
+            if (key == 10) {
+                // tag 1
+                m.channelMigrationInfo = buf.decBytes();
+            } else if (key == 18) {
+                // tag 2
+                bytes memory _v2 = buf.decBytes();
+                assembly ("memory-safe") { mstore(add(add(_arr2, 32), shl(5, _cnt2)), _v2) }
+                unchecked {
+                    _cnt2++;
+                }
             } else {
-                buf.skipValue(wire);
-            } // skip value of unknown tag
+                buf.skipValue(Pb.WireType(key & 7)); // unknown tag or wrong wire
+            }
         }
+
+        bytes[] memory _result2;
+        assembly ("memory-safe") {
+            mstore(_arr2, _cnt2)
+            _result2 := _arr2
+        }
+        m.sigs = _result2;
     } // end decoder ChannelMigrationRequest
 }

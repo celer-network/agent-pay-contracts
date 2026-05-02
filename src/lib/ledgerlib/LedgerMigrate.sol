@@ -44,7 +44,7 @@ library LedgerMigrate {
         require(c._checkCoSignatures(h, migrationRequest.sigs), "Check co-sigs failed");
         require(migrationInfo.fromLedgerAddress == address(this), "From ledger address is not this");
         require(toLedgerAddr == msg.sender, "To ledger address is not msg.sender");
-        require(block.number <= migrationInfo.migrationDeadline, "Passed migration deadline");
+        require(block.timestamp <= migrationInfo.migrationDeadline, "Passed migration deadline");
 
         _self._updateChannelStatus(c, LedgerStruct.ChannelStatus.Migrated);
         c.migratedTo = toLedgerAddr;

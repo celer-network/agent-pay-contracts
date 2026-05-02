@@ -205,7 +205,7 @@ constructor(address _registryAddr, address _virtResolverAddr)
 
 ### Resolution rules
 
-- A payment must be resolved before `pay.resolveDeadline` (block number).
+- A payment must be resolved before `pay.resolveDeadline` (Unix timestamp, seconds).
 - A result equal to the maximum-transfer amount **finalizes immediately** — no challenge
   window.
 - A partial result opens a challenge window of length `pay.resolveTimeout`. During the
@@ -313,7 +313,8 @@ Etherscan-friendly metadata: `name = "EthInPool"`, `symbol = "EthIP"`, `decimals
 [Source](../src/RouterRegistry.sol) · [Interface](../src/lib/interface/IRouterRegistry.sol) · **Permanent**
 
 Optional global registry where relay-router operators advertise their addresses to the
-network. Each entry stores the latest registration / refresh `block.number`.
+network. Each entry stores the Unix timestamp (seconds) of the latest registration /
+refresh.
 
 ### External functions
 
@@ -321,7 +322,7 @@ network. Each entry stores the latest registration / refresh `block.number`.
 |---|---|
 | [`registerRouter`](../src/RouterRegistry.sol#L18) | Add `msg.sender` to the registry. Reverts if already present. |
 | [`deregisterRouter`](../src/RouterRegistry.sol#L29) | Remove `msg.sender`. |
-| [`refreshRouter`](../src/RouterRegistry.sol#L40) | Update the stored block number for `msg.sender`. |
+| [`refreshRouter`](../src/RouterRegistry.sol#L40) | Update the stored timestamp for `msg.sender`. |
 
 ### Events
 

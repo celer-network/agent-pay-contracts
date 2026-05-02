@@ -29,7 +29,7 @@ interface IPayRegistry {
     /**
      * @notice Set the resolve deadline for a payment under `msg.sender`'s namespace.
      * @param _payHash `keccak256(serializedConditionalPay)`.
-     * @param _deadline Block number after which the result is finalized.
+     * @param _deadline Unix timestamp (seconds) after which the result is finalized.
      */
     function setPayDeadline(bytes32 _payHash, uint256 _deadline) external;
 
@@ -37,7 +37,7 @@ interface IPayRegistry {
      * @notice Set both the amount and the deadline for a payment in one call.
      * @param _payHash `keccak256(serializedConditionalPay)`.
      * @param _amt Resolved payment amount.
-     * @param _deadline Block number after which the result is finalized.
+     * @param _deadline Unix timestamp (seconds) after which the result is finalized.
      */
     function setPayInfo(bytes32 _payHash, uint256 _amt, uint256 _deadline) external;
 
@@ -82,7 +82,7 @@ interface IPayRegistry {
      * @notice Read the (amount, deadline) tuple for a single payment.
      * @param _payId Pay id.
      * @return amount Resolved payment amount.
-     * @return resolveDeadline Block number after which the result is finalized.
+     * @return resolveDeadline Unix timestamp (seconds) after which the result is finalized.
      */
     function getPayInfo(bytes32 _payId) external view returns (uint256 amount, uint256 resolveDeadline);
 

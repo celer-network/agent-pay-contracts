@@ -91,14 +91,14 @@ contract PayResolver is IPayResolver {
      * @param _amount payment amount to resolve
      */
     function _resolvePayment(PbEntity.ConditionalPay memory _pay, bytes32 _payHash, uint256 _amount) internal {
-        uint256 blockNumber = block.number;
-        require(blockNumber <= _pay.resolveDeadline, "Passed pay resolve deadline in condPay msg");
+        uint256 nowTs = block.timestamp;
+        require(nowTs <= _pay.resolveDeadline, "Passed pay resolve deadline in condPay msg");
 
         bytes32 payId = _calculatePayId(_payHash, address(this));
         (uint256 currentAmt, uint256 currentDeadline) = payRegistry.getPayInfo(payId);
 
         // should never resolve a pay before or not reaching onchain resolve deadline
-        require(currentDeadline == 0 || blockNumber <= currentDeadline, "Passed onchain resolve pay deadline");
+        require(currentDeadline == 0 || nowTs <= currentDeadline, "Passed onchain resolve pay deadline");
 
         if (currentDeadline > 0) {
             // currentDeadline > 0 implies that this pay has been updated
@@ -106,9 +106,9 @@ contract PayResolver is IPayResolver {
             require(_amount > currentAmt, "New amount is not larger");
 
             if (_amount == _pay.transferFunc.maxTransfer.receiver.amt) {
-                // set resolve deadline = current block number if amount = max
-                payRegistry.setPayInfo(_payHash, _amount, blockNumber);
-                emit ResolvePayment(payId, _amount, blockNumber);
+                // set resolve deadline = current timestamp if amount = max
+                payRegistry.setPayInfo(_payHash, _amount, nowTs);
+                emit ResolvePayment(payId, _amount, nowTs);
             } else {
                 // should not update the onchain resolve deadline if not max amount
                 payRegistry.setPayAmount(_payHash, _amount);
@@ -117,9 +117,9 @@ contract PayResolver is IPayResolver {
         } else {
             uint256 newDeadline;
             if (_amount == _pay.transferFunc.maxTransfer.receiver.amt) {
-                newDeadline = blockNumber;
+                newDeadline = nowTs;
             } else {
-                newDeadline = Math.min(blockNumber + _pay.resolveTimeout, _pay.resolveDeadline);
+                newDeadline = Math.min(nowTs + _pay.resolveTimeout, _pay.resolveDeadline);
                 // 0 is reserved for unresolved status of a payment
                 require(newDeadline > 0, "New resolve deadline is 0");
             }

@@ -20,6 +20,10 @@ contract RouterRegistryTest is Test {
     event RouterUpdated(IRouterRegistry.RouterOperation indexed op, address indexed routerAddress);
 
     function setUp() public {
+        // Anchor block.timestamp far above zero so timestamp comparisons in
+        // tests can't underflow.
+        vm.warp(1_000_000);
+
         registry = new RouterRegistry();
     }
 
@@ -34,7 +38,7 @@ contract RouterRegistryTest is Test {
         vm.prank(router0);
         registry.registerRouter();
 
-        assertEq(registry.routerInfo(router0), block.number);
+        assertEq(registry.routerInfo(router0), block.timestamp);
     }
 
     function test_registerRouter_revertsForAlreadyRegistered() public {
@@ -73,13 +77,13 @@ contract RouterRegistryTest is Test {
     // refreshRouter
     // -------------------------------------------------------------------------
 
-    function test_refreshRouter_updatesBlockNumber_emitsRefresh() public {
+    function test_refreshRouter_updatesTimestamp_emitsRefresh() public {
         vm.prank(router0);
         registry.registerRouter();
-        uint256 firstBlock = block.number;
+        uint256 firstTime = block.timestamp;
 
         // Advance and refresh.
-        vm.roll(firstBlock + 50);
+        vm.warp(firstTime + 50);
 
         vm.expectEmit(true, true, false, false, address(registry));
         emit RouterUpdated(IRouterRegistry.RouterOperation.Refresh, router0);
@@ -87,7 +91,7 @@ contract RouterRegistryTest is Test {
         vm.prank(router0);
         registry.refreshRouter();
 
-        assertEq(registry.routerInfo(router0), firstBlock + 50);
+        assertEq(registry.routerInfo(router0), firstTime + 50);
     }
 
     function test_refreshRouter_revertsForUnregistered() public {
@@ -100,11 +104,11 @@ contract RouterRegistryTest is Test {
     // routerInfo public getter
     // -------------------------------------------------------------------------
 
-    function test_routerInfo_returnsBlockNumberForRegistered() public {
+    function test_routerInfo_returnsTimestampForRegistered() public {
         vm.prank(router0);
         registry.registerRouter();
 
-        assertEq(registry.routerInfo(router0), block.number);
+        assertEq(registry.routerInfo(router0), block.timestamp);
     }
 
     function test_routerInfo_returnsZeroForUnregistered() public {

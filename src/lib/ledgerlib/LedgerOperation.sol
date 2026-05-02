@@ -32,7 +32,7 @@ library LedgerOperation {
         PbEntity.PaymentChannelInitializer memory channelInitializer =
             PbEntity.decPaymentChannelInitializer(openRequest.channelInitializer);
         require(channelInitializer.initDistribution.distribution.length == 2, "Wrong length");
-        require(block.number <= channelInitializer.openDeadline, "Open deadline passed");
+        require(block.timestamp <= channelInitializer.openDeadline, "Open deadline passed");
 
         PbEntity.TokenInfo memory token = channelInitializer.initDistribution.token;
         uint256[2] memory amounts = [
@@ -221,7 +221,7 @@ library LedgerOperation {
 
         withdrawIntent.receiver = receiver;
         withdrawIntent.amount = _amount;
-        withdrawIntent.requestTime = block.number;
+        withdrawIntent.requestTime = block.timestamp;
         withdrawIntent.recipientChannelId = _recipientChannelId;
 
         emit IntendWithdraw(_channelId, receiver, _amount);
@@ -237,7 +237,7 @@ library LedgerOperation {
         LedgerStruct.Channel storage c = _self.channelMap[_channelId];
         require(c.status == LedgerStruct.ChannelStatus.Operable, "Channel status error");
         require(c.withdrawIntent.receiver != address(0), "No pending withdraw intent");
-        require(block.number >= c.withdrawIntent.requestTime + c.disputeTimeout, "Dispute not timeout");
+        require(block.timestamp >= c.withdrawIntent.requestTime + c.disputeTimeout, "Dispute not timeout");
 
         address receiver = c.withdrawIntent.receiver;
         uint256 amount = c.withdrawIntent.amount;
@@ -299,7 +299,7 @@ library LedgerOperation {
         require(c._checkCoSignatures(h, cooperativeWithdrawRequest.sigs), "Check co-sigs failed");
         // require an increment of exactly 1 for seqNum of each cooperative withdraw request
         require(withdrawInfo.seqNum - c.cooperativeWithdrawSeqNum == 1, "seqNum error");
-        require(block.number <= withdrawInfo.withdrawDeadline, "Withdraw deadline passed");
+        require(block.timestamp <= withdrawInfo.withdrawDeadline, "Withdraw deadline passed");
 
         address receiver = withdrawInfo.withdraw.account;
         c.cooperativeWithdrawSeqNum = withdrawInfo.seqNum;
@@ -345,7 +345,9 @@ library LedgerOperation {
                 // A nonpeer cannot be the first one to call intendSettle
                 require(c.status == LedgerStruct.ChannelStatus.Settling, "Nonpeer channel status error");
             }
-            require(c.settleFinalizedTime == 0 || block.number < c.settleFinalizedTime, "Settle has already finalized");
+            require(
+                c.settleFinalizedTime == 0 || block.timestamp < c.settleFinalizedTime, "Settle has already finalized"
+            );
 
             bytes32 stateHash = keccak256(signedSimplexStateArray.signedSimplexStates[i].simplexState);
             bytes[] memory sigs = signedSimplexStateArray.signedSimplexStates[i].sigs;
@@ -438,25 +440,25 @@ library LedgerOperation {
     function confirmSettle(LedgerStruct.Ledger storage _self, bytes32 _channelId) external {
         LedgerStruct.Channel storage c = _self.channelMap[_channelId];
         LedgerStruct.PeerProfile[2] storage peerProfiles = c.peerProfiles;
-        uint256 blockNumber = block.number;
+        uint256 nowTs = block.timestamp;
         require(c.status == LedgerStruct.ChannelStatus.Settling, "Channel status error");
         // require no new intendSettle can be called
-        require(blockNumber >= c.settleFinalizedTime, "Settle is not finalized");
+        require(nowTs >= c.settleFinalizedTime, "Settle is not finalized");
 
         // require channel status of current intendSettle has been finalized,
         // namely all payments have already been either cleared or expired
         // Note: this lastPayResolveDeadline should use
         //   (the actual last resolve deadline of all pays + clearPays safe margin)
         //   to ensure that peers have enough time to clearPays before confirmSettle.
-        //   However this only matters if there are multiple blocks of pending pay list
-        //   i.e. the nextPayIdListHash after intendSettle is not bytes32(0).
+        //   However this only matters if there are multiple segments of the pending
+        //   pay list, i.e. the nextPayIdListHash after intendSettle is not bytes32(0).
         // TODO: add an additional clearSafeMargin param or change the semantics of
         //   lastPayResolveDeadline to also include clearPays safe margin and rename it.
         require(
             (peerProfiles[0].state.nextPayIdListHash == bytes32(0)
-                    || blockNumber > peerProfiles[0].state.lastPayResolveDeadline)
+                    || nowTs > peerProfiles[0].state.lastPayResolveDeadline)
                 && (peerProfiles[1].state.nextPayIdListHash == bytes32(0)
-                    || blockNumber > peerProfiles[1].state.lastPayResolveDeadline),
+                    || nowTs > peerProfiles[1].state.lastPayResolveDeadline),
             "Payments are not finalized"
         );
 
@@ -501,7 +503,7 @@ library LedgerOperation {
             settleInfo.seqNum > c.peerProfiles[0].state.seqNum && settleInfo.seqNum > c.peerProfiles[1].state.seqNum,
             "seqNum error"
         );
-        require(settleInfo.settleDeadline >= block.number, "Settle deadline passed");
+        require(settleInfo.settleDeadline >= block.timestamp, "Settle deadline passed");
         // require distribution is consistent with the order of peerAddrs in channel
         require(
             settleInfo.settleBalance[0].account == peerAddrs[0] && settleInfo.settleBalance[1].account == peerAddrs[1],
@@ -729,7 +731,7 @@ library LedgerOperation {
      */
     function _updateOverallStatesByIntendState(LedgerStruct.Ledger storage _self, bytes32 _channelId) internal {
         LedgerStruct.Channel storage c = _self.channelMap[_channelId];
-        c.settleFinalizedTime = block.number + c.disputeTimeout;
+        c.settleFinalizedTime = block.timestamp + c.disputeTimeout;
         _updateChannelStatus(_self, c, LedgerStruct.ChannelStatus.Settling);
 
         emit IntendSettle(_channelId, c._getStateSeqNums());

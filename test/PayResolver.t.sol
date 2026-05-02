@@ -61,6 +61,10 @@ contract PayResolverTest is Test {
     event ResolvePayment(bytes32 indexed payId, uint256 amount, uint256 resolveDeadline);
 
     function setUp() public {
+        // Anchor block.timestamp far above zero so deadline math like
+        // `block.timestamp - 1` cannot underflow.
+        vm.warp(1_000_000);
+
         virtResolver = new VirtContractResolver();
         payRegistry = new PayRegistry();
         payResolver = new PayResolver(address(payRegistry), address(virtResolver));
@@ -176,7 +180,7 @@ contract PayResolverTest is Test {
         bytes32 expectedPayId = _payId(payBytes);
 
         vm.expectEmit(true, false, false, true, address(payResolver));
-        emit ResolvePayment(expectedPayId, 10, block.number);
+        emit ResolvePayment(expectedPayId, 10, block.timestamp);
 
         _resolveByConditions(payBytes, TRUE_PREIMAGE);
     }
@@ -186,7 +190,7 @@ contract PayResolverTest is Test {
         bytes32 expectedPayId = _payId(payBytes);
 
         vm.expectEmit(true, false, false, true, address(payResolver));
-        emit ResolvePayment(expectedPayId, 0, block.number + RESOLVE_TIMEOUT);
+        emit ResolvePayment(expectedPayId, 0, block.timestamp + RESOLVE_TIMEOUT);
 
         _resolveByConditions(payBytes, TRUE_PREIMAGE);
     }
@@ -196,7 +200,7 @@ contract PayResolverTest is Test {
         bytes32 expectedPayId = _payId(payBytes);
 
         vm.expectEmit(true, false, false, true, address(payResolver));
-        emit ResolvePayment(expectedPayId, 30, block.number);
+        emit ResolvePayment(expectedPayId, 30, block.timestamp);
 
         _resolveByConditions(payBytes, TRUE_PREIMAGE);
     }
@@ -206,7 +210,7 @@ contract PayResolverTest is Test {
         bytes32 expectedPayId = _payId(payBytes);
 
         vm.expectEmit(true, false, false, true, address(payResolver));
-        emit ResolvePayment(expectedPayId, 0, block.number + RESOLVE_TIMEOUT);
+        emit ResolvePayment(expectedPayId, 0, block.timestamp + RESOLVE_TIMEOUT);
 
         _resolveByConditions(payBytes, TRUE_PREIMAGE);
     }
@@ -220,7 +224,7 @@ contract PayResolverTest is Test {
         bytes32 expectedPayId = _payId(payBytes);
 
         vm.expectEmit(true, false, false, true, address(payResolver));
-        emit ResolvePayment(expectedPayId, 20, block.number + RESOLVE_TIMEOUT);
+        emit ResolvePayment(expectedPayId, 20, block.timestamp + RESOLVE_TIMEOUT);
 
         payResolver.resolvePaymentByVouchedResult(_vouched(payBytes, 20));
     }
@@ -231,7 +235,7 @@ contract PayResolverTest is Test {
 
         // First resolve at 20 (deadline = N + RESOLVE_TIMEOUT).
         payResolver.resolvePaymentByVouchedResult(_vouched(payBytes, 20));
-        uint256 firstDeadline = block.number + RESOLVE_TIMEOUT;
+        uint256 firstDeadline = block.timestamp + RESOLVE_TIMEOUT;
 
         // Second resolve at 25; deadline must be unchanged because amount < max.
         vm.expectEmit(true, false, false, true, address(payResolver));
@@ -245,7 +249,7 @@ contract PayResolverTest is Test {
         bytes32 expectedPayId = _payId(payBytes);
 
         payResolver.resolvePaymentByVouchedResult(_vouched(payBytes, 20));
-        uint256 firstDeadline = block.number + RESOLVE_TIMEOUT;
+        uint256 firstDeadline = block.timestamp + RESOLVE_TIMEOUT;
 
         // NUMERIC_ADD over [hashLock, num10, num25] = 35. Higher than 20 → updates,
         // deadline preserved (still partial vs max=100).
@@ -279,17 +283,15 @@ contract PayResolverTest is Test {
     // -------------------------------------------------------------------------
 
     function test_resolveByConditions_pastResolveDeadline_reverts() public {
-        // resolveDeadline = 1; roll past it.
-        bytes memory payBytes = _buildPay(5, 1, 0, 10, 1);
-        vm.roll(2);
+        // resolveDeadline already in the past.
+        bytes memory payBytes = _buildPay(5, 1, 0, 10, block.timestamp - 1);
 
         vm.expectRevert(bytes("Passed pay resolve deadline in condPay msg"));
         _resolveByConditions(payBytes, TRUE_PREIMAGE);
     }
 
     function test_resolveByVouchedResult_pastResolveDeadline_reverts() public {
-        bytes memory payBytes = _buildPay(6, 1, 0, 100, 1);
-        vm.roll(2);
+        bytes memory payBytes = _buildPay(6, 1, 0, 100, block.timestamp - 1);
 
         vm.expectRevert(bytes("Passed pay resolve deadline in condPay msg"));
         payResolver.resolvePaymentByVouchedResult(_vouched(payBytes, 20));
@@ -302,7 +304,7 @@ contract PayResolverTest is Test {
         payResolver.resolvePaymentByVouchedResult(_vouched(payBytes, 20));
 
         // Roll past the onchain resolve deadline.
-        vm.roll(block.number + RESOLVE_TIMEOUT + 1);
+        vm.warp(block.timestamp + RESOLVE_TIMEOUT + 1);
 
         vm.expectRevert(bytes("Passed onchain resolve pay deadline"));
         payResolver.resolvePaymentByVouchedResult(_vouched(payBytes, 30));
@@ -312,7 +314,7 @@ contract PayResolverTest is Test {
         bytes memory payBytes = _buildPay(8, 1, 0, 200, RESOLVE_DEADLINE);
 
         payResolver.resolvePaymentByVouchedResult(_vouched(payBytes, 20));
-        vm.roll(block.number + RESOLVE_TIMEOUT + 1);
+        vm.warp(block.timestamp + RESOLVE_TIMEOUT + 1);
 
         vm.expectRevert(bytes("Passed onchain resolve pay deadline"));
         _resolveByConditions(payBytes, TRUE_PREIMAGE);
@@ -331,6 +333,75 @@ contract PayResolverTest is Test {
     }
 
     // -------------------------------------------------------------------------
+    // Dependent-contract not-finalized failure
+    // -------------------------------------------------------------------------
+
+    /// @dev Build a ConditionalPay containing a single deployed-contract condition
+    ///  pointing at `_addr`, with explicit `argsQueryFinalization` so the new
+    ///  unified mocks can simulate `isFinalized = false`. Used by the
+    ///  not-finalized revert tests below.
+    function _buildPaySingleDeployed(
+        uint256 _payTimestamp,
+        address _addr,
+        uint256 _logicType,
+        bytes memory _argsFinalization,
+        bytes memory _argsOutcome
+    ) internal view returns (bytes memory) {
+        Fixtures.Condition[] memory conds = new Fixtures.Condition[](1);
+        conds[0].conditionType = 1; // DEPLOYED_CONTRACT
+        conds[0].deployedAddress = _addr;
+        conds[0].argsQueryFinalization = _argsFinalization;
+        conds[0].argsQueryOutcome = _argsOutcome;
+
+        Fixtures.ConditionalPay memory pay = Fixtures.ConditionalPay({
+            payTimestamp: _payTimestamp,
+            src: payerSrc,
+            dest: payerDest,
+            conditions: conds,
+            logicType: _logicType,
+            maxAmount: 50,
+            resolveDeadline: RESOLVE_DEADLINE,
+            resolveTimeout: RESOLVE_TIMEOUT,
+            payResolver: address(payResolver)
+        });
+        return Fixtures.encConditionalPay(pay);
+    }
+
+    /// @dev `isFinalized` query byte that the unified mocks decode as `false`.
+    bytes internal constant NOT_FINALIZED_QUERY = hex"00";
+
+    function test_resolveByConditions_booleanAnd_dependentNotFinalized_reverts() public {
+        // BOOLEAN_AND with a single deployed-contract condition where
+        // argsQueryFinalization decodes to `false`.
+        bytes memory payBytes =
+            _buildPaySingleDeployed(20, address(boolMock), 0, NOT_FINALIZED_QUERY, abi.encodePacked(bytes1(0x01)));
+
+        bytes[] memory preimages = new bytes[](0);
+        vm.expectRevert(bytes("Condition is not finalized"));
+        payResolver.resolvePaymentByConditions(Fixtures.encResolvePayByConditionsRequest(payBytes, preimages));
+    }
+
+    function test_resolveByConditions_booleanOr_dependentNotFinalized_reverts() public {
+        // BOOLEAN_OR with the same shape.
+        bytes memory payBytes =
+            _buildPaySingleDeployed(21, address(boolMock), 1, NOT_FINALIZED_QUERY, abi.encodePacked(bytes1(0x01)));
+
+        bytes[] memory preimages = new bytes[](0);
+        vm.expectRevert(bytes("Condition is not finalized"));
+        payResolver.resolvePaymentByConditions(Fixtures.encResolvePayByConditionsRequest(payBytes, preimages));
+    }
+
+    function test_resolveByConditions_numericLogic_dependentNotFinalized_reverts() public {
+        // NUMERIC_ADD with a numeric condition where argsQueryFinalization decodes to `false`.
+        bytes memory payBytes =
+            _buildPaySingleDeployed(22, address(numMock), 3, NOT_FINALIZED_QUERY, abi.encodePacked(uint8(10)));
+
+        bytes[] memory preimages = new bytes[](0);
+        vm.expectRevert(bytes("Condition is not finalized"));
+        payResolver.resolvePaymentByConditions(Fixtures.encResolvePayByConditionsRequest(payBytes, preimages));
+    }
+
+    // -------------------------------------------------------------------------
     // Numeric logic
     // -------------------------------------------------------------------------
 
@@ -339,7 +410,7 @@ contract PayResolverTest is Test {
         bytes32 expectedPayId = _payId(payBytes);
 
         vm.expectEmit(true, false, false, true, address(payResolver));
-        emit ResolvePayment(expectedPayId, 35, block.number + RESOLVE_TIMEOUT);
+        emit ResolvePayment(expectedPayId, 35, block.timestamp + RESOLVE_TIMEOUT);
 
         _resolveByConditions(payBytes, TRUE_PREIMAGE);
     }
@@ -349,7 +420,7 @@ contract PayResolverTest is Test {
         bytes32 expectedPayId = _payId(payBytes);
 
         vm.expectEmit(true, false, false, true, address(payResolver));
-        emit ResolvePayment(expectedPayId, 25, block.number + RESOLVE_TIMEOUT);
+        emit ResolvePayment(expectedPayId, 25, block.timestamp + RESOLVE_TIMEOUT);
 
         _resolveByConditions(payBytes, TRUE_PREIMAGE);
     }
@@ -359,7 +430,7 @@ contract PayResolverTest is Test {
         bytes32 expectedPayId = _payId(payBytes);
 
         vm.expectEmit(true, false, false, true, address(payResolver));
-        emit ResolvePayment(expectedPayId, 10, block.number + RESOLVE_TIMEOUT);
+        emit ResolvePayment(expectedPayId, 10, block.timestamp + RESOLVE_TIMEOUT);
 
         _resolveByConditions(payBytes, TRUE_PREIMAGE);
     }
@@ -377,28 +448,28 @@ contract PayResolverTest is Test {
             bytes32 expectedPayId = _payId(payBytes);
 
             vm.expectEmit(true, false, false, true, address(payResolver));
-            emit ResolvePayment(expectedPayId, 50, block.number);
+            emit ResolvePayment(expectedPayId, 50, block.timestamp);
 
             _resolveByConditions(payBytes, TRUE_PREIMAGE);
         }
     }
 
     // -------------------------------------------------------------------------
-    // Updating amount = max sets onchain deadline to current block
+    // Updating amount = max sets onchain deadline to current timestamp
     // -------------------------------------------------------------------------
 
-    function test_updatedAmountEqualsMax_setsOnchainDeadlineToCurrentBlock() public {
+    function test_updatedAmountEqualsMax_setsOnchainDeadlineToCurrentTimestamp() public {
         bytes memory payBytes = _buildPay(0, 5, 3, 35, RESOLVE_DEADLINE); // max = 35
         bytes32 expectedPayId = _payId(payBytes);
 
-        // First: vouched 20 → partial, deadline = block + timeout.
+        // First: vouched 20 → partial, deadline = timestamp + timeout.
         payResolver.resolvePaymentByVouchedResult(_vouched(payBytes, 20));
 
         // Second: resolve by conditions → 35 (= max). Deadline must collapse to
-        // current block.
-        vm.roll(block.number + 2);
+        // current timestamp.
+        vm.warp(block.timestamp + 2);
         vm.expectEmit(true, false, false, true, address(payResolver));
-        emit ResolvePayment(expectedPayId, 35, block.number);
+        emit ResolvePayment(expectedPayId, 35, block.timestamp);
 
         _resolveByConditions(payBytes, TRUE_PREIMAGE);
     }
@@ -436,12 +507,12 @@ contract PayResolverTest is Test {
 
         bytes[] memory preimages = new bytes[](0);
         vm.expectEmit(true, false, false, true, address(payResolver));
-        emit ResolvePayment(expectedPayId, 50, block.number);
+        emit ResolvePayment(expectedPayId, 50, block.timestamp);
 
         payResolver.resolvePaymentByConditions(Fixtures.encResolvePayByConditionsRequest(payBytes, preimages));
 
         (uint256 amount, uint256 deadline) = payRegistry.getPayInfo(expectedPayId);
         assertEq(amount, 50);
-        assertEq(deadline, block.number);
+        assertEq(deadline, block.timestamp);
     }
 }

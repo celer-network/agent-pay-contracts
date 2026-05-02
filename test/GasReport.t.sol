@@ -452,7 +452,7 @@ contract GasReport is LedgerTestBase {
         bytes32 ch = _openFundedEthChannel([uint256(200), 0]);
         vm.prank(peer0);
         celerLedger.intendWithdraw(ch, 50, bytes32(0));
-        vm.roll(block.number + DISPUTE_TIMEOUT + 1);
+        vm.warp(block.timestamp + DISPUTE_TIMEOUT + 1);
         uint256 g0 = gasleft();
         celerLedger.confirmWithdraw(ch);
         g = g0 - gasleft();
@@ -462,7 +462,7 @@ contract GasReport is LedgerTestBase {
     function _measure_cooperativeWithdraw() internal returns (uint256 g) {
         uint256 snap = vm.snapshotState();
         bytes32 ch = _openFundedEthChannel([uint256(200), 0]);
-        bytes memory request = _buildCoopWithdraw(ch, 1, peer0, 100, block.number + 1000, bytes32(0));
+        bytes memory request = _buildCoopWithdraw(ch, 1, peer0, 100, block.timestamp + 1000, bytes32(0));
         uint256 g0 = gasleft();
         celerLedger.cooperativeWithdraw(request);
         g = g0 - gasleft();
@@ -473,7 +473,7 @@ contract GasReport is LedgerTestBase {
         uint256 snap = vm.snapshotState();
         (bytes memory openReq,, bytes32 ch) = _buildOpenErc20(address(erc20), [uint256(200), 0], openDeadlineCursor++);
         celerLedger.openChannel(openReq);
-        bytes memory request = _buildCoopWithdraw(ch, 1, peer0, 100, block.number + 1000, bytes32(0));
+        bytes memory request = _buildCoopWithdraw(ch, 1, peer0, 100, block.timestamp + 1000, bytes32(0));
         uint256 g0 = gasleft();
         celerLedger.cooperativeWithdraw(request);
         g = g0 - gasleft();
@@ -527,7 +527,7 @@ contract GasReport is LedgerTestBase {
         bytes memory s1 = _buildSimplexWithPayList(ch, peer1, 1, bListBytes, 13);
         bytes memory array = _wrapStateArray(s0, s1);
 
-        vm.roll(block.number + 10);
+        vm.warp(block.timestamp + 10);
 
         vm.prank(peer0);
         uint256 g0 = gasleft();
@@ -553,7 +553,7 @@ contract GasReport is LedgerTestBase {
         bytes memory s1 = _buildSignedSimplex(ch, peer1, 1, 0);
         bytes memory array = _wrapStateArray(s0, s1);
 
-        vm.roll(block.number + 10);
+        vm.warp(block.timestamp + 10);
 
         vm.prank(peer0);
         uint256 g0 = gasleft();
@@ -590,7 +590,7 @@ contract GasReport is LedgerTestBase {
         bytes memory s0 = _buildSimplexWithPayList(ch, peer0, 1, headList, 10 + tailTotal);
         bytes memory s1 = _buildSignedSimplex(ch, peer1, 1, 0);
 
-        vm.roll(block.number + 10);
+        vm.warp(block.timestamp + 10);
 
         vm.prank(peer0);
         celerLedger.intendSettle(_wrapStateArray(s0, s1));
@@ -608,7 +608,7 @@ contract GasReport is LedgerTestBase {
         bytes memory s1 = _buildSignedSimplex(ch, peer1, 1, 0);
         vm.prank(peer0);
         celerLedger.intendSettle(_wrapStateArray(s0, s1));
-        vm.roll(block.number + DISPUTE_TIMEOUT + 1);
+        vm.warp(block.timestamp + DISPUTE_TIMEOUT + 1);
         uint256 g0 = gasleft();
         celerLedger.confirmSettle(ch);
         g = g0 - gasleft();
@@ -618,7 +618,7 @@ contract GasReport is LedgerTestBase {
     function _measure_cooperativeSettle() internal returns (uint256 g) {
         uint256 snap = vm.snapshotState();
         bytes32 ch = _openFundedEthChannel([uint256(200), 0]);
-        bytes memory request = _buildCoopSettle(ch, 1, [uint256(120), 80], block.number + 1000);
+        bytes memory request = _buildCoopSettle(ch, 1, [uint256(120), 80], block.timestamp + 1000);
         uint256 g0 = gasleft();
         celerLedger.cooperativeSettle(request);
         g = g0 - gasleft();
@@ -629,7 +629,7 @@ contract GasReport is LedgerTestBase {
         uint256 snap = vm.snapshotState();
         (bytes memory openReq,, bytes32 ch) = _buildOpenErc20(address(erc20), [uint256(200), 0], openDeadlineCursor++);
         celerLedger.openChannel(openReq);
-        bytes memory request = _buildCoopSettle(ch, 1, [uint256(120), 80], block.number + 1000);
+        bytes memory request = _buildCoopSettle(ch, 1, [uint256(120), 80], block.timestamp + 1000);
         uint256 g0 = gasleft();
         celerLedger.cooperativeSettle(request);
         g = g0 - gasleft();
@@ -704,7 +704,7 @@ contract GasReport is LedgerTestBase {
         bytes32 ch = _openFundedEthChannel([uint256(100), 200]);
         CelerLedger newLedger = _deployNewLedgerSiblingAndApprove();
         bytes memory request =
-            _buildMigrationRequest(ch, address(celerLedger), address(newLedger), block.number + 100_000);
+            _buildMigrationRequest(ch, address(celerLedger), address(newLedger), block.timestamp + 100_000);
 
         uint256 g0 = gasleft();
         newLedger.migrateChannelFrom(address(celerLedger), request);
@@ -722,7 +722,7 @@ contract GasReport is LedgerTestBase {
 
         CelerLedger newLedger = _deployNewLedgerSiblingAndApprove();
         bytes memory request =
-            _buildMigrationRequest(ch, address(celerLedger), address(newLedger), block.number + 100_000);
+            _buildMigrationRequest(ch, address(celerLedger), address(newLedger), block.timestamp + 100_000);
 
         uint256 g0 = gasleft();
         newLedger.migrateChannelFrom(address(celerLedger), request);
@@ -737,7 +737,7 @@ contract GasReport is LedgerTestBase {
 
         CelerLedger newLedger = _deployNewLedgerSiblingAndApprove();
         bytes memory request =
-            _buildMigrationRequest(ch, address(celerLedger), address(newLedger), block.number + 100_000);
+            _buildMigrationRequest(ch, address(celerLedger), address(newLedger), block.timestamp + 100_000);
 
         uint256 g0 = gasleft();
         newLedger.migrateChannelFrom(address(celerLedger), request);
@@ -853,7 +853,7 @@ contract GasReport is LedgerTestBase {
             seqNum: _seqNum,
             transferAmount: 0,
             pendingPayIds: _payIdList,
-            lastPayResolveDeadline: block.number + 1000,
+            lastPayResolveDeadline: block.timestamp + 1000,
             totalPendingAmount: _totalPending
         });
         bytes memory simplex = Fixtures.encSimplexPaymentChannel(s);

@@ -83,10 +83,10 @@ contract CelerWalletTest is Test {
 
     /// @dev Replicates `WalletTestHelper.create` + `CelerWallet.create` id derivation:
     ///  helper hashes the user nonce into `bytes32 n`, then the wallet derives
-    ///  `id = keccak256(walletAddr, helperAddr, n)`.
+    ///  `id = keccak256(chainid, walletAddr, helperAddr, n)`.
     function _walletIdViaHelper(uint256 _nonce) internal view returns (bytes32) {
         bytes32 n = keccak256(abi.encodePacked(_nonce));
-        return keccak256(abi.encodePacked(address(wallet), address(walletHelper), n));
+        return keccak256(abi.encodePacked(block.chainid, address(wallet), address(walletHelper), n));
     }
 
     // =========================================================================

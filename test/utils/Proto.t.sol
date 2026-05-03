@@ -68,7 +68,8 @@ contract ProtoTest is Test {
             maxAmount: 1000,
             resolveDeadline: 999999,
             resolveTimeout: 5,
-            payResolver: payResolver
+            payResolver: payResolver,
+            chainId: 31337
         });
 
         bytes memory encoded = Fixtures.encConditionalPay(pay);
@@ -85,6 +86,7 @@ contract ProtoTest is Test {
         assertEq(decoded.resolveDeadline, 999999);
         assertEq(decoded.resolveTimeout, 5);
         assertEq(decoded.payResolver, payResolver);
+        assertEq(decoded.chainId, 31337);
     }
 
     function test_encConditionalPay_multipleConditions_roundTrips() public pure {
@@ -102,7 +104,8 @@ contract ProtoTest is Test {
             maxAmount: 999,
             resolveDeadline: 100,
             resolveTimeout: 5,
-            payResolver: address(0xc)
+            payResolver: address(0xc),
+            chainId: 31337
         });
 
         bytes memory encoded = Fixtures.encConditionalPay(pay);
@@ -164,7 +167,9 @@ contract ProtoTest is Test {
             amounts: [uint256(100), uint256(200)],
             openDeadline: 999999,
             disputeTimeout: 10,
-            msgValueReceiver: 0
+            msgValueReceiver: 0,
+            chainId: 31337,
+            ledgerAddress: address(0xabcd)
         });
 
         bytes memory encoded = Fixtures.encPaymentChannelInitializer(init);
@@ -179,6 +184,8 @@ contract ProtoTest is Test {
         assertEq(decoded.openDeadline, 999999);
         assertEq(decoded.disputeTimeout, 10);
         assertEq(decoded.msgValueReceiver, 0);
+        assertEq(decoded.chainId, 31337);
+        assertEq(decoded.ledgerAddress, address(0xabcd));
     }
 
     function test_encOpenChannelRequest_roundTrips() public pure {

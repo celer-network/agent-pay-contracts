@@ -649,7 +649,8 @@ contract GasReport is LedgerTestBase {
             maxAmount: 10,
             resolveDeadline: 9_999_999,
             resolveTimeout: 5,
-            payResolver: address(payResolver)
+            payResolver: address(payResolver),
+            chainId: block.chainid
         });
         bytes memory payBytes = Fixtures.encConditionalPay(pay);
         bytes[] memory preimages = new bytes[](1);
@@ -676,7 +677,8 @@ contract GasReport is LedgerTestBase {
             maxAmount: 100,
             resolveDeadline: 9_999_999,
             resolveTimeout: 10,
-            payResolver: address(payResolver)
+            payResolver: address(payResolver),
+            chainId: block.chainid
         });
         bytes memory payBytes = Fixtures.encConditionalPay(pay);
         bytes memory result = Fixtures.encCondPayResult(payBytes, 20);
@@ -831,7 +833,8 @@ contract GasReport is LedgerTestBase {
             maxAmount: _maxAmount,
             resolveDeadline: 9_999_999,
             resolveTimeout: 5,
-            payResolver: address(payResolver)
+            payResolver: address(payResolver),
+            chainId: block.chainid
         });
         bytes memory payBytes = Fixtures.encConditionalPay(pay);
         bytes[] memory preimages = new bytes[](1);

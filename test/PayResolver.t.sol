@@ -138,7 +138,8 @@ contract PayResolverTest is Test {
             maxAmount: _maxAmount,
             resolveDeadline: _resolveDeadline,
             resolveTimeout: RESOLVE_TIMEOUT,
-            payResolver: address(payResolver)
+            payResolver: address(payResolver),
+            chainId: block.chainid
         });
         return Fixtures.encConditionalPay(pay);
     }
@@ -362,7 +363,8 @@ contract PayResolverTest is Test {
             maxAmount: 50,
             resolveDeadline: RESOLVE_DEADLINE,
             resolveTimeout: RESOLVE_TIMEOUT,
-            payResolver: address(payResolver)
+            payResolver: address(payResolver),
+            chainId: block.chainid
         });
         return Fixtures.encConditionalPay(pay);
     }
@@ -399,6 +401,49 @@ contract PayResolverTest is Test {
         bytes[] memory preimages = new bytes[](0);
         vm.expectRevert(bytes("Condition is not finalized"));
         payResolver.resolvePaymentByConditions(Fixtures.encResolvePayByConditionsRequest(payBytes, preimages));
+    }
+
+    // -------------------------------------------------------------------------
+    // Wrong chain id (replay protection)
+    // -------------------------------------------------------------------------
+
+    /// @dev Build a hash-lock-only ConditionalPay with an explicit `chainId`
+    ///  override. Used by the wrong-chain-id revert tests below.
+    function _buildPayWithChainId(uint256 _payTimestamp, uint256 _chainId) internal view returns (bytes memory) {
+        Fixtures.Condition[] memory conds = new Fixtures.Condition[](1);
+        conds[0] = Fixtures.condHashLock(_hashLockTrue());
+
+        Fixtures.ConditionalPay memory pay = Fixtures.ConditionalPay({
+            payTimestamp: _payTimestamp,
+            src: payerSrc,
+            dest: payerDest,
+            conditions: conds,
+            logicType: 0, // BOOLEAN_AND
+            maxAmount: 50,
+            resolveDeadline: RESOLVE_DEADLINE,
+            resolveTimeout: RESOLVE_TIMEOUT,
+            payResolver: address(payResolver),
+            chainId: _chainId
+        });
+        return Fixtures.encConditionalPay(pay);
+    }
+
+    function test_resolveByConditions_wrongChainId_reverts() public {
+        // Pay is bound to a chainid one greater than the current chain.
+        bytes memory payBytes = _buildPayWithChainId(30, block.chainid + 1);
+
+        bytes[] memory preimages = new bytes[](1);
+        preimages[0] = TRUE_PREIMAGE;
+        vm.expectRevert(bytes("Wrong chain id for pay"));
+        payResolver.resolvePaymentByConditions(Fixtures.encResolvePayByConditionsRequest(payBytes, preimages));
+    }
+
+    function test_resolveByVouchedResult_wrongChainId_reverts() public {
+        // Same wrong-chainid pay submitted via the vouched-result path.
+        bytes memory payBytes = _buildPayWithChainId(31, block.chainid + 1);
+
+        vm.expectRevert(bytes("Wrong chain id for pay"));
+        payResolver.resolvePaymentByVouchedResult(_vouched(payBytes, 20));
     }
 
     // -------------------------------------------------------------------------
@@ -500,7 +545,8 @@ contract PayResolverTest is Test {
             maxAmount: 50,
             resolveDeadline: RESOLVE_DEADLINE,
             resolveTimeout: RESOLVE_TIMEOUT,
-            payResolver: address(payResolver)
+            payResolver: address(payResolver),
+            chainId: block.chainid
         });
         bytes memory payBytes = Fixtures.encConditionalPay(pay);
         bytes32 expectedPayId = keccak256(abi.encodePacked(keccak256(payBytes), address(payResolver)));

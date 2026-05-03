@@ -33,6 +33,9 @@ library LedgerOperation {
             PbEntity.decPaymentChannelInitializer(openRequest.channelInitializer);
         require(channelInitializer.initDistribution.distribution.length == 2, "Wrong length");
         require(block.timestamp <= channelInitializer.openDeadline, "Open deadline passed");
+        // bind the co-signed initializer to its intended (chain, ledger) target
+        require(channelInitializer.chainId == block.chainid, "Wrong chain id for open");
+        require(channelInitializer.ledgerAddress == address(this), "Wrong ledger for open");
 
         PbEntity.TokenInfo memory token = channelInitializer.initDistribution.token;
         uint256[2] memory amounts = [

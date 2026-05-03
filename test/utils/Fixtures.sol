@@ -174,6 +174,7 @@ library Fixtures {
         uint256 resolveDeadline;
         uint256 resolveTimeout;
         address payResolver;
+        uint256 chainId;
     }
 
     function encConditionalPay(ConditionalPay memory _p) internal pure returns (bytes memory out) {
@@ -187,6 +188,7 @@ library Fixtures {
         out = Proto.cat(out, Proto.uintField(6, _p.resolveDeadline));
         out = Proto.cat(out, Proto.uintField(7, _p.resolveTimeout));
         out = Proto.cat(out, Proto.addressField(8, _p.payResolver));
+        out = Proto.cat(out, Proto.uintField(9, _p.chainId));
     }
 
     /// @notice Encode `entity.CondPayResult { condPay: bytes, amount: uint256 }`.
@@ -233,6 +235,8 @@ library Fixtures {
         uint256 openDeadline;
         uint256 disputeTimeout;
         uint256 msgValueReceiver; // peer index
+        uint256 chainId;
+        address ledgerAddress;
     }
 
     function encPaymentChannelInitializer(PaymentChannelInitializer memory _p)
@@ -244,6 +248,8 @@ library Fixtures {
         out = Proto.cat(out, Proto.uintField(2, _p.openDeadline));
         out = Proto.cat(out, Proto.uintField(3, _p.disputeTimeout));
         out = Proto.cat(out, Proto.uintField(4, _p.msgValueReceiver));
+        out = Proto.cat(out, Proto.uintField(5, _p.chainId));
+        out = Proto.cat(out, Proto.addressField(6, _p.ledgerAddress));
     }
 
     /// @notice Encode `entity.CooperativeSettleInfo`.

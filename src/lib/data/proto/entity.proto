@@ -121,6 +121,9 @@ message ConditionalPay {
   // resolve_timeout is the dispute window after a resolve payment request is submitted
   uint64 resolve_timeout = 7 [(soltype) = "uint"];
   bytes pay_resolver = 8 [(soltype) = "address"];
+  // chain id of the intended target chain; binds the signed pay (and any
+  // vouched result over it) against cross-chain replay
+  uint64 chain_id = 9 [(soltype) = "uint"];
 }
 
 // Next Tag: 3
@@ -169,7 +172,7 @@ message CooperativeWithdrawInfo {
   bytes recipient_channel_id = 5 [(soltype) = "bytes32"];
 }
 
-// Next Tag: 5
+// Next Tag: 7
 message PaymentChannelInitializer {
   // require an ascending order based on addresses of init_distribution.distribution[].account
   TokenDistribution init_distribution = 1;
@@ -178,6 +181,12 @@ message PaymentChannelInitializer {
   // index of channel peer who receives the blockchain native token
   // associated with the transaction (msg.value in case of ETH)
   uint64 msg_value_receiver = 4 [(soltype) = "uint"];
+  // chain id of the intended target chain; binds the signed initializer
+  // against cross-chain replay
+  uint64 chain_id = 5 [(soltype) = "uint"];
+  // address of the intended target CelerLedger; binds the signed initializer
+  // against same-chain wrong-ledger replay
+  bytes ledger_address = 6 [(soltype) = "address"];
 }
 
 // Next Tag: 5

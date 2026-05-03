@@ -80,6 +80,15 @@ uint256 public walletNum;
 mapping(bytes32 => Wallet) private wallets;
 ```
 
+### Wallet ID derivation
+
+```
+walletId = keccak256(chainid, walletAddr, operatorAddr, nonce)
+```
+
+The `chainid` prefix prevents cross-chain channel-id collisions when wallet and
+operator addresses coincide across chains.
+
 ---
 
 ## CelerLedger
@@ -205,6 +214,7 @@ constructor(address _registryAddr, address _virtResolverAddr)
 
 ### Resolution rules
 
+- A payment's `chain_id` must equal `block.chainid`.
 - A payment must be resolved before `pay.resolveDeadline` (Unix timestamp, seconds).
 - A result equal to the maximum-transfer amount **finalizes immediately** — no challenge
   window.

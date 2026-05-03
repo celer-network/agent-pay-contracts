@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import {LedgerTestBase} from "./utils/LedgerTestBase.t.sol";
 import {LedgerStruct} from "../src/lib/ledgerlib/LedgerStruct.sol";
+import {CelerLedger} from "../src/CelerLedger.sol";
 import {Fixtures} from "./utils/Fixtures.sol";
 import {SignUtil} from "./utils/SignUtil.sol";
 
@@ -85,6 +86,109 @@ contract CelerLedgerEthTest is LedgerTestBase {
         (, uint256[2] memory deposits,) = celerLedger.getBalanceMap(channelId);
         assertEq(deposits[0], 100);
         assertEq(deposits[1], 200);
+    }
+
+    // =========================================================================
+    // 2b. Open-channel replay protection (chain id + ledger address binding)
+    // =========================================================================
+
+    function test_openChannel_replayedOnWrongChain_reverts() public {
+        // Build a co-signed initializer claiming chainid = block.chainid + 1.
+        // Submitting on the live chain must revert with "Wrong chain id for open"
+        // even though the signatures are individually valid.
+        Fixtures.PaymentChannelInitializer memory init = Fixtures.PaymentChannelInitializer({
+            tokenType: 1,
+            tokenAddress: address(0),
+            peers: [peer0, peer1],
+            amounts: [uint256(0), 0],
+            openDeadline: openDeadlineCursor++,
+            disputeTimeout: DISPUTE_TIMEOUT,
+            msgValueReceiver: 0,
+            chainId: block.chainid + 1,
+            ledgerAddress: address(celerLedger)
+        });
+        bytes memory initializer = Fixtures.encPaymentChannelInitializer(init);
+        bytes[] memory sigs = SignUtil.coSign(peer0Pk, peer1Pk, initializer);
+        bytes memory request = Fixtures.encOpenChannelRequest(initializer, sigs);
+
+        vm.expectRevert(bytes("Wrong chain id for open"));
+        celerLedger.openChannel(request);
+    }
+
+    function test_openChannel_replayedOnWrongLedger_reverts() public {
+        // Initializer is bound to a sibling ledger (a fresh CelerLedger sharing
+        // the same wallet+pool+registry). Replaying the same co-signed request
+        // against the original `celerLedger` must revert.
+        address otherLedger = address(new CelerLedger(address(ethPool), address(payRegistry), address(celerWallet)));
+
+        Fixtures.PaymentChannelInitializer memory init = Fixtures.PaymentChannelInitializer({
+            tokenType: 1,
+            tokenAddress: address(0),
+            peers: [peer0, peer1],
+            amounts: [uint256(0), 0],
+            openDeadline: openDeadlineCursor++,
+            disputeTimeout: DISPUTE_TIMEOUT,
+            msgValueReceiver: 0,
+            chainId: block.chainid,
+            ledgerAddress: otherLedger
+        });
+        bytes memory initializer = Fixtures.encPaymentChannelInitializer(init);
+        bytes[] memory sigs = SignUtil.coSign(peer0Pk, peer1Pk, initializer);
+        bytes memory request = Fixtures.encOpenChannelRequest(initializer, sigs);
+
+        vm.expectRevert(bytes("Wrong ledger for open"));
+        celerLedger.openChannel(request);
+    }
+
+    function test_openChannel_signedOnOneChain_replayedOnAnother_reverts() public {
+        // Direct cross-chain replay: peers co-sign a *valid* initializer for the
+        // current chain, then the same signed bytes are submitted after the
+        // chain context flips via vm.chainId.
+        Fixtures.PaymentChannelInitializer memory init = Fixtures.PaymentChannelInitializer({
+            tokenType: 1,
+            tokenAddress: address(0),
+            peers: [peer0, peer1],
+            amounts: [uint256(0), 0],
+            openDeadline: openDeadlineCursor++,
+            disputeTimeout: DISPUTE_TIMEOUT,
+            msgValueReceiver: 0,
+            chainId: block.chainid,
+            ledgerAddress: address(celerLedger)
+        });
+        bytes memory initializer = Fixtures.encPaymentChannelInitializer(init);
+        bytes[] memory sigs = SignUtil.coSign(peer0Pk, peer1Pk, initializer);
+        bytes memory request = Fixtures.encOpenChannelRequest(initializer, sigs);
+
+        // Switch chain context — the same signed payload is now mismatched.
+        vm.chainId(block.chainid + 1);
+
+        vm.expectRevert(bytes("Wrong chain id for open"));
+        celerLedger.openChannel(request);
+    }
+
+    function test_openChannel_signedForOneLedger_replayedToSibling_reverts() public {
+        // Direct cross-ledger replay: peers co-sign a *valid* initializer for
+        // `celerLedger`; the same signed bytes are then submitted to a sibling
+        // ledger sharing the same wallet+pool+registry.
+        CelerLedger siblingLedger = new CelerLedger(address(ethPool), address(payRegistry), address(celerWallet));
+
+        Fixtures.PaymentChannelInitializer memory init = Fixtures.PaymentChannelInitializer({
+            tokenType: 1,
+            tokenAddress: address(0),
+            peers: [peer0, peer1],
+            amounts: [uint256(0), 0],
+            openDeadline: openDeadlineCursor++,
+            disputeTimeout: DISPUTE_TIMEOUT,
+            msgValueReceiver: 0,
+            chainId: block.chainid,
+            ledgerAddress: address(celerLedger)
+        });
+        bytes memory initializer = Fixtures.encPaymentChannelInitializer(init);
+        bytes[] memory sigs = SignUtil.coSign(peer0Pk, peer1Pk, initializer);
+        bytes memory request = Fixtures.encOpenChannelRequest(initializer, sigs);
+
+        vm.expectRevert(bytes("Wrong ledger for open"));
+        siblingLedger.openChannel(request);
     }
 
     // =========================================================================
@@ -996,7 +1100,8 @@ contract CelerLedgerEthTest is LedgerTestBase {
             maxAmount: _maxAmount,
             resolveDeadline: 9_999_999,
             resolveTimeout: 5,
-            payResolver: address(payResolver)
+            payResolver: address(payResolver),
+            chainId: block.chainid
         });
         bytes memory payBytes = Fixtures.encConditionalPay(pay);
 

@@ -22,8 +22,10 @@ interface ICelerLedger {
     /**
      * @notice Open a fully-funded channel from a co-signed initializer in one tx.
      * @dev Atomically creates a wallet in the underlying CelerWallet, derives
-     *  `channelId = keccak256(walletAddr, ledgerAddr, keccak256(initializer))`, and
-     *  pulls the initial deposits. Native value is allowed via `msg.value`.
+     *  `channelId = keccak256(chainid, walletAddr, ledgerAddr, keccak256(initializer))`,
+     *  and pulls the initial deposits. Native value is allowed via `msg.value`.
+     *  The initializer's `chain_id` and `ledger_address` must match this
+     *  contract's execution domain.
      * @param _openChannelRequest ABI-encoded `PbChain.OpenChannelRequest` message.
      */
     function openChannel(bytes calldata _openChannelRequest) external payable;

@@ -61,7 +61,8 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
 
     /**
      * @notice Create a new wallet
-     * @dev `walletId = keccak256(chainid, walletAddr, operatorAddr, nonce)`.
+     * @dev `walletId = keccak256(chainid, walletAddr, creatorAddr, nonce)` where
+     *      `creatorAddr` is `msg.sender` (the account that calls `create`, e.g. CelerLedger).
      * @param _owners owners of the wallet
      * @param _operator initial operator of the wallet
      * @param _nonce nonce given by caller to generate the wallet id

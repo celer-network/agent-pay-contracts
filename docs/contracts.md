@@ -88,11 +88,13 @@ mapping(bytes32 => Wallet) private wallets;
 ### Wallet ID derivation
 
 ```
-walletId = keccak256(chainid, walletAddr, operatorAddr, nonce)
+walletId = keccak256(chainid, walletAddr, creatorAddr, nonce)
 ```
 
-The `chainid` prefix prevents cross-chain channel-id collisions when wallet and
-operator addresses coincide across chains.
+`creatorAddr` is `msg.sender` at the time `CelerWallet.create` is called — typically
+the `CelerLedger` contract, not the end-user operator. The `chainid` prefix prevents
+cross-chain wallet-id collisions when the same creator and nonce are reused across
+chains.
 
 ---
 

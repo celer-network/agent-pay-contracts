@@ -83,7 +83,7 @@ library Fixtures {
         uint256 seqNum;
         uint256 transferAmount;
         bytes pendingPayIds; // pre-encoded PayIdList (use {encPayIdList})
-        uint256 lastPayResolveDeadline;
+        uint256 payClearDeadline;
         uint256 totalPendingAmount;
     }
 
@@ -100,7 +100,7 @@ library Fixtures {
         if (_s.pendingPayIds.length > 0) {
             out = Proto.cat(out, Proto.bytesField(5, _s.pendingPayIds));
         }
-        out = Proto.cat(out, Proto.uintField(6, _s.lastPayResolveDeadline));
+        out = Proto.cat(out, Proto.uintField(6, _s.payClearDeadline));
         out = Proto.cat(out, Proto.uint256Field(7, _s.totalPendingAmount));
     }
 

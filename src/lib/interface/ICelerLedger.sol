@@ -25,7 +25,9 @@ interface ICelerLedger {
      *  `channelId = keccak256(chainid, walletAddr, ledgerAddr, keccak256(initializer))`,
      *  and pulls the initial deposits. Native value is allowed via `msg.value`.
      *  The initializer's `chain_id` and `ledger_address` must match this
-     *  contract's execution domain.
+     *  contract's execution domain. ERC-20 path assumes plain ERC-20 semantics
+     *  (`balanceDelta == requested`); fee-on-transfer / rebasing / ERC-777
+     *  tokens are unsupported.
      * @param _openChannelRequest ABI-encoded `PbChain.OpenChannelRequest` message.
      */
     function openChannel(bytes calldata _openChannelRequest) external payable;
@@ -35,7 +37,8 @@ interface ICelerLedger {
      * @dev Anyone can deposit; total credited is `msg.value + _transferFromAmount`.
      *  For ERC-20 channels, `msg.value` must be 0 and the depositor must have approved
      *  this contract for `_transferFromAmount`. For ETH channels, `_transferFromAmount`
-     *  is pulled from {IEthPool}.
+     *  is pulled from {IEthPool}. ERC-20 path assumes plain ERC-20 semantics —
+     *  fee-on-transfer / rebasing / ERC-777 tokens are unsupported.
      * @param _channelId Channel to credit.
      * @param _receiver Peer credited with the deposit.
      * @param _transferFromAmount Amount to pull via `transferFrom` (in addition to `msg.value`).
@@ -264,11 +267,8 @@ interface ICelerLedger {
     /// @notice Per-peer next-list hashes for batched pay clearing during settlement.
     function getNextPayIdListHashMap(bytes32 _channelId) external view returns (address[2] memory, bytes32[2] memory);
 
-    /// @notice Per-peer latest pay-resolve deadlines used during settlement.
-    function getLastPayResolveDeadlineMap(bytes32 _channelId)
-        external
-        view
-        returns (address[2] memory, uint256[2] memory);
+    /// @notice Per-peer pay-clear deadlines (the threshold past which `confirmSettle` is unconditionally eligible).
+    function getPayClearDeadlineMap(bytes32 _channelId) external view returns (address[2] memory, uint256[2] memory);
 
     /// @notice Per-peer pending pay totals (locked amounts).
     function getPendingPayOutMap(bytes32 _channelId) external view returns (address[2] memory, uint256[2] memory);

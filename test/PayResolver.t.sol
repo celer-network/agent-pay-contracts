@@ -447,6 +447,51 @@ contract PayResolverTest is Test {
     }
 
     // -------------------------------------------------------------------------
+    // Wrong resolver (replay protection)
+    // -------------------------------------------------------------------------
+
+    /// @dev Build a hash-lock-only ConditionalPay with an explicit `payResolver`
+    ///  override. Used by the wrong-resolver revert tests below.
+    function _buildPayWithResolver(uint256 _payTimestamp, address _resolver) internal view returns (bytes memory) {
+        Fixtures.Condition[] memory conds = new Fixtures.Condition[](1);
+        conds[0] = Fixtures.condHashLock(_hashLockTrue());
+
+        Fixtures.ConditionalPay memory pay = Fixtures.ConditionalPay({
+            payTimestamp: _payTimestamp,
+            src: payerSrc,
+            dest: payerDest,
+            conditions: conds,
+            logicType: 0, // BOOLEAN_AND
+            maxAmount: 50,
+            resolveDeadline: RESOLVE_DEADLINE,
+            resolveTimeout: RESOLVE_TIMEOUT,
+            payResolver: _resolver,
+            chainId: block.chainid
+        });
+        return Fixtures.encConditionalPay(pay);
+    }
+
+    function test_resolveByConditions_wrongResolver_reverts() public {
+        // Pay designates a sibling PayResolver, submitted to the live resolver.
+        PayResolver siblingResolver = new PayResolver(address(payRegistry), address(virtResolver));
+        bytes memory payBytes = _buildPayWithResolver(40, address(siblingResolver));
+
+        bytes[] memory preimages = new bytes[](1);
+        preimages[0] = TRUE_PREIMAGE;
+        vm.expectRevert(bytes("Wrong resolver for pay"));
+        payResolver.resolvePaymentByConditions(Fixtures.encResolvePayByConditionsRequest(payBytes, preimages));
+    }
+
+    function test_resolveByVouchedResult_wrongResolver_reverts() public {
+        // Same wrong-resolver pay submitted via the vouched-result path.
+        PayResolver siblingResolver = new PayResolver(address(payRegistry), address(virtResolver));
+        bytes memory payBytes = _buildPayWithResolver(41, address(siblingResolver));
+
+        vm.expectRevert(bytes("Wrong resolver for pay"));
+        payResolver.resolvePaymentByVouchedResult(_vouched(payBytes, 20));
+    }
+
+    // -------------------------------------------------------------------------
     // Numeric logic
     // -------------------------------------------------------------------------
 

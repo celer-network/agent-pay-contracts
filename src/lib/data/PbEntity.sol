@@ -173,7 +173,7 @@ library PbEntity {
         uint256 seqNum; // tag: 3
         TokenTransfer transferToPeer; // tag: 4
         PayIdList pendingPayIds; // tag: 5
-        uint256 lastPayResolveDeadline; // tag: 6
+        uint256 payClearDeadline; // tag: 6
         uint256 totalPendingAmount; // tag: 7
     } // end struct SimplexPaymentChannel
 
@@ -200,7 +200,7 @@ library PbEntity {
                 m.pendingPayIds = decPayIdList(buf.decBytes());
             } else if (key == 48) {
                 // tag 6
-                m.lastPayResolveDeadline = buf.decVarint();
+                m.payClearDeadline = buf.decVarint();
             } else if (key == 58) {
                 // tag 7
                 m.totalPendingAmount = buf.decUint256();

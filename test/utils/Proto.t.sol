@@ -144,7 +144,7 @@ contract ProtoTest is Test {
             seqNum: 7,
             transferAmount: 500,
             pendingPayIds: bytes(""),
-            lastPayResolveDeadline: 100,
+            payClearDeadline: 100,
             totalPendingAmount: 0
         });
 
@@ -155,7 +155,7 @@ contract ProtoTest is Test {
         assertEq(decoded.peerFrom, address(0xaaaa));
         assertEq(decoded.seqNum, 7);
         assertEq(decoded.transferToPeer.receiver.amt, 500);
-        assertEq(decoded.lastPayResolveDeadline, 100);
+        assertEq(decoded.payClearDeadline, 100);
         assertEq(decoded.totalPendingAmount, 0);
     }
 

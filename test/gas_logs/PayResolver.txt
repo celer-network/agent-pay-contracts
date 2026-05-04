@@ -1,5 +1,5 @@
 ********** Gas Measurement: PayResolver **********
 
 ***** Function Calls Gas Used *****
-resolvePaymentByConditions(): 78445
-resolvePaymentByVouchedResult(): 96729
+resolvePaymentByConditions(): 78494
+resolvePaymentByVouchedResult(): 96778

@@ -52,11 +52,14 @@ message SimplexPaymentChannel {
   TokenTransfer transfer_to_peer = 4;
   // head of the idlist chain of all pending conditional pays.
   PayIdList pending_pay_ids = 5;
-  // The last resolve deadline of all pending conditional pays.
-  // confirmSettle must be called after all pending pays have been finalized,
-  // namely all pending pays have been resolved in the pay registry,
-  // or after the last_pay_resolve_deadline.
-  uint64 last_pay_resolve_deadline = 6 [(soltype) = "uint"];
+  // Unix timestamp (seconds) after which confirmSettle becomes unconditionally
+  // eligible — i.e. max(pay.resolveDeadline) + clearMargin. The clearMargin
+  // must be large enough that, after all pays are resolved in PayRegistry,
+  // recipient peers have time to call clearPays for every pay-list segment
+  // before confirmSettle can close the channel. Off-chain producers MUST
+  // include the margin; a literal "last resolve deadline" would race with
+  // uncleared multi-segment pay lists.
+  uint64 pay_clear_deadline = 6 [(soltype) = "uint"];
   // total amount of all pending pays.
   bytes total_pending_amount = 7 [(soltype) = "uint256"];
 }

@@ -183,7 +183,7 @@ contract LedgerTestBase is BaseTest {
             seqNum: _seqNum,
             transferAmount: _transferAmount,
             pendingPayIds: bytes(""),
-            lastPayResolveDeadline: 0,
+            payClearDeadline: 0,
             totalPendingAmount: 0
         });
         bytes memory simplex = Fixtures.encSimplexPaymentChannel(s);
@@ -200,7 +200,7 @@ contract LedgerTestBase is BaseTest {
             seqNum: 0,
             transferAmount: 0,
             pendingPayIds: bytes(""),
-            lastPayResolveDeadline: 0,
+            payClearDeadline: 0,
             totalPendingAmount: 0
         });
         bytes memory simplex = Fixtures.encSimplexPaymentChannel(s);

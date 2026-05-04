@@ -218,12 +218,12 @@ library LedgerChannel {
     }
 
     /**
-     * @notice Return lastPayResolveDeadline map of a duplex channel
+     * @notice Return payClearDeadline map of a duplex channel
      * @param _c the channel to be viewed
      * @return peers' addresses
-     * @return lastPayResolveDeadlines of two simplex channels
+     * @return payClearDeadlines of two simplex channels
      */
-    function getLastPayResolveDeadlineMap(LedgerStruct.Channel storage _c)
+    function getPayClearDeadlineMap(LedgerStruct.Channel storage _c)
         external
         view
         returns (address[2] memory, uint256[2] memory)
@@ -231,7 +231,7 @@ library LedgerChannel {
         LedgerStruct.PeerProfile[2] memory peerProfiles = _c.peerProfiles;
         return (
             [peerProfiles[0].peerAddr, peerProfiles[1].peerAddr],
-            [peerProfiles[0].state.lastPayResolveDeadline, peerProfiles[1].state.lastPayResolveDeadline]
+            [peerProfiles[0].state.payClearDeadline, peerProfiles[1].state.payClearDeadline]
         );
     }
 

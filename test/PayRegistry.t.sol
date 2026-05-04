@@ -224,11 +224,11 @@ contract PayRegistryTest is Test {
 
     function test_getPayAmounts_unsetPay_passesIfChannelDeadlineExceeded() public {
         // No setPayInfo for payHash1 → resolveDeadline == 0 → falls through to the
-        // channel-level lastPayResolveDeadline check.
+        // channel-level payClearDeadline check.
         bytes32[] memory ids = new bytes32[](1);
         ids[0] = registry.calculatePayId(payHash1, setterA);
 
-        // Channel-level lastPayResolveDeadline is in the past → ok to read.
+        // Channel-level payClearDeadline is in the past → ok to read.
         vm.warp(block.timestamp + 10);
         uint256[] memory amounts = registry.getPayAmounts(ids, block.timestamp - 1);
         assertEq(amounts[0], 0);
@@ -238,7 +238,7 @@ contract PayRegistryTest is Test {
         bytes32[] memory ids = new bytes32[](1);
         ids[0] = registry.calculatePayId(payHash1, setterA);
 
-        // Channel-level lastPayResolveDeadline is in the future → revert.
+        // Channel-level payClearDeadline is in the future → revert.
         vm.expectRevert(bytes("Payment is not finalized"));
         registry.getPayAmounts(ids, block.timestamp + 100);
     }

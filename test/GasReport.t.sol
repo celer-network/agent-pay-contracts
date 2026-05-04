@@ -856,7 +856,7 @@ contract GasReport is LedgerTestBase {
             seqNum: _seqNum,
             transferAmount: 0,
             pendingPayIds: _payIdList,
-            lastPayResolveDeadline: block.timestamp + 1000,
+            payClearDeadline: block.timestamp + 1000,
             totalPendingAmount: _totalPending
         });
         bytes memory simplex = Fixtures.encSimplexPaymentChannel(s);

@@ -177,7 +177,7 @@ library LedgerOperation {
             LedgerStruct.PeerState storage state = c.peerProfiles[peerFromId].state;
             require(simplexState.seqNum > state.seqNum, "seqNum error");
 
-            // no need to update nextPayIdListHash and lastPayResolveDeadline for snapshot purpose
+            // no need to update nextPayIdListHash and payClearDeadline for snapshot purpose
             state.seqNum = simplexState.seqNum;
             state.transferOut = simplexState.transferToPeer.receiver.amt;
             state.pendingPayOut = simplexState.totalPendingAmount;
@@ -374,7 +374,7 @@ library LedgerOperation {
                 state.seqNum = simplexState.seqNum;
                 state.transferOut = simplexState.transferToPeer.receiver.amt;
                 state.nextPayIdListHash = simplexState.pendingPayIds.nextListHash;
-                state.lastPayResolveDeadline = simplexState.lastPayResolveDeadline;
+                state.payClearDeadline = simplexState.payClearDeadline;
                 // updating pendingPayOut is only needed when migrating ledger during settling phrase, which will
                 // affect the withdraw limit after the migration.
                 // if nextListHash is bytes32(0), state.pendingPayOut will be set as 0 by _clearPays()
@@ -449,19 +449,17 @@ library LedgerOperation {
         require(nowTs >= c.settleFinalizedTime, "Settle is not finalized");
 
         // require channel status of current intendSettle has been finalized,
-        // namely all payments have already been either cleared or expired
-        // Note: this lastPayResolveDeadline should use
-        //   (the actual last resolve deadline of all pays + clearPays safe margin)
-        //   to ensure that peers have enough time to clearPays before confirmSettle.
-        //   However this only matters if there are multiple segments of the pending
-        //   pay list, i.e. the nextPayIdListHash after intendSettle is not bytes32(0).
-        // TODO: add an additional clearSafeMargin param or change the semantics of
-        //   lastPayResolveDeadline to also include clearPays safe margin and rename it.
+        // namely all payments have already been either cleared or expired.
+        // `payClearDeadline` is signed by peers as
+        // `max(pay.resolveDeadline) + clearMargin`, where the margin reserves
+        // wall-clock time after registry resolution for recipient peers to
+        // call clearPays for every pay-list segment before confirmSettle
+        // closes the channel. Single-segment lists are gated by
+        // `nextPayIdListHash == 0` directly.
         require(
-            (peerProfiles[0].state.nextPayIdListHash == bytes32(0)
-                    || nowTs > peerProfiles[0].state.lastPayResolveDeadline)
+            (peerProfiles[0].state.nextPayIdListHash == bytes32(0) || nowTs > peerProfiles[0].state.payClearDeadline)
                 && (peerProfiles[1].state.nextPayIdListHash == bytes32(0)
-                    || nowTs > peerProfiles[1].state.lastPayResolveDeadline),
+                    || nowTs > peerProfiles[1].state.payClearDeadline),
             "Payments are not finalized"
         );
 
@@ -703,7 +701,7 @@ library LedgerOperation {
     ) internal {
         LedgerStruct.Channel storage c = _self.channelMap[_channelId];
         uint256[] memory outAmts =
-            _self.payRegistry.getPayAmounts(_payIdList.payIds, c.peerProfiles[_peerId].state.lastPayResolveDeadline);
+            _self.payRegistry.getPayAmounts(_payIdList.payIds, c.peerProfiles[_peerId].state.payClearDeadline);
 
         uint256 totalAmtOut = 0;
         for (uint256 i = 0; i < outAmts.length; i++) {

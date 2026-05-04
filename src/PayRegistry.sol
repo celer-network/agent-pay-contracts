@@ -103,7 +103,7 @@ contract PayRegistry is IPayRegistry {
     }
 
     /// @inheritdoc IPayRegistry
-    function getPayAmounts(bytes32[] calldata _payIds, uint256 _lastPayResolveDeadline)
+    function getPayAmounts(bytes32[] calldata _payIds, uint256 _maxResolveDeadline)
         external
         view
         returns (uint256[] memory)
@@ -111,10 +111,10 @@ contract PayRegistry is IPayRegistry {
         uint256[] memory amounts = new uint256[](_payIds.length);
         for (uint256 i = 0; i < _payIds.length; i++) {
             if (payInfoMap[_payIds[i]].resolveDeadline == 0) {
-                // should pass last pay resolve deadline if never resolved
-                require(block.timestamp > _lastPayResolveDeadline, "Payment is not finalized");
+                // unresolved pays are gated by the caller-supplied upper-bound deadline
+                require(block.timestamp > _maxResolveDeadline, "Payment is not finalized");
             } else {
-                // should pass resolve deadline if resolved
+                // resolved pays are gated by their per-pay resolve deadline
                 require(block.timestamp > payInfoMap[_payIds[i]].resolveDeadline, "Payment is not finalized");
             }
             amounts[i] = payInfoMap[_payIds[i]].amount;

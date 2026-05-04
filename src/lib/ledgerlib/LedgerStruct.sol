@@ -38,7 +38,7 @@ library LedgerStruct {
         // Cumulative balance sent to the other peer; monotonically increasing.
         uint256 transferOut;
         bytes32 nextPayIdListHash;
-        uint256 lastPayResolveDeadline;
+        uint256 payClearDeadline;
         uint256 pendingPayOut;
     }
 

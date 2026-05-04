@@ -5,13 +5,13 @@ VirtContractResolver Deploy Gas: 206156
 EthPool Deploy Gas: 558320
 PayRegistry Deploy Gas: 565565
 CelerWallet Deploy Gas: 1148513
-PayResolver Deploy Gas: 1893745
-CelerLedger Deploy Gas: 1920284
+PayResolver Deploy Gas: 1910790
+CelerLedger Deploy Gas: 1920270
 
 ***** Function Calls Gas Used *****
 openChannel() with zero deposit: 301454
 openChannel() using EthPool and msg.value: 412371
-setBalanceLimits(): 26123
+setBalanceLimits(): 26101
 disableBalanceLimits(): 1688
 enableBalanceLimits(): 32589
 deposit() via msg.value: 78052

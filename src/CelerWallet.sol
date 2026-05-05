@@ -61,6 +61,8 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
 
     /**
      * @notice Create a new wallet
+     * @dev `walletId = keccak256(chainid, walletAddr, creatorAddr, nonce)` where
+     *      `creatorAddr` is `msg.sender` (the account that calls `create`, e.g. CelerLedger).
      * @param _owners owners of the wallet
      * @param _operator initial operator of the wallet
      * @param _nonce nonce given by caller to generate the wallet id
@@ -73,7 +75,7 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
     {
         require(_operator != address(0), "New operator is address(0)");
 
-        bytes32 walletId = keccak256(abi.encodePacked(address(this), msg.sender, _nonce));
+        bytes32 walletId = keccak256(abi.encodePacked(block.chainid, address(this), msg.sender, _nonce));
         Wallet storage w = wallets[walletId];
         // wallet must be uninitialized
         require(w.operator == address(0), "Occupied wallet id");

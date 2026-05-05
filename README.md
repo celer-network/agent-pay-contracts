@@ -108,6 +108,16 @@ gitignored.
 
 ---
 
+## Supported tokens
+
+ETH and **plain ERC-20** only. Tokens whose `transferFrom` delivers anything
+other than the requested amount — fee-on-transfer, deflationary, rebasing,
+ERC-777 with hooks, etc. — are **not supported**: channel accounting credits
+the requested amount, so any actual-vs-requested mismatch will desync the
+wallet's internal balance from its real token holdings.
+
+---
+
 ## Dependencies
 
 | Package | Version | Purpose |

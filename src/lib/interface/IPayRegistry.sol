@@ -66,14 +66,17 @@ interface IPayRegistry {
 
     /**
      * @notice Bulk-read amounts for use during channel settlement.
-     * @dev Each pay's stored deadline must be less than or equal to
-     *  `_lastPayResolveDeadline`; otherwise the call reverts. This guards against
-     *  applying not-yet-finalized results during `intendSettle` / `confirmSettle`.
+     * @dev Each pay is either resolved (gated by its own `resolveDeadline`) or
+     *  never resolved (gated by `_maxResolveDeadline`). Unresolved pays read
+     *  back as 0 once `block.timestamp > _maxResolveDeadline`.
      * @param _payIds List of pay ids.
-     * @param _lastPayResolveDeadline Per-channel cap on the per-pay resolve deadline.
+     * @param _maxResolveDeadline Upper bound on per-pay resolve deadlines for
+     *  the batch — callers pass any value ≥ max(pay.resolveDeadline). Channels
+     *  typically pass `pay_clear_deadline` (= max resolve deadline + clear
+     *  margin); the margin is a channel-clearance concern, transparent here.
      * @return Amounts indexed identically to `_payIds`.
      */
-    function getPayAmounts(bytes32[] calldata _payIds, uint256 _lastPayResolveDeadline)
+    function getPayAmounts(bytes32[] calldata _payIds, uint256 _maxResolveDeadline)
         external
         view
         returns (uint256[] memory);

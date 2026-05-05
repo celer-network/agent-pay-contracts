@@ -173,7 +173,7 @@ library PbEntity {
         uint256 seqNum; // tag: 3
         TokenTransfer transferToPeer; // tag: 4
         PayIdList pendingPayIds; // tag: 5
-        uint256 lastPayResolveDeadline; // tag: 6
+        uint256 payClearDeadline; // tag: 6
         uint256 totalPendingAmount; // tag: 7
     } // end struct SimplexPaymentChannel
 
@@ -200,7 +200,7 @@ library PbEntity {
                 m.pendingPayIds = decPayIdList(buf.decBytes());
             } else if (key == 48) {
                 // tag 6
-                m.lastPayResolveDeadline = buf.decVarint();
+                m.payClearDeadline = buf.decVarint();
             } else if (key == 58) {
                 // tag 7
                 m.totalPendingAmount = buf.decUint256();
@@ -274,6 +274,7 @@ library PbEntity {
         uint256 resolveDeadline; // tag: 6
         uint256 resolveTimeout; // tag: 7
         address payResolver; // tag: 8
+        uint256 chainId; // tag: 9
     } // end struct ConditionalPay
 
     function decConditionalPay(bytes memory raw) internal pure returns (ConditionalPay memory m) {
@@ -313,6 +314,9 @@ library PbEntity {
             } else if (key == 66) {
                 // tag 8
                 m.payResolver = buf.decAddress();
+            } else if (key == 72) {
+                // tag 9
+                m.chainId = buf.decVarint();
             } else {
                 buf.skipValue(Pb.WireType(key & 7)); // unknown tag or wrong wire
             }
@@ -455,6 +459,8 @@ library PbEntity {
         uint256 openDeadline; // tag: 2
         uint256 disputeTimeout; // tag: 3
         uint256 msgValueReceiver; // tag: 4
+        uint256 chainId; // tag: 5
+        address ledgerAddress; // tag: 6
     } // end struct PaymentChannelInitializer
 
     function decPaymentChannelInitializer(bytes memory raw) internal pure returns (PaymentChannelInitializer memory m) {
@@ -475,6 +481,12 @@ library PbEntity {
             } else if (key == 32) {
                 // tag 4
                 m.msgValueReceiver = buf.decVarint();
+            } else if (key == 40) {
+                // tag 5
+                m.chainId = buf.decVarint();
+            } else if (key == 50) {
+                // tag 6
+                m.ledgerAddress = buf.decAddress();
             } else {
                 buf.skipValue(Pb.WireType(key & 7)); // unknown tag or wrong wire
             }

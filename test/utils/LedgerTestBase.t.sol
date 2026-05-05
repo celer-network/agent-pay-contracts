@@ -43,10 +43,10 @@ contract LedgerTestBase is BaseTest {
 
     /// @dev Derive the channel id that `openChannel` will produce for a given
     ///  initializer-bytes payload. Mirrors `CelerWallet.create` id derivation:
-    ///  `keccak256(wallet, ledger, keccak256(initializer))`.
+    ///  `keccak256(chainid, wallet, ledger, keccak256(initializer))`.
     function _deriveChannelId(bytes memory _initializer) internal view returns (bytes32) {
         bytes32 nonce = keccak256(_initializer);
-        return keccak256(abi.encodePacked(address(celerWallet), address(celerLedger), nonce));
+        return keccak256(abi.encodePacked(block.chainid, address(celerWallet), address(celerLedger), nonce));
     }
 
     // -------------------------------------------------------------------------
@@ -67,7 +67,9 @@ contract LedgerTestBase is BaseTest {
             amounts: _amounts,
             openDeadline: _openDeadline,
             disputeTimeout: DISPUTE_TIMEOUT,
-            msgValueReceiver: _msgValueReceiver
+            msgValueReceiver: _msgValueReceiver,
+            chainId: block.chainid,
+            ledgerAddress: address(celerLedger)
         });
         initializer = Fixtures.encPaymentChannelInitializer(init);
 
@@ -89,7 +91,9 @@ contract LedgerTestBase is BaseTest {
             amounts: _amounts,
             openDeadline: _openDeadline,
             disputeTimeout: DISPUTE_TIMEOUT,
-            msgValueReceiver: 0
+            msgValueReceiver: 0,
+            chainId: block.chainid,
+            ledgerAddress: address(celerLedger)
         });
         initializer = Fixtures.encPaymentChannelInitializer(init);
 
@@ -179,7 +183,7 @@ contract LedgerTestBase is BaseTest {
             seqNum: _seqNum,
             transferAmount: _transferAmount,
             pendingPayIds: bytes(""),
-            lastPayResolveDeadline: 0,
+            payClearDeadline: 0,
             totalPendingAmount: 0
         });
         bytes memory simplex = Fixtures.encSimplexPaymentChannel(s);
@@ -196,7 +200,7 @@ contract LedgerTestBase is BaseTest {
             seqNum: 0,
             transferAmount: 0,
             pendingPayIds: bytes(""),
-            lastPayResolveDeadline: 0,
+            payClearDeadline: 0,
             totalPendingAmount: 0
         });
         bytes memory simplex = Fixtures.encSimplexPaymentChannel(s);

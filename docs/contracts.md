@@ -29,6 +29,11 @@ future versions) is an *operator* over individual wallets within it. The contrac
 deliberately minimal logic — it only knows how to deposit, withdraw, and transfer
 operatorship — to keep the audit surface small.
 
+> **Supported tokens:** ETH and plain ERC-20 only. `depositERC20` credits the
+> requested `_amount`, so tokens that deliver less than requested
+> (fee-on-transfer, deflationary, rebasing, ERC-777 hooks) will desync this
+> wallet's accounting from its real token balance. Use only standard ERC-20s.
+
 ### Constructor
 
 ```solidity
@@ -80,6 +85,17 @@ uint256 public walletNum;
 mapping(bytes32 => Wallet) private wallets;
 ```
 
+### Wallet ID derivation
+
+```
+walletId = keccak256(chainid, walletAddr, creatorAddr, nonce)
+```
+
+`creatorAddr` is `msg.sender` at the time `CelerWallet.create` is called — typically
+the `CelerLedger` contract, not the end-user operator. The `chainid` prefix prevents
+cross-chain wallet-id collisions when the same creator and nonce are reused across
+chains.
+
 ---
 
 ## CelerLedger
@@ -90,6 +106,11 @@ The channel state machine and primary user entry point. The contract itself is a
 wrapper — the actual logic is split across five libraries under
 [`src/lib/ledgerlib/`](../src/lib/ledgerlib/) and attached via `using ... for ...`. See
 [Ledger libraries](#ledger-libraries) below.
+
+> **Supported tokens:** ETH and plain ERC-20 only — see the same note under
+> [CelerWallet](#celerwallet). Non-standard ERC-20s
+> (fee-on-transfer / rebasing / ERC-777 hooks) will desync channel accounting
+> from the wallet's real token balance.
 
 ### Constructor
 
@@ -151,7 +172,7 @@ Balance limits are **enabled by default** post-deployment. Configure them via
 
 A wide set of getters: `getChannelStatus`, `getTokenContract`, `getTokenType`,
 `getTotalBalance`, `getBalanceMap`, `getStateSeqNumMap`, `getTransferOutMap`,
-`getNextPayIdListHashMap`, `getLastPayResolveDeadlineMap`, `getPendingPayOutMap`,
+`getNextPayIdListHashMap`, `getPayClearDeadlineMap`, `getPendingPayOutMap`,
 `getWithdrawIntent`, `getCooperativeWithdrawSeqNum`, `getSettleFinalizedTime`,
 `getDisputeTimeout`, `getMigratedTo`, `getChannelMigrationArgs`,
 `getPeersMigrationInfo`, `getChannelStatusNum`, `getEthPool`, `getPayRegistry`,
@@ -205,6 +226,8 @@ constructor(address _registryAddr, address _virtResolverAddr)
 
 ### Resolution rules
 
+- A payment's `chain_id` must equal `block.chainid`.
+- A payment's `pay_resolver` must equal the executing resolver's address.
 - A payment must be resolved before `pay.resolveDeadline` (Unix timestamp, seconds).
 - A result equal to the maximum-transfer amount **finalizes immediately** — no challenge
   window.
@@ -245,7 +268,7 @@ No constructor (no state to initialize).
 | [`setPayDeadline`](../src/PayRegistry.sol#L37) | Setter writes the resolve deadline under its own namespace. |
 | [`setPayInfo`](../src/PayRegistry.sol#L45) | Combined `setPayAmount` + `setPayDeadline`. |
 | [`setPayAmounts`](../src/PayRegistry.sol#L54) / [`setPayDeadlines`](../src/PayRegistry.sol#L68) / [`setPayInfos`](../src/PayRegistry.sol#L82) | Batched variants. |
-| [`getPayAmounts`](../src/PayRegistry.sol#L107) | Bulk read for settlement (verifies each pay's deadline ≤ a per-channel `lastPayResolveDeadline`). |
+| [`getPayAmounts`](../src/PayRegistry.sol#L107) | Bulk read for settlement; gates each pay by its own `resolveDeadline` if resolved, or the per-channel `pay_clear_deadline` (`max(pay.resolveDeadline) + clearMargin`) if never resolved. |
 | [`getPayInfo`](../src/PayRegistry.sol#L126) | Single-pay read. |
 | `payInfoMap` (auto-getter) | Public mapping accessor. |
 

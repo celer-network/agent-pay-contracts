@@ -13,8 +13,8 @@ pragma solidity ^0.8.20;
 interface ICelerWallet {
     /**
      * @notice Create a new wallet.
-     * @dev `walletId = keccak256(walletContract, msg.sender, _nonce)`. Reverts if the
-     *  derived id is already in use or if `_operator == address(0)`.
+     * @dev `walletId = keccak256(chainid, walletContract, msg.sender, _nonce)`.
+     *  Reverts if the derived id is already in use or if `_operator == address(0)`.
      * @param _owners Owners of the wallet (typically the two channel peers).
      * @param _operator Initial operator authorized to move funds.
      * @param _nonce Caller-supplied nonce, used in the wallet-id derivation.

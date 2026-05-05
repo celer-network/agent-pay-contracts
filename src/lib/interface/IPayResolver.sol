@@ -22,7 +22,9 @@ interface IPayResolver {
      * @dev All conditions must already be finalized; the call reverts otherwise.
      *  Hash-lock conditions are validated against `_resolvePayRequest.hashPreimages`
      *  in the order they appear in `pay.conditions`. Virtual-contract conditions
-     *  must already be materialized via the VirtContractResolver.
+     *  must already be materialized via the VirtContractResolver. The pay's
+     *  `chain_id` must equal `block.chainid` and `pay_resolver` must equal
+     *  `address(this)`.
      * @param _resolvePayRequest ABI-encoded `PbChain.ResolvePayByConditionsRequest`.
      */
     function resolvePaymentByConditions(bytes calldata _resolvePayRequest) external;
@@ -31,6 +33,8 @@ interface IPayResolver {
      * @notice Resolve a payment by submitting an off-chain result co-signed by
      *  the payment's source and destination.
      * @dev The submitted amount must not exceed `pay.transferFunc.maxTransfer.receiver.amt`.
+     *  The pay's `chain_id` must equal `block.chainid` and `pay_resolver` must
+     *  equal `address(this)`.
      * @param _vouchedPayResult ABI-encoded `PbEntity.VouchedCondPayResult`.
      */
     function resolvePaymentByVouchedResult(bytes calldata _vouchedPayResult) external;

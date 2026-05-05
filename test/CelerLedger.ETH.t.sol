@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import {LedgerTestBase} from "./utils/LedgerTestBase.t.sol";
 import {LedgerStruct} from "../src/lib/ledgerlib/LedgerStruct.sol";
+import {CelerLedger} from "../src/CelerLedger.sol";
 import {Fixtures} from "./utils/Fixtures.sol";
 import {SignUtil} from "./utils/SignUtil.sol";
 
@@ -85,6 +86,109 @@ contract CelerLedgerEthTest is LedgerTestBase {
         (, uint256[2] memory deposits,) = celerLedger.getBalanceMap(channelId);
         assertEq(deposits[0], 100);
         assertEq(deposits[1], 200);
+    }
+
+    // =========================================================================
+    // 2b. Open-channel replay protection (chain id + ledger address binding)
+    // =========================================================================
+
+    function test_openChannel_replayedOnWrongChain_reverts() public {
+        // Build a co-signed initializer claiming chainid = block.chainid + 1.
+        // Submitting on the live chain must revert with "Wrong chain id for open"
+        // even though the signatures are individually valid.
+        Fixtures.PaymentChannelInitializer memory init = Fixtures.PaymentChannelInitializer({
+            tokenType: 1,
+            tokenAddress: address(0),
+            peers: [peer0, peer1],
+            amounts: [uint256(0), 0],
+            openDeadline: openDeadlineCursor++,
+            disputeTimeout: DISPUTE_TIMEOUT,
+            msgValueReceiver: 0,
+            chainId: block.chainid + 1,
+            ledgerAddress: address(celerLedger)
+        });
+        bytes memory initializer = Fixtures.encPaymentChannelInitializer(init);
+        bytes[] memory sigs = SignUtil.coSign(peer0Pk, peer1Pk, initializer);
+        bytes memory request = Fixtures.encOpenChannelRequest(initializer, sigs);
+
+        vm.expectRevert(bytes("Wrong chain id for open"));
+        celerLedger.openChannel(request);
+    }
+
+    function test_openChannel_replayedOnWrongLedger_reverts() public {
+        // Initializer is bound to a sibling ledger (a fresh CelerLedger sharing
+        // the same wallet+pool+registry). Replaying the same co-signed request
+        // against the original `celerLedger` must revert.
+        address otherLedger = address(new CelerLedger(address(ethPool), address(payRegistry), address(celerWallet)));
+
+        Fixtures.PaymentChannelInitializer memory init = Fixtures.PaymentChannelInitializer({
+            tokenType: 1,
+            tokenAddress: address(0),
+            peers: [peer0, peer1],
+            amounts: [uint256(0), 0],
+            openDeadline: openDeadlineCursor++,
+            disputeTimeout: DISPUTE_TIMEOUT,
+            msgValueReceiver: 0,
+            chainId: block.chainid,
+            ledgerAddress: otherLedger
+        });
+        bytes memory initializer = Fixtures.encPaymentChannelInitializer(init);
+        bytes[] memory sigs = SignUtil.coSign(peer0Pk, peer1Pk, initializer);
+        bytes memory request = Fixtures.encOpenChannelRequest(initializer, sigs);
+
+        vm.expectRevert(bytes("Wrong ledger for open"));
+        celerLedger.openChannel(request);
+    }
+
+    function test_openChannel_signedOnOneChain_replayedOnAnother_reverts() public {
+        // Direct cross-chain replay: peers co-sign a *valid* initializer for the
+        // current chain, then the same signed bytes are submitted after the
+        // chain context flips via vm.chainId.
+        Fixtures.PaymentChannelInitializer memory init = Fixtures.PaymentChannelInitializer({
+            tokenType: 1,
+            tokenAddress: address(0),
+            peers: [peer0, peer1],
+            amounts: [uint256(0), 0],
+            openDeadline: openDeadlineCursor++,
+            disputeTimeout: DISPUTE_TIMEOUT,
+            msgValueReceiver: 0,
+            chainId: block.chainid,
+            ledgerAddress: address(celerLedger)
+        });
+        bytes memory initializer = Fixtures.encPaymentChannelInitializer(init);
+        bytes[] memory sigs = SignUtil.coSign(peer0Pk, peer1Pk, initializer);
+        bytes memory request = Fixtures.encOpenChannelRequest(initializer, sigs);
+
+        // Switch chain context — the same signed payload is now mismatched.
+        vm.chainId(block.chainid + 1);
+
+        vm.expectRevert(bytes("Wrong chain id for open"));
+        celerLedger.openChannel(request);
+    }
+
+    function test_openChannel_signedForOneLedger_replayedToSibling_reverts() public {
+        // Direct cross-ledger replay: peers co-sign a *valid* initializer for
+        // `celerLedger`; the same signed bytes are then submitted to a sibling
+        // ledger sharing the same wallet+pool+registry.
+        CelerLedger siblingLedger = new CelerLedger(address(ethPool), address(payRegistry), address(celerWallet));
+
+        Fixtures.PaymentChannelInitializer memory init = Fixtures.PaymentChannelInitializer({
+            tokenType: 1,
+            tokenAddress: address(0),
+            peers: [peer0, peer1],
+            amounts: [uint256(0), 0],
+            openDeadline: openDeadlineCursor++,
+            disputeTimeout: DISPUTE_TIMEOUT,
+            msgValueReceiver: 0,
+            chainId: block.chainid,
+            ledgerAddress: address(celerLedger)
+        });
+        bytes memory initializer = Fixtures.encPaymentChannelInitializer(init);
+        bytes[] memory sigs = SignUtil.coSign(peer0Pk, peer1Pk, initializer);
+        bytes memory request = Fixtures.encOpenChannelRequest(initializer, sigs);
+
+        vm.expectRevert(bytes("Wrong ledger for open"));
+        siblingLedger.openChannel(request);
     }
 
     // =========================================================================
@@ -504,7 +608,7 @@ contract CelerLedgerEthTest is LedgerTestBase {
             seqNum: 1,
             transferAmount: 10,
             pendingPayIds: bytes(""),
-            lastPayResolveDeadline: 0,
+            payClearDeadline: 0,
             totalPendingAmount: 0
         });
         bytes memory simplex = Fixtures.encSimplexPaymentChannel(s);
@@ -786,6 +890,123 @@ contract CelerLedgerEthTest is LedgerTestBase {
         assertEq(transferOuts2[0], 35);
     }
 
+    /// @dev Build a co-signed peer0 simplex with a head pay-id list pointing
+    ///  at a tail (multi-segment) and an explicit `payClearDeadline`. Used by
+    ///  the multi-segment regression tests to keep stack depth manageable.
+    function _buildMultiSegmentSimplex(
+        bytes32 _channelId,
+        bytes32 _payId1,
+        bytes32 _payId2,
+        uint256 _clearDeadline,
+        uint256 _totalPending
+    ) internal view returns (bytes memory signedS0, bytes memory tailList) {
+        bytes32[] memory tailIds = new bytes32[](1);
+        tailIds[0] = _payId2;
+        tailList = Fixtures.encPayIdList(tailIds, bytes32(0));
+
+        bytes32[] memory headIds = new bytes32[](1);
+        headIds[0] = _payId1;
+        bytes memory headList = Fixtures.encPayIdList(headIds, keccak256(tailList));
+
+        Fixtures.SimplexState memory s0Spec = Fixtures.SimplexState({
+            channelId: _channelId,
+            peerFrom: peer0,
+            seqNum: 1,
+            transferAmount: 0,
+            pendingPayIds: headList,
+            payClearDeadline: _clearDeadline,
+            totalPendingAmount: _totalPending
+        });
+        bytes memory s0Bytes = Fixtures.encSimplexPaymentChannel(s0Spec);
+        bytes[] memory s0Sigs = SignUtil.coSign(peer0Pk, peer1Pk, s0Bytes);
+        signedS0 = Fixtures.encSignedSimplexState(s0Bytes, s0Sigs);
+    }
+
+    function test_confirmSettle_multiSegment_unclearedTail_revertsBeforeClearDeadline() public {
+        // Documents the gap that pay_clear_deadline guards against:
+        // intendSettle clears only the head segment; until pay_clear_deadline
+        // expires, confirmSettle reverts so recipients have time to clearPays
+        // the tail segments. After the deadline, confirmSettle is unconditionally
+        // eligible — uncleared-tail pays are stranded.
+        celerLedger.disableBalanceLimits();
+        bytes32 channelId = _openFundedEthChannel([uint256(200), 0]);
+
+        uint256 clearDeadline = block.timestamp + 500;
+        (bytes memory signedS0,) = _buildMultiSegmentSimplex(
+            channelId, _resolveSingleHashLockPay(15, "p1", 1), _resolveSingleHashLockPay(20, "p2", 2), clearDeadline, 35
+        );
+        bytes memory array = _wrapStateArray(signedS0, _buildSignedSimplex(channelId, peer1, 1, 0));
+
+        // Advance past the head pays' resolveDeadline so intendSettle's
+        // implicit head-clear (via getPayAmounts) succeeds.
+        vm.warp(block.timestamp + 1);
+        vm.prank(peer0);
+        celerLedger.intendSettle(array);
+
+        // Past dispute timeout but before pay_clear_deadline → reverts.
+        vm.warp(block.timestamp + DISPUTE_TIMEOUT + 1);
+        assertTrue(block.timestamp < clearDeadline);
+        vm.expectRevert(bytes("Payments are not finalized"));
+        celerLedger.confirmSettle(channelId);
+
+        // Snapshot just before the post-deadline confirmSettle: head was cleared
+        // (transferOut[0] == 15) but the 20-unit tail is still outstanding
+        // (pendingPayOut[0] == 20). This is the stranded-funds setup.
+        (, uint256[2] memory transferOuts) = celerLedger.getTransferOutMap(channelId);
+        (, uint256[2] memory pendingOuts) = celerLedger.getPendingPayOutMap(channelId);
+        assertEq(transferOuts[0], 15, "only head cleared");
+        assertEq(pendingOuts[0], 20, "tail still pending");
+        uint256 peer0Before = peer0.balance;
+        uint256 peer1Before = peer1.balance;
+
+        // After pay_clear_deadline → succeeds without the tail being cleared.
+        vm.warp(clearDeadline + 1);
+        celerLedger.confirmSettle(channelId);
+        assertEq(uint256(celerLedger.getChannelStatus(channelId)), uint256(LedgerStruct.ChannelStatus.Closed));
+
+        // Settlement strands the uncleared tail: peer1 only receives the head's 15
+        // (not the full 35). The 20-unit tail effectively stays with peer0 since
+        // _validateSettleBalance settles from `transferOut`, ignoring `pendingPayOut`.
+        assertEq(peer1.balance, peer1Before + 15, "peer1 receives head amount only");
+        assertEq(peer0.balance, peer0Before + 200 - 15, "peer0 keeps deposit minus head transferOut");
+    }
+
+    function test_confirmSettle_multiSegment_clearedTail_succeedsAfterDispute() public {
+        // Happy path: tail cleared before dispute window closes; confirmSettle
+        // is eligible right after dispute timeout, no need to wait for
+        // pay_clear_deadline because nextPayIdListHash[0] == 0.
+        celerLedger.disableBalanceLimits();
+        bytes32 channelId = _openFundedEthChannel([uint256(200), 0]);
+
+        bytes32 payId1 = _resolveSingleHashLockPay(15, "p1", 1);
+        bytes32 payId2 = _resolveSingleHashLockPay(20, "p2", 2);
+
+        bytes32[] memory tailIds = new bytes32[](1);
+        tailIds[0] = payId2;
+        bytes memory tailList = Fixtures.encPayIdList(tailIds, bytes32(0));
+        bytes32 tailHash = keccak256(tailList);
+        bytes32[] memory headIds = new bytes32[](1);
+        headIds[0] = payId1;
+        bytes memory headList = Fixtures.encPayIdList(headIds, tailHash);
+
+        bytes memory signedS0 = _buildSimplexWithPayList(channelId, headList, 35);
+        bytes memory s1 = _buildSignedSimplex(channelId, peer1, 1, 0);
+        bytes memory array = _wrapStateArray(signedS0, s1);
+
+        // Advance past the head pays' resolveDeadline so intendSettle's head-clear succeeds.
+        vm.warp(block.timestamp + 1);
+        vm.prank(peer0);
+        celerLedger.intendSettle(array);
+        celerLedger.clearPays(channelId, peer0, tailList);
+
+        vm.warp(block.timestamp + DISPUTE_TIMEOUT + 1);
+        uint256 peer1Before = peer1.balance;
+        celerLedger.confirmSettle(channelId);
+
+        // peer1 receives both pays = 35.
+        assertEq(peer1.balance, peer1Before + 35);
+    }
+
     function test_clearPays_wrongStatus_reverts() public {
         celerLedger.disableBalanceLimits();
         bytes32 channelId = _openZeroEthChannel();
@@ -932,9 +1153,9 @@ contract CelerLedgerEthTest is LedgerTestBase {
         assertEq(hashes[1], bytes32(0));
     }
 
-    function test_getLastPayResolveDeadlineMap_initiallyZero() public {
+    function test_getPayClearDeadlineMap_initiallyZero() public {
         bytes32 channelId = _openZeroEthChannel();
-        (, uint256[2] memory deadlines) = celerLedger.getLastPayResolveDeadlineMap(channelId);
+        (, uint256[2] memory deadlines) = celerLedger.getPayClearDeadlineMap(channelId);
         assertEq(deadlines[0], 0);
         assertEq(deadlines[1], 0);
     }
@@ -996,7 +1217,8 @@ contract CelerLedgerEthTest is LedgerTestBase {
             maxAmount: _maxAmount,
             resolveDeadline: 9_999_999,
             resolveTimeout: 5,
-            payResolver: address(payResolver)
+            payResolver: address(payResolver),
+            chainId: block.chainid
         });
         bytes memory payBytes = Fixtures.encConditionalPay(pay);
 
@@ -1030,7 +1252,7 @@ contract CelerLedgerEthTest is LedgerTestBase {
             seqNum: 1,
             transferAmount: 0,
             pendingPayIds: _payIdList,
-            lastPayResolveDeadline: block.timestamp + 1000,
+            payClearDeadline: block.timestamp + 1000,
             totalPendingAmount: _totalPending
         });
         bytes memory simplex = Fixtures.encSimplexPaymentChannel(s);

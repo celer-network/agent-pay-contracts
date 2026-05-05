@@ -91,6 +91,9 @@ contract PayResolver is IPayResolver {
      * @param _amount payment amount to resolve
      */
     function _resolvePayment(PbEntity.ConditionalPay memory _pay, bytes32 _payHash, uint256 _amount) internal {
+        // bind the signed pay to its intended (chain, resolver) target
+        require(_pay.chainId == block.chainid, "Wrong chain id for pay");
+        require(_pay.payResolver == address(this), "Wrong resolver for pay");
         uint256 nowTs = block.timestamp;
         require(nowTs <= _pay.resolveDeadline, "Passed pay resolve deadline in condPay msg");
 

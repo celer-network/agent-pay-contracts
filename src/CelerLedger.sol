@@ -391,18 +391,14 @@ contract CelerLedger is ICelerLedger, Ownable {
     }
 
     /**
-     * @notice Return lastPayResolveDeadline map of a duplex channel
+     * @notice Return payClearDeadline map of a duplex channel
      * @param _channelId ID of the channel to be viewed
      * @return peers' addresses
-     * @return lastPayResolveDeadlines of two simplex channels
+     * @return payClearDeadlines of two simplex channels
      */
-    function getLastPayResolveDeadlineMap(bytes32 _channelId)
-        external
-        view
-        returns (address[2] memory, uint256[2] memory)
-    {
+    function getPayClearDeadlineMap(bytes32 _channelId) external view returns (address[2] memory, uint256[2] memory) {
         LedgerStruct.Channel storage c = ledger.channelMap[_channelId];
-        return c.getLastPayResolveDeadlineMap();
+        return c.getPayClearDeadlineMap();
     }
 
     /**

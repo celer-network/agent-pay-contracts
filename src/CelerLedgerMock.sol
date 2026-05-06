@@ -74,7 +74,7 @@ contract CelerLedgerMock {
     }
 
     /**
-     * @notice Deposit ETH or ERC20 tokens into the channel
+     * @notice Deposit native (e.g., ETH) or ERC20 tokens into the channel
      * @dev total deposit amount = msg.value(must be 0 for ERC20) + _transferFromAmount
      * @param _channelId ID of the channel
      * @param _receiver address of the receiver

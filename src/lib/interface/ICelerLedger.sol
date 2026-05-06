@@ -48,6 +48,10 @@ interface ICelerLedger {
 
     /**
      * @notice Batched variant of {deposit} across multiple channels in one tx.
+     * @dev Not payable: native-channel entries are funded only via pre-approved
+     *  wrapped-native (pulled from `nativeWrap` and unwrapped per channel);
+     *  `msg.value` funding is unsupported in the batch path. ERC-20 entries
+     *  pull from the corresponding token contract.
      * @param _channelIds Channels to credit.
      * @param _receivers Peer per channel credited with the deposit.
      * @param _transferFromAmounts Amount per channel pulled via `transferFrom`.

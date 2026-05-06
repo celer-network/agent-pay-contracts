@@ -106,9 +106,12 @@ contract CelerLedger is ICelerLedger, Ownable {
     }
 
     /**
-     * @notice Deposit native (via msg.value or pre-approved wrapped-native) or ERC20 tokens into the channel
-     * @dev do not support sending native in msg.value for function simplicity.
-     *   Index in three arrays should match.
+     * @notice Batched variant of {deposit} across multiple channels in one tx.
+     * @dev Not payable: native-channel entries are funded only via pre-approved
+     *   wrapped-native (pulled from `nativeWrap` and unwrapped per channel);
+     *   `msg.value` funding is unsupported in the batch path. ERC-20 entries
+     *   pull from the corresponding token contract. Index in the three arrays
+     *   must match.
      * @param _channelIds IDs of the channels
      * @param _receivers addresses of the receivers
      * @param _transferFromAmounts amounts of funds to be transferred from `nativeWrap` (wrapped-native) for native channels

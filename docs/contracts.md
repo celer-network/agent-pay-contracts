@@ -132,7 +132,7 @@ Balance limits are **enabled by default** post-deployment. Configure them via
 |---|---|
 | [`openChannel`](../src/CelerLedger.sol#L66) | Open a fully-funded channel from a co-signed `PaymentChannelInitializer` (single tx). |
 | [`deposit`](../src/CelerLedger.sol#L78) | Deposit native (msg.value) and/or pull from pre-approved wrapped-native or ERC-20 into a channel. |
-| [`depositInBatch`](../src/CelerLedger.sol#L91) | Batch deposit across multiple channels in one tx. |
+| [`depositInBatch`](../src/CelerLedger.sol#L91) | Batch deposit across multiple channels in one tx. Not payable — native entries fund only via pre-approved wrapped-native (no `msg.value` path). |
 | [`snapshotStates`](../src/CelerLedger.sol#L114) | Persist a co-signed simplex state on-chain (lightweight checkpoint). |
 
 ### External functions — withdrawals

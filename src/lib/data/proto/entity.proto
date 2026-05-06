@@ -53,12 +53,11 @@ message SimplexPaymentChannel {
   // head of the idlist chain of all pending conditional pays.
   PayIdList pending_pay_ids = 5;
   // Unix timestamp (seconds) after which confirmSettle becomes unconditionally
-  // eligible — i.e. max(pay.resolveDeadline) + clearMargin. The clearMargin
-  // must be large enough that, after all pays are resolved in PayRegistry,
-  // recipient peers have time to call clearPays for every pay-list segment
-  // before confirmSettle can close the channel. Off-chain producers MUST
-  // include the margin; a literal "last resolve deadline" would race with
-  // uncleared multi-segment pay lists.
+  // eligible. Only consulted by the contract when pending_pay_ids has multiple
+  // segments (next_list_hash != 0); single-segment lists short-circuit and
+  // ignore this field. Multi-segment producers MUST stamp
+  // max(pay.resolveDeadline) + clearMargin, where clearMargin reserves time for
+  // recipients to call clearPays on every segment before confirmSettle.
   uint64 pay_clear_deadline = 6 [(soltype) = "uint"];
   // total amount of all pending pays.
   bytes total_pending_amount = 7 [(soltype) = "uint256"];

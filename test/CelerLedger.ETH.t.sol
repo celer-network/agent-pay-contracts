@@ -119,7 +119,7 @@ contract CelerLedgerEthTest is LedgerTestBase {
         // Initializer is bound to a sibling ledger (a fresh CelerLedger sharing
         // the same wallet+pool+registry). Replaying the same co-signed request
         // against the original `celerLedger` must revert.
-        address otherLedger = address(new CelerLedger(address(ethPool), address(payRegistry), address(celerWallet)));
+        address otherLedger = address(new CelerLedger(address(nativeWrap), address(payRegistry), address(celerWallet)));
 
         Fixtures.PaymentChannelInitializer memory init = Fixtures.PaymentChannelInitializer({
             tokenType: 1,
@@ -170,7 +170,7 @@ contract CelerLedgerEthTest is LedgerTestBase {
         // Direct cross-ledger replay: peers co-sign a *valid* initializer for
         // `celerLedger`; the same signed bytes are then submitted to a sibling
         // ledger sharing the same wallet+pool+registry.
-        CelerLedger siblingLedger = new CelerLedger(address(ethPool), address(payRegistry), address(celerWallet));
+        CelerLedger siblingLedger = new CelerLedger(address(nativeWrap), address(payRegistry), address(celerWallet));
 
         Fixtures.PaymentChannelInitializer memory init = Fixtures.PaymentChannelInitializer({
             tokenType: 1,
@@ -250,7 +250,7 @@ contract CelerLedgerEthTest is LedgerTestBase {
         assertEq(celerLedger.getTotalBalance(channelId), 50);
     }
 
-    function test_deposit_viaEthPool_succeeds() public {
+    function test_deposit_viaWrappedNative_succeeds() public {
         _setEthBalanceLimit(1_000_000);
         bytes32 channelId = _openZeroEthChannel();
 
@@ -258,6 +258,28 @@ contract CelerLedgerEthTest is LedgerTestBase {
         celerLedger.deposit(channelId, peer0, 100);
 
         assertEq(celerLedger.getTotalBalance(channelId), 100);
+    }
+
+    function test_deposit_viaWrappedNative_insufficientApproval_reverts() public {
+        _setEthBalanceLimit(1_000_000);
+        bytes32 channelId = _openZeroEthChannel();
+
+        // peer0 lowers their nativeWrap allowance below the requested deposit.
+        vm.prank(peer0);
+        nativeWrap.approve(address(celerLedger), 50);
+
+        vm.expectRevert();
+        vm.prank(peer0);
+        celerLedger.deposit(channelId, peer0, 100);
+    }
+
+    function test_celerLedger_receive_revertsForNonNativeWrap() public {
+        // Restricted receive(): only `nativeWrap` can deliver native to the
+        // ledger (during its `withdraw(...)` callback).
+        vm.deal(stranger, 1 ether);
+        vm.prank(stranger);
+        (bool ok,) = address(celerLedger).call{value: 1}("");
+        assertFalse(ok, "direct native send to ledger should revert");
     }
 
     function test_deposit_byStranger_succeeds() public {
@@ -1105,7 +1127,7 @@ contract CelerLedgerEthTest is LedgerTestBase {
     function test_getTokenContract_andTokenType_forEthChannel() public {
         bytes32 channelId = _openZeroEthChannel();
         assertEq(celerLedger.getTokenContract(channelId), address(0));
-        // PbEntity.TokenType.ETH = 1
+        // PbEntity.TokenType.NATIVE = 1
         assertEq(uint256(celerLedger.getTokenType(channelId)), 1);
     }
 
@@ -1171,8 +1193,8 @@ contract CelerLedgerEthTest is LedgerTestBase {
     // 11. Connection getters
     // =========================================================================
 
-    function test_getEthPool_returnsConfiguredPool() public view {
-        assertEq(celerLedger.getEthPool(), address(ethPool));
+    function test_getNativeWrap_returnsConfiguredPool() public view {
+        assertEq(celerLedger.getNativeWrap(), address(nativeWrap));
     }
 
     function test_getPayRegistry_returnsConfiguredRegistry() public view {

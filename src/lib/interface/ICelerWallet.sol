@@ -23,10 +23,13 @@ interface ICelerWallet {
     function create(address[] calldata _owners, address _operator, bytes32 _nonce) external returns (bytes32);
 
     /**
-     * @notice Deposit `msg.value` ETH into a wallet's ETH balance.
+     * @notice Deposit `msg.value` native (e.g. ETH) into a wallet's native balance.
+     * @dev Public payable; called directly by users or by `CelerLedger` after
+     *  unwrapping wrapped-native internally for the multi-party-funding path.
+     *  Credits `balances[walletId][address(0)]`.
      * @param _walletId Wallet to deposit into.
      */
-    function depositETH(bytes32 _walletId) external payable;
+    function depositNative(bytes32 _walletId) external payable;
 
     /**
      * @notice Deposit ERC-20 tokens into a wallet (caller must have approved this contract).
@@ -38,11 +41,11 @@ interface ICelerWallet {
 
     /**
      * @notice Withdraw funds from a wallet to a receiver who is also an owner.
-     * @dev Caller must be the wallet's operator. ETH is sent via raw `call`; if the
+     * @dev Caller must be the wallet's operator. Native is sent via raw `call`; if the
      *  ledger ever permits non-EOA peers, the ledger should layer a withdraw-pattern
      *  on top to avoid griefing.
      * @param _walletId Wallet to debit.
-     * @param _tokenAddress Token to withdraw (`address(0)` for ETH).
+     * @param _tokenAddress Token to withdraw (`address(0)` for native).
      * @param _receiver Beneficiary; must be an owner of the wallet.
      * @param _amount Amount to withdraw.
      */
@@ -54,7 +57,7 @@ interface ICelerWallet {
      *  list `_receiver` among their owners.
      * @param _fromWalletId Source wallet id.
      * @param _toWalletId Destination wallet id.
-     * @param _tokenAddress Token to move (`address(0)` for ETH).
+     * @param _tokenAddress Token to move (`address(0)` for native).
      * @param _receiver Beneficiary owner present in both wallets.
      * @param _amount Amount to transfer.
      */
@@ -88,7 +91,7 @@ interface ICelerWallet {
 
     /**
      * @notice Emergency token recovery (callable only when the contract is paused).
-     * @param _tokenAddress Token to drain (`address(0)` for ETH).
+     * @param _tokenAddress Token to drain (`address(0)` for native).
      * @param _receiver Recipient of drained funds.
      * @param _amount Amount to drain.
      */
@@ -100,7 +103,7 @@ interface ICelerWallet {
     /// @notice Operator of `_walletId`.
     function getOperator(bytes32 _walletId) external view returns (address);
 
-    /// @notice Token balance of `_walletId` for `_tokenAddress` (`address(0)` for ETH).
+    /// @notice Token balance of `_walletId` for `_tokenAddress` (`address(0)` for native).
     function getBalance(bytes32 _walletId, address _tokenAddress) external view returns (uint256);
 
     /// @notice Currently proposed new operator for `_walletId`, if any.

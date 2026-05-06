@@ -21,18 +21,18 @@ contract CelerLedgerMigrateTest is LedgerTestBase {
 
     function setUp() public override {
         super.setUp();
-        celerLedgerNew = new CelerLedger(address(ethPool), address(payRegistry), address(celerWallet));
+        celerLedgerNew = new CelerLedger(address(nativeWrap), address(payRegistry), address(celerWallet));
         vm.label(address(celerLedgerNew), "CelerLedgerNew");
 
         // Disable balance limits on both for simplicity.
         celerLedger.disableBalanceLimits();
         celerLedgerNew.disableBalanceLimits();
 
-        // Approve the new ledger from the EthPool too.
+        // Approve the new ledger from the wrapped-native too.
         vm.prank(peer0);
-        ethPool.approve(address(celerLedgerNew), type(uint256).max);
+        nativeWrap.approve(address(celerLedgerNew), type(uint256).max);
         vm.prank(peer1);
-        ethPool.approve(address(celerLedgerNew), type(uint256).max);
+        nativeWrap.approve(address(celerLedgerNew), type(uint256).max);
 
         // Fund both peers with ERC20 + approve both ledgers.
         erc20.transfer(peer0, 1_000_000);

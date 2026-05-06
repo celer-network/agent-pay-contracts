@@ -1,9 +1,0 @@
-********** Gas Measurement: EthPool **********
-
-***** Function Calls Gas Used *****
-deposit(): 20910
-withdraw(): 10060
-approve(): 31759
-transferFrom(): 41948
-increaseAllowance(): 3692
-decreaseAllowance(): 3647

@@ -15,7 +15,7 @@ existing core without touching the asset-custody contracts.
 
 | Script | Deploys | Lifecycle |
 |---|---|---|
-| [`DeployCore.s.sol`](DeployCore.s.sol) | `EthPool`, `PayRegistry`, `VirtContractResolver`, `CelerWallet` | Once per network. Permanent — never redeployed. |
+| [`DeployCore.s.sol`](DeployCore.s.sol) | `PayRegistry`, `VirtContractResolver`, `CelerWallet` | Once per network. Permanent — never redeployed. |
 | [`DeployLedger.s.sol`](DeployLedger.s.sol) | `CelerLedger` | Versioned. Run again for each new ledger version; peers cooperatively migrate. |
 | [`DeployPayResolver.s.sol`](DeployPayResolver.s.sol) | `PayResolver` | Versioned per-payment. Run when adding a new resolver. |
 | [`DeployRouterRegistry.s.sol`](DeployRouterRegistry.s.sol) | `RouterRegistry` | Optional. Independent of the channel graph. |
@@ -33,7 +33,9 @@ set -a; source script/.env; set +a
 # 3. Deploy the permanent core contracts
 forge script script/DeployCore.s.sol --rpc-url $RPC_URL --broadcast --verify -vv
 
-# 4. Paste the four addresses from step 3 into config.json's `core` block
+# 4. Paste the three addresses from step 3 into config.json's `core` block,
+#    plus the chain's canonical `nativeWrap` (wrapped-native) address — see
+#    `example_config.json` for canonical values per chain.
 
 # 5. Deploy the first ledger and resolver
 forge script script/DeployLedger.s.sol --rpc-url $RPC_URL --broadcast --verify -vv
@@ -79,7 +81,7 @@ After **`DeployLedger`**:
    balance limits **enabled by default** but no limits set — every deposit will
    revert until you do one of:
    ```bash
-   # Option A: set caps for the tokens you'll use (address(0) = ETH)
+   # Option A: set caps for the tokens you'll use (address(0) = native)
    cast send <CELER_LEDGER> "setBalanceLimits(address[],uint256[])" "[0x0000000000000000000000000000000000000000]" "[1000000000000000000000]" --rpc-url $RPC_URL --private-key $PRIVATE_KEY
 
    # Option B: disable limits entirely

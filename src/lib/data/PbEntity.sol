@@ -18,7 +18,7 @@ library PbEntity {
 
     enum TokenType {
         INVALID,
-        ETH,
+        NATIVE,
         ERC20
     }
 

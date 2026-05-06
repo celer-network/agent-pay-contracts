@@ -12,7 +12,6 @@ contract file is authoritative.
 - [PayResolver](#payresolver)
 - [PayRegistry](#payregistry)
 - [VirtContractResolver](#virtcontractresolver)
-- [EthPool](#ethpool)
 - [RouterRegistry](#routerregistry)
 - [Ledger libraries](#ledger-libraries) (where the channel logic actually lives)
 - [Helpers and mocks](#helpers-and-mocks)
@@ -29,8 +28,8 @@ future versions) is an *operator* over individual wallets within it. The contrac
 deliberately minimal logic — it only knows how to deposit, withdraw, and transfer
 operatorship — to keep the audit surface small.
 
-> **Supported tokens:** ETH and plain ERC-20 only. `depositERC20` credits the
-> requested `_amount`, so tokens that deliver less than requested
+> **Supported tokens:** native (e.g. ETH) and plain ERC-20 only. `depositERC20`
+> credits the requested `_amount`, so tokens that deliver less than requested
 > (fee-on-transfer, deflationary, rebasing, ERC-777 hooks) will desync this
 > wallet's accounting from its real token balance. Use only standard ERC-20s.
 
@@ -55,7 +54,7 @@ can `pause` / `unpause` and (when paused) `drainToken` to recover stuck funds.
 | Function | Caller | Purpose |
 |---|---|---|
 | [`create`](../src/CelerWallet.sol#L66) | anyone (typically a `CelerLedger`) | Create a new wallet for a peer-pair, returning its `walletId`. |
-| [`depositETH`](../src/CelerWallet.sol#L89) | anyone (payable) | Deposit native ETH into a wallet. |
+| [`depositNative`](../src/CelerWallet.sol#L89) | anyone (payable) | Deposit native (e.g., ETH) into a wallet. |
 | [`depositERC20`](../src/CelerWallet.sol#L101) | anyone | Deposit ERC-20 tokens (requires prior `approve`). |
 | [`withdraw`](../src/CelerWallet.sol#L119) | operator only | Withdraw funds to a receiver. |
 | [`transferToWallet`](../src/CelerWallet.sol#L141) | operator only | Move funds between two wallets sharing the same operator (channel rebalancing). |
@@ -107,20 +106,20 @@ wrapper — the actual logic is split across five libraries under
 [`src/lib/ledgerlib/`](../src/lib/ledgerlib/) and attached via `using ... for ...`. See
 [Ledger libraries](#ledger-libraries) below.
 
-> **Supported tokens:** ETH and plain ERC-20 only — see the same note under
-> [CelerWallet](#celerwallet). Non-standard ERC-20s
+> **Supported tokens:** native (e.g. ETH) and plain ERC-20 only — see the same
+> note under [CelerWallet](#celerwallet). Non-standard ERC-20s
 > (fee-on-transfer / rebasing / ERC-777 hooks) will desync channel accounting
 > from the wallet's real token balance.
 
 ### Constructor
 
 ```solidity
-constructor(address _ethPool, address _payRegistry, address _celerWallet) Ownable(msg.sender)
+constructor(address _nativeWrap, address _payRegistry, address _celerWallet) Ownable(msg.sender)
 ```
 
 | Param | Purpose |
 |---|---|
-| `_ethPool` | Address of the deployed [`EthPool`](#ethpool). |
+| `_nativeWrap` | Chain's canonical wrapped-native (wrapped-native) address. Used internally as a funding-flow primitive for native channels; never user-visible. Constructor-set; no setter. |
 | `_payRegistry` | Address of the deployed [`PayRegistry`](#payregistry). |
 | `_celerWallet` | Address of the deployed [`CelerWallet`](#celerwallet). |
 
@@ -132,7 +131,7 @@ Balance limits are **enabled by default** post-deployment. Configure them via
 | Function | Purpose |
 |---|---|
 | [`openChannel`](../src/CelerLedger.sol#L66) | Open a fully-funded channel from a co-signed `PaymentChannelInitializer` (single tx). |
-| [`deposit`](../src/CelerLedger.sol#L78) | Deposit ETH (msg.value) and/or pull from `EthPool`/ERC20 into a channel. |
+| [`deposit`](../src/CelerLedger.sol#L78) | Deposit native (msg.value) and/or pull from pre-approved wrapped-native or ERC-20 into a channel. |
 | [`depositInBatch`](../src/CelerLedger.sol#L91) | Batch deposit across multiple channels in one tx. |
 | [`snapshotStates`](../src/CelerLedger.sol#L114) | Persist a co-signed simplex state on-chain (lightweight checkpoint). |
 
@@ -175,7 +174,7 @@ A wide set of getters: `getChannelStatus`, `getTokenContract`, `getTokenType`,
 `getNextPayIdListHashMap`, `getPayClearDeadlineMap`, `getPendingPayOutMap`,
 `getWithdrawIntent`, `getCooperativeWithdrawSeqNum`, `getSettleFinalizedTime`,
 `getDisputeTimeout`, `getMigratedTo`, `getChannelMigrationArgs`,
-`getPeersMigrationInfo`, `getChannelStatusNum`, `getEthPool`, `getPayRegistry`,
+`getPeersMigrationInfo`, `getChannelStatusNum`, `getNativeWrap`, `getPayRegistry`,
 `getCelerWallet`, `getBalanceLimit`, `getBalanceLimitsEnabled`. See
 [`ICelerLedger.sol`](../src/lib/interface/ICelerLedger.sol).
 
@@ -190,7 +189,7 @@ Settle: `IntendSettle`, `ClearOnePay`, `ConfirmSettle`, `ConfirmSettleFail`,
 
 ```solidity
 LedgerStruct.Ledger private ledger;
-// → channelStatusNums, ethPool, payRegistry, celerWallet,
+// → channelStatusNums, nativeWrap, payRegistry, celerWallet,
 //   balanceLimits, balanceLimitsEnabled, channelMap (bytes32 → Channel)
 ```
 
@@ -303,31 +302,6 @@ virtual address (used in `Condition.virtual_contract_address`) is
 ### Events
 
 `Deploy(bytes32 indexed virtAddr)`.
-
----
-
-## EthPool
-
-[Source](../src/EthPool.sol) · [Interface](../src/lib/interface/IEthPool.sol) · **Permanent**
-
-ERC-20-shaped wrapper for native ETH. Used so that `CelerLedger.openChannel` and
-`deposit` can pull funds via a uniform `transferFrom` flow regardless of token type.
-Etherscan-friendly metadata: `name = "EthInPool"`, `symbol = "EthIP"`, `decimals = 18`.
-
-### External / public functions
-
-| Function | Purpose |
-|---|---|
-| [`deposit`](../src/EthPool.sol#L24) (payable) | Deposit `msg.value` ETH for a receiver. |
-| [`withdraw`](../src/EthPool.sol#L35) | Withdraw ETH back to `msg.sender`. |
-| [`approve`](../src/EthPool.sol#L44) / [`increaseAllowance`](../src/EthPool.sol#L93) / [`decreaseAllowance`](../src/EthPool.sol#L106) | ERC-20-style allowance management. |
-| [`transferFrom`](../src/EthPool.sol#L59) | Pull-based ETH transfer to a payable address. |
-| [`transferToCelerWallet`](../src/EthPool.sol#L73) | Specialized transfer that funds a `CelerWallet` wallet directly. |
-| [`balanceOf`](../src/EthPool.sol#L119) / [`allowance`](../src/EthPool.sol#L129) | Standard ERC-20 views. |
-
-### Events
-
-`Deposit`, `Transfer`, `Approval` (ERC-20 shape).
 
 ---
 

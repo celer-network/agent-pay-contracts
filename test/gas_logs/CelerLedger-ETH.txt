@@ -2,28 +2,28 @@
 
 ***** Deploy Gas Used *****
 VirtContractResolver Deploy Gas: 206156
-EthPool Deploy Gas: 558320
-PayRegistry Deploy Gas: 565565
-CelerWallet Deploy Gas: 1148513
+NativeWrapMock Deploy Gas: 416592
+PayRegistry Deploy Gas: 565639
+CelerWallet Deploy Gas: 1149117
 PayResolver Deploy Gas: 1910790
-CelerLedger Deploy Gas: 1920270
+CelerLedger Deploy Gas: 1939849
 
 ***** Function Calls Gas Used *****
-openChannel() with zero deposit: 301454
-openChannel() using EthPool and msg.value: 412371
-setBalanceLimits(): 26101
+openChannel() with zero deposit: 301469
+openChannel() using nativeWrap and msg.value: 433020
+setBalanceLimits(): 26123
 disableBalanceLimits(): 1688
-enableBalanceLimits(): 32589
-deposit() via msg.value: 78052
-deposit() via EthPool: 91281
-depositInBatch() with 5 deposits: 382082
-intendWithdraw(): 72739
+enableBalanceLimits(): 32611
+deposit() via msg.value: 77942
+deposit() via nativeWrap: 121744
+depositInBatch() with 5 deposits: 526397
+intendWithdraw(): 72761
 vetoWithdraw(): 3995
-confirmWithdraw(): 57548
-cooperativeWithdraw(): 92387
+confirmWithdraw(): 57592
+cooperativeWithdraw(): 92298
 snapshotStates() with one non-null simplex state: 77674
 intendSettle() with a null state: 87600
-intendSettle() with two 2-payment-hashList states: 279887
+intendSettle() with two 2-payment-hashList states: 279888
 clearPays() with 2 payments: 16990
-confirmSettle(): 48721
-cooperativeSettle(): 93083
+confirmSettle(): 48787
+cooperativeSettle(): 93127

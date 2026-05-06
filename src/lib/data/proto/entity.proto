@@ -20,7 +20,7 @@ message AccountAmtPair {
 
 enum TokenType {
   INVALID = 0;
-  ETH = 1;
+  NATIVE = 1;
   ERC20 = 2;
 }
 

@@ -29,7 +29,7 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
         address[] owners;
         // corresponding to CelerLedger
         address operator;
-        // adderss(0) for ETH
+        // address(0) for native
         mapping(address => uint256) balances;
         address proposedNewOperator;
         mapping(address => bool) proposalVotes;
@@ -88,10 +88,10 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
     }
 
     /**
-     * @notice Deposit ETH to a wallet
+     * @notice Deposit native (e.g. ETH) to a wallet
      * @param _walletId id of the wallet to deposit into
      */
-    function depositETH(bytes32 _walletId) public payable whenNotPaused {
+    function depositNative(bytes32 _walletId) public payable whenNotPaused {
         uint256 amount = msg.value;
         _updateBalance(_walletId, address(0), amount, MathOperation.Add);
         emit DepositToWallet(_walletId, address(0), amount);
@@ -112,9 +112,9 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
 
     /**
      * @notice Withdraw funds to an address
-     * @dev Since this withdraw() function uses direct transfer to send ETH, if CelerLedger
+     * @dev Since this withdraw() function uses direct transfer to send native, if CelerLedger
      *   allows non externally-owned account (EOA) to be a peer of the channel namely an owner
-     *   of the wallet, CelerLedger should implement a withdraw pattern for ETH to avoid
+     *   of the wallet, CelerLedger should implement a withdraw pattern for native to avoid
      *   maliciously fund locking. Withdraw pattern reference:
      * @param _walletId id of the wallet to withdraw from
      * @param _tokenAddress address of token to withdraw
@@ -273,7 +273,7 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
     function _withdrawToken(address _tokenAddress, address _receiver, uint256 _amount) internal {
         if (_tokenAddress == address(0)) {
             (bool success,) = payable(_receiver).call{value: _amount}("");
-            require(success, "ETH transfer failed");
+            require(success, "Native transfer failed");
         } else {
             IERC20(_tokenAddress).safeTransfer(_receiver, _amount);
         }

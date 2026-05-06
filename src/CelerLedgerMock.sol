@@ -7,7 +7,7 @@ import "./lib/ledgerlib/LedgerBalanceLimit.sol";
 import "./lib/ledgerlib/LedgerMigrate.sol";
 import "./lib/ledgerlib/LedgerChannel.sol";
 import "./lib/interface/ICelerWallet.sol";
-import "./lib/interface/IEthPool.sol";
+import "./lib/interface/INativeWrap.sol";
 import "./lib/interface/IPayRegistry.sol";
 
 /**
@@ -27,11 +27,11 @@ contract CelerLedgerMock {
 
     /**
      * @notice CelerLedger constructor
-     * @param _ethPool address of ETH pool
+     * @param _nativeWrap address of wrapped-native (wrapped-native) contract
      * @param _payRegistry address of PayRegistry
      */
-    constructor(address _ethPool, address _payRegistry, address _celerWallet) {
-        ledger.ethPool = IEthPool(_ethPool);
+    constructor(address _nativeWrap, address _payRegistry, address _celerWallet) {
+        ledger.nativeWrap = INativeWrap(_nativeWrap);
         ledger.payRegistry = IPayRegistry(_payRegistry);
         ledger.celerWallet = ICelerWallet(_celerWallet);
         // enable balance limits in default
@@ -78,7 +78,7 @@ contract CelerLedgerMock {
      * @dev total deposit amount = msg.value(must be 0 for ERC20) + _transferFromAmount
      * @param _channelId ID of the channel
      * @param _receiver address of the receiver
-     * @param _transferFromAmount amount of funds to be transfered from EthPool for ETH
+     * @param _transferFromAmount amount of funds to be transferred from `nativeWrap` (wrapped-native) for native channels
      *   or ERC20 contract for ERC20 tokens
      */
     function deposit(bytes32 _channelId, address _receiver, uint256 _transferFromAmount) external payable {
@@ -475,11 +475,11 @@ contract CelerLedgerMock {
     }
 
     /**
-     * @notice Return EthPool used by this CelerLedger contract
-     * @return EthPool address
+     * @notice Return wrapped-native (wrapped-native) contract used by this CelerLedger
+     * @return wrapped-native contract address
      */
-    function getEthPool() external view returns (address) {
-        return address(ledger.ethPool);
+    function getNativeWrap() external view returns (address) {
+        return address(ledger.nativeWrap);
     }
 
     /**

@@ -20,12 +20,16 @@ activity happens off-chain: peers exchange co-signed simplex states and forward
 conditional payments through routed paths. The blockchain is only touched for deposits,
 withdrawals, settlement, dispute resolution, and (rarely) deploying virtual contracts.
 
-The seven contracts split cleanly into two roles. **Asset custody** lives in
+The six contracts split cleanly into two roles. **Asset custody** lives in
 permanent, audited contracts that change rarely or never (`CelerWallet`, `PayRegistry`,
-`VirtContractResolver`, `EthPool`). **Channel and payment logic** lives in *versioned*
+`VirtContractResolver`). **Channel and payment logic** lives in *versioned*
 contracts (`CelerLedger`, `PayResolver`) that peers can cooperatively migrate between
 without disturbing the assets — see [Decentralized Versioning][versioning] in the full
 docs. `RouterRegistry` is an optional advertisement registry for relay nodes.
+
+`CelerLedger` additionally depends on the chain's canonical wrapped-native
+(wrapped-native) contract for the multi-party-funding path on native channels —
+wired at deploy time, never user-visible. Users still deposit and receive native.
 
 [versioning]: https://agentpay-docs.celer.network/agentpay-architecture/on-chain-contracts/decentralized-versioning
 
@@ -100,7 +104,6 @@ For the full state-transition rules, see
 | [`PayResolver`](../src/PayResolver.sol) | On-chain conditional-pay resolution; writes results to `PayRegistry`. | **Yes** (chosen per-payment) |
 | [`PayRegistry`](../src/PayRegistry.sol) | Global `payId → (amount, deadline)` map; immutable, public reference. | No (permanent) |
 | [`VirtContractResolver`](../src/VirtContractResolver.sol) | On-demand deployment of virtual contracts during disputes. | No (permanent) |
-| [`EthPool`](../src/EthPool.sol) | ERC20-like wrapper for native ETH; enables single-tx channel opening. | No |
 | [`RouterRegistry`](../src/RouterRegistry.sol) | Optional registry for relay-router self-advertisement. | No |
 
 For per-contract APIs (constructor args, external functions, events, storage), see

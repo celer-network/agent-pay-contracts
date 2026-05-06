@@ -69,7 +69,7 @@ contract CelerWalletTest is Test {
 
         vm.deal(operator, 10 ether);
         vm.prank(operator);
-        wallet.depositETH{value: 100}(walletId);
+        wallet.depositNative{value: 100}(walletId);
 
         token.transfer(owner0, 100_000);
         vm.prank(owner0);
@@ -130,12 +130,12 @@ contract CelerWalletTest is Test {
     // Deposits
     // =========================================================================
 
-    function test_depositETH_emitsEvent_creditsBalance() public {
+    function test_depositNative_emitsEvent_creditsBalance() public {
         vm.deal(stranger, 1 ether);
         vm.expectEmit(true, true, false, true, address(wallet));
         emit DepositToWallet(walletId, address(0), 25);
         vm.prank(stranger);
-        wallet.depositETH{value: 25}(walletId);
+        wallet.depositNative{value: 25}(walletId);
 
         assertEq(wallet.getBalance(walletId, address(0)), 100 + 25);
     }
@@ -306,7 +306,7 @@ contract CelerWalletTest is Test {
         // Deposits work again after unpause.
         vm.deal(stranger, 1 ether);
         vm.prank(stranger);
-        wallet.depositETH{value: 5}(walletId);
+        wallet.depositNative{value: 5}(walletId);
         assertEq(wallet.getBalance(walletId, address(0)), 100 + 5);
     }
 
@@ -329,7 +329,7 @@ contract CelerWalletTest is Test {
         vm.deal(operator, 1 ether);
         vm.expectRevert();
         vm.prank(operator);
-        wallet.depositETH{value: 100}(walletId);
+        wallet.depositNative{value: 100}(walletId);
 
         vm.expectRevert();
         vm.prank(owner0);

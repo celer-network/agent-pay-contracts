@@ -7,7 +7,7 @@ import "./lib/ledgerlib/LedgerBalanceLimit.sol";
 import "./lib/ledgerlib/LedgerMigrate.sol";
 import "./lib/ledgerlib/LedgerChannel.sol";
 import "./lib/interface/ICelerWallet.sol";
-import "./lib/interface/IEthPool.sol";
+import "./lib/interface/INativeWrap.sol";
 import "./lib/interface/IPayRegistry.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
@@ -32,14 +32,20 @@ contract CelerLedger is ICelerLedger, Ownable {
     /**
      * @notice Construct the ledger and wire it to its dependencies.
      * @dev Balance limits are enabled by default; configure or disable via the
-     *  owner-only admin functions.
-     * @param _ethPool Address of the deployed {IEthPool}.
+     *  owner-only admin functions. `_nativeWrap` is constructor-set with no
+     *  setter — effectively immutable for the lifetime of this ledger
+     *  instance.
+     * @param _nativeWrap Address of the chain's canonical wrapped-native
+     *  (wrapped-native) contract. Used internally as a funding-flow
+     *  primitive for native-token channels; never user-visible.
      * @param _payRegistry Address of the deployed {IPayRegistry}.
      * @param _celerWallet Address of the deployed {ICelerWallet} — this ledger must
      *  later become its operator (during channel opening or via wallet creation).
      */
-    constructor(address _ethPool, address _payRegistry, address _celerWallet) Ownable(msg.sender) {
-        ledger.ethPool = IEthPool(_ethPool);
+    constructor(address _nativeWrap, address _payRegistry, address _celerWallet) Ownable(msg.sender) {
+        require(_nativeWrap != address(0), "nativeWrap address required");
+        require(_nativeWrap.code.length > 0, "nativeWrap code required");
+        ledger.nativeWrap = INativeWrap(_nativeWrap);
         ledger.payRegistry = IPayRegistry(_payRegistry);
         ledger.celerWallet = ICelerWallet(_celerWallet);
         // enable balance limits in default
@@ -47,8 +53,18 @@ contract CelerLedger is ICelerLedger, Ownable {
     }
 
     /**
+     * @notice Restricted `receive()` — accepts native only from `nativeWrap`'s
+     *  `withdraw(...)` callback. Reverts on direct sends from any other address
+     *  to keep accidental dust from getting stranded (the ledger has no
+     *  native-drain path).
+     */
+    receive() external payable {
+        require(msg.sender == address(ledger.nativeWrap), "Only nativeWrap");
+    }
+
+    /**
      * @notice Set the per-channel balance limits of given tokens
-     * @param _tokenAddrs addresses of the tokens (address(0) is for ETH)
+     * @param _tokenAddrs addresses of the tokens (address(0) is for native)
      * @param _limits balance limits of the tokens
      */
     function setBalanceLimits(address[] calldata _tokenAddrs, uint256[] calldata _limits) external onlyOwner {
@@ -78,11 +94,11 @@ contract CelerLedger is ICelerLedger, Ownable {
     }
 
     /**
-     * @notice Deposit ETH or ERC20 tokens into the channel
+     * @notice Deposit native or ERC20 tokens into the channel
      * @dev total deposit amount = msg.value(must be 0 for ERC20) + _transferFromAmount
      * @param _channelId ID of the channel
      * @param _receiver address of the receiver
-     * @param _transferFromAmount amount of funds to be transfered from EthPool for ETH
+     * @param _transferFromAmount amount of funds to be transferred from `nativeWrap` (wrapped-native) for native channels
      *   or ERC20 contract for ERC20 tokens
      */
     function deposit(bytes32 _channelId, address _receiver, uint256 _transferFromAmount) external payable {
@@ -90,12 +106,12 @@ contract CelerLedger is ICelerLedger, Ownable {
     }
 
     /**
-     * @notice Deposit ETH via EthPool or ERC20 tokens into the channel
-     * @dev do not support sending ETH in msg.value for function simplicity.
+     * @notice Deposit native (via msg.value or pre-approved wrapped-native) or ERC20 tokens into the channel
+     * @dev do not support sending native in msg.value for function simplicity.
      *   Index in three arrays should match.
      * @param _channelIds IDs of the channels
      * @param _receivers addresses of the receivers
-     * @param _transferFromAmounts amounts of funds to be transfered from EthPool for ETH
+     * @param _transferFromAmounts amounts of funds to be transferred from `nativeWrap` (wrapped-native) for native channels
      *   or ERC20 contract for ERC20 tokens
      */
     function depositInBatch(
@@ -435,11 +451,11 @@ contract CelerLedger is ICelerLedger, Ownable {
     }
 
     /**
-     * @notice Return EthPool used by this CelerLedger contract
-     * @return EthPool address
+     * @notice Return the wrapped-native (wrapped-native) contract used by this CelerLedger
+     * @return wrapped-native contract address
      */
-    function getEthPool() external view returns (address) {
-        return ledger.getEthPool();
+    function getNativeWrap() external view returns (address) {
+        return ledger.getNativeWrap();
     }
 
     /**

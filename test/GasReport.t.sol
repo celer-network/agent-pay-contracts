@@ -7,7 +7,7 @@ import {Fixtures} from "./utils/Fixtures.sol";
 import {SignUtil} from "./utils/SignUtil.sol";
 import {CelerLedger} from "../src/CelerLedger.sol";
 import {CelerWallet} from "../src/CelerWallet.sol";
-import {EthPool} from "../src/EthPool.sol";
+import {NativeWrapMock} from "../src/helper/NativeWrapMock.sol";
 import {PayRegistry} from "../src/PayRegistry.sol";
 import {PayResolver} from "../src/PayResolver.sol";
 import {VirtContractResolver} from "../src/VirtContractResolver.sol";
@@ -25,7 +25,6 @@ import {BooleanCondMock} from "../src/helper/BooleanCondMock.sol";
  *  - `test/gas_logs/CelerLedger-ETH.txt`
  *  - `test/gas_logs/CelerLedger-ERC20.txt`
  *  - `test/gas_logs/CelerLedger-Migrate.txt`
- *  - `test/gas_logs/EthPool.txt`
  *  - `test/gas_logs/PayResolver.txt`
  *  - `test/gas_logs/VirtContractResolver.txt`
  *
@@ -62,7 +61,7 @@ contract GasReport is LedgerTestBase {
         string memory s = "********** Gas Measurement: CelerLedger ETH **********\n\n";
         s = string.concat(s, "***** Deploy Gas Used *****\n");
         s = string.concat(s, _deployRow("VirtContractResolver", _measureDeploy_virt()));
-        s = string.concat(s, _deployRow("EthPool", _measureDeploy_ethPool()));
+        s = string.concat(s, _deployRow("NativeWrapMock", _measureDeploy_nativeWrap()));
         s = string.concat(s, _deployRow("PayRegistry", _measureDeploy_payRegistry()));
         s = string.concat(s, _deployRow("CelerWallet", _measureDeploy_celerWallet()));
         s = string.concat(s, _deployRow("PayResolver", _measureDeploy_payResolver()));
@@ -70,12 +69,12 @@ contract GasReport is LedgerTestBase {
 
         s = string.concat(s, "\n***** Function Calls Gas Used *****\n");
         s = string.concat(s, _row("openChannel() with zero deposit", _measure_openChannel_zeroDeposit()));
-        s = string.concat(s, _row("openChannel() using EthPool and msg.value", _measure_openChannel_funded()));
+        s = string.concat(s, _row("openChannel() using nativeWrap and msg.value", _measure_openChannel_funded()));
         s = string.concat(s, _row("setBalanceLimits()", _measure_setBalanceLimits()));
         s = string.concat(s, _row("disableBalanceLimits()", _measure_disableBalanceLimits()));
         s = string.concat(s, _row("enableBalanceLimits()", _measure_enableBalanceLimits()));
         s = string.concat(s, _row("deposit() via msg.value", _measure_deposit_msgValue()));
-        s = string.concat(s, _row("deposit() via EthPool", _measure_deposit_ethPool()));
+        s = string.concat(s, _row("deposit() via nativeWrap", _measure_deposit_nativeWrap()));
         s = string.concat(s, _row("depositInBatch() with 5 deposits", _measure_depositInBatch_5()));
         s = string.concat(s, _row("intendWithdraw()", _measure_intendWithdraw()));
         s = string.concat(s, _row("vetoWithdraw()", _measure_vetoWithdraw()));
@@ -122,7 +121,7 @@ contract GasReport is LedgerTestBase {
     }
 
     // =========================================================================
-    // Top-level report — PayResolver / VirtContractResolver / EthPool
+    // Top-level report — PayResolver / VirtContractResolver
     // =========================================================================
 
     function test_writeReport_PayResolver() public {
@@ -138,18 +137,6 @@ contract GasReport is LedgerTestBase {
         s = string.concat(s, "***** Function Calls Gas Used *****\n");
         s = string.concat(s, _row("deploy() - BooleanCondMock", _measure_virtDeploy()));
         _writeReport("test/gas_logs/VirtContractResolver.txt", s);
-    }
-
-    function test_writeReport_EthPool() public {
-        string memory s = "********** Gas Measurement: EthPool **********\n\n";
-        s = string.concat(s, "***** Function Calls Gas Used *****\n");
-        s = string.concat(s, _row("deposit()", _measure_ethPool_deposit()));
-        s = string.concat(s, _row("withdraw()", _measure_ethPool_withdraw()));
-        s = string.concat(s, _row("approve()", _measure_ethPool_approve()));
-        s = string.concat(s, _row("transferFrom()", _measure_ethPool_transferFrom()));
-        s = string.concat(s, _row("increaseAllowance()", _measure_ethPool_increaseAllowance()));
-        s = string.concat(s, _row("decreaseAllowance()", _measure_ethPool_decreaseAllowance()));
-        _writeReport("test/gas_logs/EthPool.txt", s);
     }
 
     // =========================================================================
@@ -265,10 +252,10 @@ contract GasReport is LedgerTestBase {
         vm.revertToState(snap);
     }
 
-    function _measureDeploy_ethPool() internal returns (uint256 g) {
+    function _measureDeploy_nativeWrap() internal returns (uint256 g) {
         uint256 snap = vm.snapshotState();
         uint256 g0 = gasleft();
-        new EthPool();
+        new NativeWrapMock();
         g = g0 - gasleft();
         vm.revertToState(snap);
     }
@@ -300,7 +287,7 @@ contract GasReport is LedgerTestBase {
     function _measureDeploy_celerLedger() internal returns (uint256 g) {
         uint256 snap = vm.snapshotState();
         uint256 g0 = gasleft();
-        new CelerLedger(address(ethPool), address(payRegistry), address(celerWallet));
+        new CelerLedger(address(nativeWrap), address(payRegistry), address(celerWallet));
         g = g0 - gasleft();
         vm.revertToState(snap);
     }
@@ -383,7 +370,7 @@ contract GasReport is LedgerTestBase {
         vm.revertToState(snap);
     }
 
-    function _measure_deposit_ethPool() internal returns (uint256 g) {
+    function _measure_deposit_nativeWrap() internal returns (uint256 g) {
         uint256 snap = vm.snapshotState();
         bytes32 ch = _openZeroEthChannel();
         vm.prank(peer0);
@@ -747,73 +734,6 @@ contract GasReport is LedgerTestBase {
         vm.revertToState(snap);
     }
 
-    function _measure_ethPool_deposit() internal returns (uint256 g) {
-        uint256 snap = vm.snapshotState();
-        vm.deal(stranger, 1 ether);
-        vm.prank(stranger);
-        uint256 g0 = gasleft();
-        ethPool.deposit{value: 100}(peer0);
-        g = g0 - gasleft();
-        vm.revertToState(snap);
-    }
-
-    function _measure_ethPool_withdraw() internal returns (uint256 g) {
-        uint256 snap = vm.snapshotState();
-        vm.deal(peer0, 1 ether);
-        vm.prank(peer0);
-        ethPool.deposit{value: 100}(peer0);
-        vm.prank(peer0);
-        uint256 g0 = gasleft();
-        ethPool.withdraw(100);
-        g = g0 - gasleft();
-        vm.revertToState(snap);
-    }
-
-    function _measure_ethPool_approve() internal returns (uint256 g) {
-        uint256 snap = vm.snapshotState();
-        vm.prank(peer0);
-        uint256 g0 = gasleft();
-        ethPool.approve(stranger, 200);
-        g = g0 - gasleft();
-        vm.revertToState(snap);
-    }
-
-    function _measure_ethPool_transferFrom() internal returns (uint256 g) {
-        uint256 snap = vm.snapshotState();
-        vm.deal(peer0, 1 ether);
-        vm.prank(peer0);
-        ethPool.deposit{value: 200}(peer0);
-        vm.prank(peer0);
-        ethPool.approve(stranger, 200);
-        vm.prank(stranger);
-        uint256 g0 = gasleft();
-        ethPool.transferFrom(peer0, payable(makeAddr("recipient")), 150);
-        g = g0 - gasleft();
-        vm.revertToState(snap);
-    }
-
-    function _measure_ethPool_increaseAllowance() internal returns (uint256 g) {
-        uint256 snap = vm.snapshotState();
-        vm.prank(peer0);
-        ethPool.approve(stranger, 50);
-        vm.prank(peer0);
-        uint256 g0 = gasleft();
-        ethPool.increaseAllowance(stranger, 50);
-        g = g0 - gasleft();
-        vm.revertToState(snap);
-    }
-
-    function _measure_ethPool_decreaseAllowance() internal returns (uint256 g) {
-        uint256 snap = vm.snapshotState();
-        vm.prank(peer0);
-        ethPool.approve(stranger, 100);
-        vm.prank(peer0);
-        uint256 g0 = gasleft();
-        ethPool.decreaseAllowance(stranger, 80);
-        g = g0 - gasleft();
-        vm.revertToState(snap);
-    }
-
     // =========================================================================
     // Common reusable helpers (PayIdList / migration / hash-lock pay).
     // =========================================================================
@@ -865,12 +785,12 @@ contract GasReport is LedgerTestBase {
     }
 
     function _deployNewLedgerSiblingAndApprove() internal returns (CelerLedger newLedger) {
-        newLedger = new CelerLedger(address(ethPool), address(payRegistry), address(celerWallet));
+        newLedger = new CelerLedger(address(nativeWrap), address(payRegistry), address(celerWallet));
         newLedger.disableBalanceLimits();
         vm.prank(peer0);
-        ethPool.approve(address(newLedger), type(uint256).max);
+        nativeWrap.approve(address(newLedger), type(uint256).max);
         vm.prank(peer1);
-        ethPool.approve(address(newLedger), type(uint256).max);
+        nativeWrap.approve(address(newLedger), type(uint256).max);
     }
 
     function _buildMigrationRequest(bytes32 _channelId, address _fromLedger, address _toLedger, uint256 _deadline)

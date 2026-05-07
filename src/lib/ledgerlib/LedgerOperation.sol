@@ -49,9 +49,8 @@ library LedgerOperation {
         // enforce ascending order of peers' addresses to simplify contract code
         require(peerAddrs[0] < peerAddrs[1], "Peer addrs are not ascending");
 
-        ICelerWallet celerWallet = _self.celerWallet;
         bytes32 h = keccak256(openRequest.channelInitializer);
-        (bytes32 channelId, LedgerStruct.Channel storage c) = _createWallet(_self, celerWallet, peerAddrs, h);
+        (bytes32 channelId, LedgerStruct.Channel storage c) = _createWallet(_self, _self.celerWallet, peerAddrs, h);
 
         c.disputeTimeout = channelInitializer.disputeTimeout;
         _updateChannelStatus(_self, c, LedgerStruct.ChannelStatus.Operable);
@@ -77,42 +76,63 @@ library LedgerOperation {
             require(amtSum <= _self.balanceLimits[token.tokenAddress], "Balance exceeds limit");
         }
 
-        if (token.tokenType == PbEntity.TokenType.ETH) {
-            uint256 msgValueReceiver = channelInitializer.msgValueReceiver;
-            require(msg.value == amounts[msgValueReceiver], "msg.value mismatch");
-            if (amounts[msgValueReceiver] > 0) {
-                celerWallet.depositETH{value: amounts[msgValueReceiver]}(channelId);
-            }
+        _fundChannelOpen(_self, channelId, peerAddrs, amounts, amtSum, token, channelInitializer.msgValueReceiver);
+    }
 
-            // peer ID of non-msgValueReceiver
-            uint256 pid = 1 - msgValueReceiver;
-            if (amounts[pid] > 0) {
-                _self.ethPool.transferToCelerWallet(peerAddrs[pid], address(celerWallet), channelId, amounts[pid]);
+    /**
+     * @notice Pull peer deposits into the channel's wallet at `openChannel` time.
+     * @dev Purpose: address the EVM 16-slot stack-depth limit.
+     * @param _self Storage data of CelerLedger contract.
+     * @param _channelId Id of the channel being opened.
+     * @param _peerAddrs Sorted peer addresses from the initializer.
+     * @param _amounts Per-peer initial deposits, indexed identically to `_peerAddrs`.
+     * @param _amtSum `_amounts[0] + _amounts[1]`, precomputed by the caller.
+     * @param _token Token type and address from the initializer.
+     * @param _msgValueReceiver Index (0 or 1) of the peer whose contribution is
+     *  paid via `msg.value` on the native path; ignored on the ERC-20 path.
+     */
+    function _fundChannelOpen(
+        LedgerStruct.Ledger storage _self,
+        bytes32 _channelId,
+        address[2] memory _peerAddrs,
+        uint256[2] memory _amounts,
+        uint256 _amtSum,
+        PbEntity.TokenInfo memory _token,
+        uint256 _msgValueReceiver
+    ) internal {
+        if (_token.tokenType == PbEntity.TokenType.NATIVE) {
+            require(msg.value == _amounts[_msgValueReceiver], "msg.value mismatch");
+            uint256 pid = 1 - _msgValueReceiver;
+            if (_amounts[pid] > 0) {
+                IERC20(address(_self.nativeWrap)).safeTransferFrom(_peerAddrs[pid], address(this), _amounts[pid]);
+                _self.nativeWrap.withdraw(_amounts[pid]);
             }
-        } else if (token.tokenType == PbEntity.TokenType.ERC20) {
+            // `_amtSum > 0` is guaranteed by `openChannel`'s early return;
+            // a single combined depositNative covers both peers' contributions.
+            _self.celerWallet.depositNative{value: _amtSum}(_channelId);
+        } else if (_token.tokenType == PbEntity.TokenType.ERC20) {
             require(msg.value == 0, "msg.value is not 0");
 
-            IERC20 erc20Token = IERC20(token.tokenAddress);
+            IERC20 erc20Token = IERC20(_token.tokenAddress);
             for (uint256 i = 0; i < 2; i++) {
-                if (amounts[i] == 0) continue;
-
-                erc20Token.safeTransferFrom(peerAddrs[i], address(this), amounts[i]);
+                if (_amounts[i] == 0) continue;
+                erc20Token.safeTransferFrom(_peerAddrs[i], address(this), _amounts[i]);
             }
-            erc20Token.forceApprove(address(celerWallet), amtSum);
-            celerWallet.depositERC20(channelId, address(erc20Token), amtSum);
+            erc20Token.forceApprove(address(_self.celerWallet), _amtSum);
+            _self.celerWallet.depositERC20(_channelId, address(erc20Token), _amtSum);
         } else {
             assert(false);
         }
     }
 
     /**
-     * @notice Deposit ETH or ERC20 tokens into the channel
+     * @notice Deposit native or ERC20 tokens into the channel
      * @dev total deposit amount = msg.value(must be 0 for ERC20) + _transferFromAmount.
      *   library function can't be payable but can read msg.value in caller's context.
      * @param _self storage data of CelerLedger contract
      * @param _channelId ID of the channel
      * @param _receiver address of the receiver
-     * @param _transferFromAmount amount of funds to be transfered from EthPool for ETH
+     * @param _transferFromAmount amount of funds to be transferred from `nativeWrap` (wrapped-native) for native channels
      *   or ERC20 contract for ERC20 tokens
      */
     function deposit(
@@ -126,13 +146,14 @@ library LedgerOperation {
         _addDeposit(_self, _channelId, _receiver, _transferFromAmount + msgValue);
 
         LedgerStruct.Channel storage c = _self.channelMap[_channelId];
-        if (c.token.tokenType == PbEntity.TokenType.ETH) {
+        if (c.token.tokenType == PbEntity.TokenType.NATIVE) {
             if (msgValue > 0) {
-                _self.celerWallet.depositETH{value: msgValue}(_channelId);
+                _self.celerWallet.depositNative{value: msgValue}(_channelId);
             }
             if (_transferFromAmount > 0) {
-                _self.ethPool
-                    .transferToCelerWallet(msg.sender, address(_self.celerWallet), _channelId, _transferFromAmount);
+                IERC20(address(_self.nativeWrap)).safeTransferFrom(msg.sender, address(this), _transferFromAmount);
+                _self.nativeWrap.withdraw(_transferFromAmount);
+                _self.celerWallet.depositNative{value: _transferFromAmount}(_channelId);
             }
         } else if (c.token.tokenType == PbEntity.TokenType.ERC20) {
             require(msgValue == 0, "msg.value is not 0");
@@ -536,12 +557,12 @@ library LedgerOperation {
     }
 
     /**
-     * @notice Return EthPool used by this CelerLedger contract
+     * @notice Return wrapped-native (wrapped-native) contract used by this CelerLedger
      * @param _self storage data of CelerLedger contract
-     * @return EthPool address
+     * @return wrapped-native contract address
      */
-    function getEthPool(LedgerStruct.Ledger storage _self) external view returns (address) {
-        return address(_self.ethPool);
+    function getNativeWrap(LedgerStruct.Ledger storage _self) external view returns (address) {
+        return address(_self.nativeWrap);
     }
 
     /**
@@ -770,7 +791,7 @@ library LedgerOperation {
      * @return validated token info
      */
     function _validateTokenInfo(PbEntity.TokenInfo memory _token) internal view returns (PbEntity.TokenInfo memory) {
-        if (_token.tokenType == PbEntity.TokenType.ETH) {
+        if (_token.tokenType == PbEntity.TokenType.NATIVE) {
             require(_token.tokenAddress == address(0));
         } else if (_token.tokenType == PbEntity.TokenType.ERC20) {
             require(_token.tokenAddress != address(0));

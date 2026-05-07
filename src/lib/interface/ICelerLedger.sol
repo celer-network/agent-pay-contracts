@@ -33,12 +33,13 @@ interface ICelerLedger {
     function openChannel(bytes calldata _openChannelRequest) external payable;
 
     /**
-     * @notice Deposit ETH or ERC-20 tokens into an existing channel.
+     * @notice Deposit native or ERC-20 tokens into an existing channel.
      * @dev Anyone can deposit; total credited is `msg.value + _transferFromAmount`.
      *  For ERC-20 channels, `msg.value` must be 0 and the depositor must have approved
-     *  this contract for `_transferFromAmount`. For ETH channels, `_transferFromAmount`
-     *  is pulled from {IEthPool}. ERC-20 path assumes plain ERC-20 semantics —
-     *  fee-on-transfer / rebasing / ERC-777 tokens are unsupported.
+     *  this contract for `_transferFromAmount`. For native channels, `_transferFromAmount`
+     *  is pulled from {INativeWrap} and unwrapped before crediting the wallet.
+     *  ERC-20 path assumes plain ERC-20 semantics — fee-on-transfer / rebasing /
+     *  ERC-777 tokens are unsupported.
      * @param _channelId Channel to credit.
      * @param _receiver Peer credited with the deposit.
      * @param _transferFromAmount Amount to pull via `transferFrom` (in addition to `msg.value`).
@@ -47,6 +48,10 @@ interface ICelerLedger {
 
     /**
      * @notice Batched variant of {deposit} across multiple channels in one tx.
+     * @dev Not payable: native-channel entries are funded only via pre-approved
+     *  wrapped-native (pulled from `nativeWrap` and unwrapped per channel);
+     *  `msg.value` funding is unsupported in the batch path. ERC-20 entries
+     *  pull from the corresponding token contract.
      * @param _channelIds Channels to credit.
      * @param _receivers Peer per channel credited with the deposit.
      * @param _transferFromAmounts Amount per channel pulled via `transferFrom`.
@@ -130,8 +135,8 @@ interface ICelerLedger {
     /// @notice Number of channels currently in the given {LedgerStruct.ChannelStatus}.
     function getChannelStatusNum(uint256 _channelStatus) external view returns (uint256);
 
-    /// @notice Address of the configured {IEthPool}.
-    function getEthPool() external view returns (address);
+    /// @notice Address of the configured {INativeWrap}.
+    function getNativeWrap() external view returns (address);
 
     /// @notice Address of the configured {IPayRegistry}.
     function getPayRegistry() external view returns (address);
@@ -203,10 +208,10 @@ interface ICelerLedger {
     /// @notice Unix timestamp (seconds) after which a settling channel can be confirmed.
     function getSettleFinalizedTime(bytes32 _channelId) external view returns (uint256);
 
-    /// @notice ERC-20 token contract address for this channel (`address(0)` for ETH).
+    /// @notice ERC-20 token contract address for this channel (`address(0)` for native).
     function getTokenContract(bytes32 _channelId) external view returns (address);
 
-    /// @notice Token type (ETH / ERC20) for this channel.
+    /// @notice Token type (NATIVE / ERC20) for this channel.
     function getTokenType(bytes32 _channelId) external view returns (PbEntity.TokenType);
 
     /// @notice Current channel status.
@@ -292,7 +297,7 @@ interface ICelerLedger {
     /**
      * @notice Set the per-channel maximum deposit for one or more tokens.
      * @dev Owner-only. Limits are enforced by {deposit} / {openChannel} when enabled.
-     * @param _tokenAddrs Token addresses (`address(0)` for ETH).
+     * @param _tokenAddrs Token addresses (`address(0)` for native).
      * @param _limits New limits, indexed identically to `_tokenAddrs`.
      */
     function setBalanceLimits(address[] calldata _tokenAddrs, uint256[] calldata _limits) external;
@@ -303,7 +308,7 @@ interface ICelerLedger {
     /// @notice Re-enable balance-limit enforcement for all tokens (owner only).
     function enableBalanceLimits() external;
 
-    /// @notice Configured per-channel limit for a specific token (`address(0)` for ETH).
+    /// @notice Configured per-channel limit for a specific token (`address(0)` for native).
     function getBalanceLimit(address _tokenAddr) external view returns (uint256);
 
     /// @notice Whether balance-limit enforcement is currently enabled globally.

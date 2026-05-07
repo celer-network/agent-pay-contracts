@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import {Test} from "forge-std/Test.sol";
 import {CelerWallet} from "../../src/CelerWallet.sol";
 import {CelerLedger} from "../../src/CelerLedger.sol";
-import {EthPool} from "../../src/EthPool.sol";
+import {NativeWrapMock} from "../../src/helper/NativeWrapMock.sol";
 import {PayRegistry} from "../../src/PayRegistry.sol";
 import {PayResolver} from "../../src/PayResolver.sol";
 import {VirtContractResolver} from "../../src/VirtContractResolver.sol";
@@ -14,7 +14,7 @@ import {ERC20ExampleToken} from "../../src/helper/ERC20ExampleToken.sol";
  * @title BaseTest
  * @notice Common deployment + helper utilities for AgentPay Foundry tests. Inherit
  *  this from individual test contracts to get a fully wired contract graph
- *  (`celerWallet`, `celerLedger`, `ethPool`, `payRegistry`, `payResolver`,
+ *  (`celerWallet`, `celerLedger`, `nativeWrap`, `payRegistry`, `payResolver`,
  *  `virtResolver`, `erc20`) and a few addressing helpers.
  * @dev `setUp()` here can be called from a child's own `setUp()` via `super.setUp()`.
  *  Tests that don't need every dependency may reach into the contracts directly
@@ -26,7 +26,7 @@ contract BaseTest is Test {
     // -------------------------------------------------------------------------
     CelerWallet internal celerWallet;
     CelerLedger internal celerLedger;
-    EthPool internal ethPool;
+    NativeWrapMock internal nativeWrap;
     PayRegistry internal payRegistry;
     PayResolver internal payResolver;
     VirtContractResolver internal virtResolver;
@@ -60,17 +60,17 @@ contract BaseTest is Test {
         vm.warp(1_000_000);
 
         // Deploy the full contract graph in dependency order.
-        ethPool = new EthPool();
+        nativeWrap = new NativeWrapMock();
         payRegistry = new PayRegistry();
         virtResolver = new VirtContractResolver();
         payResolver = new PayResolver(address(payRegistry), address(virtResolver));
         celerWallet = new CelerWallet();
-        celerLedger = new CelerLedger(address(ethPool), address(payRegistry), address(celerWallet));
+        celerLedger = new CelerLedger(address(nativeWrap), address(payRegistry), address(celerWallet));
         erc20 = new ERC20ExampleToken();
 
         vm.label(address(celerWallet), "CelerWallet");
         vm.label(address(celerLedger), "CelerLedger");
-        vm.label(address(ethPool), "EthPool");
+        vm.label(address(nativeWrap), "NativeWrap");
         vm.label(address(payRegistry), "PayRegistry");
         vm.label(address(payResolver), "PayResolver");
         vm.label(address(virtResolver), "VirtContractResolver");

@@ -22,19 +22,21 @@ contract LedgerTestBase is BaseTest {
     function setUp() public virtual override {
         super.setUp();
 
-        // Pre-fund the peers in EthPool so deposits via the pool path work.
+        // Wrap native to the canonical wrapped-native (test mock) for each peer
+        // so they can fund their channel-open deposit via the pre-approved-WETH
+        // path (the non-msgValueReceiver side of multi-party funding).
         vm.deal(peer0, 100 ether);
         vm.deal(peer1, 100 ether);
         vm.prank(peer0);
-        ethPool.deposit{value: POOL_DEPOSIT}(peer0);
+        nativeWrap.deposit{value: POOL_DEPOSIT}();
         vm.prank(peer1);
-        ethPool.deposit{value: POOL_DEPOSIT}(peer1);
+        nativeWrap.deposit{value: POOL_DEPOSIT}();
 
-        // Approve the ledger to draw from the pool.
+        // Approve the ledger to draw from each peer's wrapped-native balance.
         vm.prank(peer0);
-        ethPool.approve(address(celerLedger), type(uint256).max);
+        nativeWrap.approve(address(celerLedger), type(uint256).max);
         vm.prank(peer1);
-        ethPool.approve(address(celerLedger), type(uint256).max);
+        nativeWrap.approve(address(celerLedger), type(uint256).max);
     }
 
     // -------------------------------------------------------------------------
@@ -61,7 +63,7 @@ contract LedgerTestBase is BaseTest {
         returns (bytes memory request, bytes memory initializer, bytes32 channelId)
     {
         Fixtures.PaymentChannelInitializer memory init = Fixtures.PaymentChannelInitializer({
-            tokenType: 1, // ETH
+            tokenType: 1, // NATIVE
             tokenAddress: address(0),
             peers: [peer0, peer1],
             amounts: _amounts,
@@ -114,7 +116,7 @@ contract LedgerTestBase is BaseTest {
     function _openFundedEthChannel(uint256[2] memory _amounts) internal returns (bytes32 channelId) {
         uint256 deadline = openDeadlineCursor++;
         (bytes memory request,, bytes32 derivedId) = _buildOpenEth(_amounts, 0, deadline);
-        // peer0 sends msg.value = amounts[0]; remainder pulled from peer1's EthPool balance.
+        // peer0 sends msg.value = amounts[0]; remainder pulled from peer1's wrapped-native balance.
         vm.prank(peer0);
         celerLedger.openChannel{value: _amounts[0]}(request);
         return derivedId;

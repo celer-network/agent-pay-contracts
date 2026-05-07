@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "../interface/ICelerWallet.sol";
-import "../interface/IEthPool.sol";
+import "../interface/INativeWrap.sol";
 import "../interface/IPayRegistry.sol";
 import "../data/PbEntity.sol";
 
@@ -87,12 +87,12 @@ library LedgerStruct {
      * @notice Top-level ledger storage: many channels under one operation logic.
      * @dev Held in CelerLedger as a single private state variable. Each Ledger
      *  binds to one CelerWallet (asset custody), one PayRegistry (resolved-pay
-     *  results), and one EthPool (ETH wrapper).
+     *  results), and one wrapped-native contract (used as funding-flow primitive only).
      */
     struct Ledger {
         // ChannelStatus value => number of channels currently in that status.
         mapping(uint256 => uint256) channelStatusNums;
-        IEthPool ethPool;
+        INativeWrap nativeWrap;
         IPayRegistry payRegistry;
         ICelerWallet celerWallet;
         // Per-token per-channel deposit caps.

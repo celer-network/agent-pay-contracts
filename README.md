@@ -40,7 +40,7 @@ optimizer settings.
 
 ## Components
 
-Seven top-level contracts in [`src/`](src/), grouped by role:
+Six top-level contracts in [`src/`](src/), grouped by role:
 
 ### Asset custody (permanent, audited, not versioned)
 
@@ -50,8 +50,11 @@ Seven top-level contracts in [`src/`](src/), grouped by role:
   conditional-payment results, indexed by `payId = keccak256(payHash, setterAddress)`.
 - **[VirtContractResolver](src/VirtContractResolver.sol)** — On-demand deployer for
   virtual (off-chain) contracts when disputes need them on-chain.
-- **[EthPool](src/EthPool.sol)** — ERC-20-shaped wrapper for native ETH; enables
-  single-tx channel opening via a uniform `transferFrom` flow.
+
+`CelerLedger` additionally depends on the chain's canonical wrapped-native
+(WETH9-style) contract for the multi-party-funding path on native channels —
+wired at deploy time via the `_nativeWrap` constructor argument. Users still
+deposit and receive native; wrapped-native is internal plumbing only.
 
 ### Channel & payment logic (versioned, peer-controlled migration)
 
@@ -78,7 +81,6 @@ src/
 ├── CelerLedger.sol           # channel state machine; primary entry point (versioned)
 ├── CelerLedgerMock.sol       # test-only ledger variant
 ├── CelerWallet.sol           # multi-owner asset custodian (permanent)
-├── EthPool.sol               # ERC20-like wrapper for native ETH
 ├── PayRegistry.sol           # global resolved-payment registry (permanent)
 ├── PayResolver.sol           # conditional-pay resolution (versioned)
 ├── RouterRegistry.sol        # optional relay-router registry
@@ -110,11 +112,12 @@ gitignored.
 
 ## Supported tokens
 
-ETH and **plain ERC-20** only. Tokens whose `transferFrom` delivers anything
-other than the requested amount — fee-on-transfer, deflationary, rebasing,
-ERC-777 with hooks, etc. — are **not supported**: channel accounting credits
-the requested amount, so any actual-vs-requested mismatch will desync the
-wallet's internal balance from its real token holdings.
+Native (e.g. ETH) and **plain ERC-20** only. Tokens whose `transferFrom`
+delivers anything other than the requested amount — fee-on-transfer,
+deflationary, rebasing, ERC-777 with hooks, etc. — are **not supported**:
+channel accounting credits the requested amount, so any actual-vs-requested
+mismatch will desync the wallet's internal balance from its real token
+holdings.
 
 ---
 

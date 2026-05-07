@@ -16,9 +16,77 @@ existing core without touching the asset-custody contracts.
 | Script | Deploys | Lifecycle |
 |---|---|---|
 | [`DeployCore.s.sol`](DeployCore.s.sol) | `PayRegistry`, `VirtContractResolver`, `CelerWallet` | Once per network. Permanent — never redeployed. |
-| [`DeployLedger.s.sol`](DeployLedger.s.sol) | `CelerLedger` | Versioned. Run again for each new ledger version; peers cooperatively migrate. |
+| [`DeployLedger.s.sol`](DeployLedger.s.sol) | `CelerLedger` (+ 4 ledger libraries; see below) | Versioned. Run again for each new ledger version; peers cooperatively migrate. |
 | [`DeployPayResolver.s.sol`](DeployPayResolver.s.sol) | `PayResolver` | Versioned per-payment. Run when adding a new resolver. |
 | [`DeployRouterRegistry.s.sol`](DeployRouterRegistry.s.sol) | `RouterRegistry` | Optional. Independent of the channel graph. |
+
+## How the libraries are deployed
+
+`CelerLedger` is split across five Solidity `library` contracts under
+[`src/lib/ledgerlib/`](../src/lib/ledgerlib/) (forced by EIP-170's 24,576-byte
+deployed-bytecode limit — see
+[`docs/contracts.md` § Why split into libraries?](../docs/contracts.md#why-split-into-libraries)).
+The deploy script doesn't mention them by name, but they **are** deployed — Foundry
+handles it implicitly:
+
+1. The Solidity compiler emits **20-byte zero placeholders** in `CelerLedger`'s
+   bytecode wherever a library function is called, recording each placeholder offset
+   in `out/CelerLedger.sol/CelerLedger.json` under `bytecode.linkReferences`.
+2. When `forge script` evaluates `new CelerLedger(...)`, it walks the link references,
+   **deploys each library as its own contract** (one transaction each), and **patches
+   the placeholders** in `CelerLedger`'s bytecode with the freshly-deployed library
+   addresses.
+3. The now-linked `CelerLedger` is deployed last.
+
+So a single `forge script script/DeployLedger.s.sol --broadcast` call actually emits
+**5 deployment transactions** in this order: `LedgerOperation`, `LedgerChannel`,
+`LedgerMigrate`, `LedgerBalanceLimit`, then `CelerLedger`. All five appear in the
+broadcast log under
+`broadcast/DeployLedger.s.sol/<chainId>/run-latest.json` (see
+[Broadcast outputs](#broadcast-outputs) below).
+
+Library calls happen via `DELEGATECALL`, so the libraries execute in `CelerLedger`'s
+storage context — they're code on a separate address but operate on `CelerLedger`'s
+state.
+
+### Etherscan verification
+
+`forge verify-contract` (and `forge script ... --verify`) need the library addresses
+to reproduce the linked bytecode. When verification is run as part of the same
+`forge script ... --broadcast --verify` invocation, Foundry passes the addresses it
+just deployed automatically. To verify after the fact, supply them explicitly:
+
+```bash
+forge verify-contract <CELER_LEDGER_ADDR> CelerLedger \
+  --chain-id <CHAIN_ID> \
+  --libraries src/lib/ledgerlib/LedgerOperation.sol:LedgerOperation:<ADDR> \
+  --libraries src/lib/ledgerlib/LedgerChannel.sol:LedgerChannel:<ADDR> \
+  --libraries src/lib/ledgerlib/LedgerMigrate.sol:LedgerMigrate:<ADDR> \
+  --libraries src/lib/ledgerlib/LedgerBalanceLimit.sol:LedgerBalanceLimit:<ADDR> \
+  --watch
+```
+
+### Sharing libraries across ledger versions (optional)
+
+By default each `DeployLedger` run **redeploys all four libraries** — fine for a
+clean version cut, wasteful if you're iterating. To pin already-deployed library
+addresses and link `CelerLedger` against them at compile time, add to `foundry.toml`:
+
+```toml
+[profile.default]
+libraries = [
+  "src/lib/ledgerlib/LedgerOperation.sol:LedgerOperation:0x...",
+  "src/lib/ledgerlib/LedgerChannel.sol:LedgerChannel:0x...",
+  "src/lib/ledgerlib/LedgerMigrate.sol:LedgerMigrate:0x...",
+  "src/lib/ledgerlib/LedgerBalanceLimit.sol:LedgerBalanceLimit:0x...",
+]
+```
+
+With those set, `forge build` resolves the link references at compile time and
+`forge script` emits exactly **one** transaction (`new CelerLedger(...)`) instead of
+five. Most production deploys won't bother — re-deploying ~30 KB of library bytecode
+costs a few hundred thousand gas, which is negligible against the audit / coordination
+cost of pinning shared libraries across ledger versions.
 
 ## Quick start (fresh network)
 

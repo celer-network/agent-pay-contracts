@@ -345,6 +345,44 @@ via `using ... for ...`:
 **When debugging or extending channel behavior, the implementation almost always lives
 in one of these libraries — not in `CelerLedger.sol`.**
 
+### Why split into libraries?
+
+The split is **forced by the EIP-170 deployed-bytecode limit (24,576 bytes)**. The
+hot-path library `LedgerOperation` alone is currently ~20.7 KB, leaving only ~3.8 KB
+of headroom; merging the rest back into a single `CelerLedger` contract would total
+~39.5 KB and fail to deploy.
+
+| Component | Deployed size | % of 24,576 budget |
+|---|---:|---:|
+| `LedgerOperation` | ~20.7 KB | 84% |
+| `CelerLedger` (facade only) | ~8.9 KB | 36% |
+| `LedgerMigrate` | ~5.2 KB | 21% |
+| `LedgerChannel` | ~3.8 KB | 15% |
+| `LedgerBalanceLimit` | ~0.9 KB | 4% |
+
+The split-by-responsibility above also keeps cold paths (migration, balance limits)
+out of the hot path's bytecode budget.
+
+### How the libraries work mechanically
+
+1. **Storage layout** is owned by `CelerLedger` — the `Ledger` and `Channel` structs
+   defined in [`LedgerStruct`](../src/lib/ledgerlib/LedgerStruct.sol) describe the
+   slots; `CelerLedger` declares the actual storage variable.
+2. **Library functions take a `storage` pointer** as their first parameter (e.g.
+   `function openChannel(LedgerStruct.Ledger storage _self, ...) external`).
+3. **`using LedgerOperation for LedgerStruct.Ledger;`** in `CelerLedger` lets the
+   facade write `ledger.openChannel(...)`; the compiler rewrites that as a `DELEGATECALL`
+   into the deployed library, passing the storage pointer.
+4. **DELEGATECALL semantics** mean the library code executes in `CelerLedger`'s
+   context: storage reads/writes hit `CelerLedger`'s slots; `msg.sender` and
+   `msg.value` are whatever the user sent to `CelerLedger`. The library is just code
+   on a separate address.
+
+The libraries are deployed as their own contracts; `CelerLedger`'s bytecode contains
+20-byte placeholders that are patched with each library's address at deployment time.
+See [`script/README.md`](../script/README.md#how-the-libraries-are-deployed) for the
+deployment mechanics.
+
 ---
 
 ## Helpers and mocks

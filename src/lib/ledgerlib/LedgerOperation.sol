@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 import "./LedgerStruct.sol";
 import "./LedgerChannel.sol";
-import "../interface/ICelerWallet.sol";
+import "../../interfaces/ICelerWallet.sol";
 import "../data/PbChain.sol";
 import "../data/PbEntity.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";

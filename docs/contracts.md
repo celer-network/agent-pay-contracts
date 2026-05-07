@@ -20,7 +20,7 @@ contract file is authoritative.
 
 ## CelerWallet
 
-[Source](../src/CelerWallet.sol) · [Interface](../src/lib/interface/ICelerWallet.sol) · **Permanent** (not versioned)
+[Source](../src/CelerWallet.sol) · [Interface](../src/interfaces/ICelerWallet.sol) · **Permanent** (not versioned)
 
 Multi-owner, multi-token wallet that holds the funds for every channel in the network.
 A single `CelerWallet` instance is shared globally; every `CelerLedger` (current or
@@ -68,7 +68,7 @@ can `pause` / `unpause` and (when paused) `drainToken` to recover stuck funds.
 
 `CreateWallet`, `DepositToWallet`, `WithdrawFromWallet`, `TransferToWallet`,
 `ChangeOperator`, `ProposeNewOperator`, `DrainToken`. See
-[`ICelerWallet.sol`](../src/lib/interface/ICelerWallet.sol).
+[`ICelerWallet.sol`](../src/interfaces/ICelerWallet.sol).
 
 ### Storage
 
@@ -99,7 +99,7 @@ chains.
 
 ## CelerLedger
 
-[Source](../src/CelerLedger.sol) · [Interface](../src/lib/interface/ICelerLedger.sol) · **Versioned**
+[Source](../src/CelerLedger.sol) · [Interface](../src/interfaces/ICelerLedger.sol) · **Versioned**
 
 The channel state machine and primary user entry point. The contract itself is a thin
 wrapper — the actual logic is split across five libraries under
@@ -176,7 +176,7 @@ A wide set of getters: `getChannelStatus`, `getTokenContract`, `getTokenType`,
 `getDisputeTimeout`, `getMigratedTo`, `getChannelMigrationArgs`,
 `getPeersMigrationInfo`, `getChannelStatusNum`, `getNativeWrap`, `getPayRegistry`,
 `getCelerWallet`, `getBalanceLimit`, `getBalanceLimitsEnabled`. See
-[`ICelerLedger.sol`](../src/lib/interface/ICelerLedger.sol).
+[`ICelerLedger.sol`](../src/interfaces/ICelerLedger.sol).
 
 ### Events
 
@@ -199,7 +199,7 @@ See [`LedgerStruct.sol`](../src/lib/ledgerlib/LedgerStruct.sol) for the full lay
 
 ## PayResolver
 
-[Source](../src/PayResolver.sol) · [Interface](../src/lib/interface/IPayResolver.sol) · **Versioned** (chosen per-payment)
+[Source](../src/PayResolver.sol) · [Interface](../src/interfaces/IPayResolver.sol) · **Versioned** (chosen per-payment)
 
 On-chain conditional-payment resolution. Payment senders embed the resolver address in
 field 8 of `ConditionalPay`, which means each payment is tightly bound to a specific
@@ -248,7 +248,7 @@ contract; `PayInfoUpdate` emitted on the registry as a side effect.
 
 ## PayRegistry
 
-[Source](../src/PayRegistry.sol) · [Interface](../src/lib/interface/IPayRegistry.sol) · **Permanent**
+[Source](../src/PayRegistry.sol) · [Interface](../src/interfaces/IPayRegistry.sol) · **Permanent**
 
 Global mapping `payId → (amount, deadline)`. Append-only; any contract can be a setter
 because the `payId` derivation `keccak256(payHash, msg.sender)` namespaces results by
@@ -286,7 +286,7 @@ mapping(bytes32 => PayInfo) public payInfoMap;
 
 ## VirtContractResolver
 
-[Source](../src/VirtContractResolver.sol) · [Interface](../src/lib/interface/IVirtContractResolver.sol) · **Permanent**
+[Source](../src/VirtContractResolver.sol) · [Interface](../src/interfaces/IVirtContractResolver.sol) · **Permanent**
 
 Materializes off-chain "virtual" contracts on-chain when a dispute requires it. The
 virtual address (used in `Condition.virtual_contract_address`) is
@@ -307,7 +307,7 @@ virtual address (used in `Condition.virtual_contract_address`) is
 
 ## RouterRegistry
 
-[Source](../src/RouterRegistry.sol) · [Interface](../src/lib/interface/IRouterRegistry.sol) · **Permanent**
+[Source](../src/RouterRegistry.sol) · [Interface](../src/interfaces/IRouterRegistry.sol) · **Permanent**
 
 Optional global registry where relay-router operators advertise their addresses to the
 network. Each entry stores the Unix timestamp (seconds) of the latest registration /

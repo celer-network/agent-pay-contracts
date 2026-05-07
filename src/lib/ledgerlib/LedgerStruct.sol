@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "../interface/ICelerWallet.sol";
-import "../interface/INativeWrap.sol";
-import "../interface/IPayRegistry.sol";
+import "../../interfaces/ICelerWallet.sol";
+import "../../interfaces/INativeWrap.sol";
+import "../../interfaces/IPayRegistry.sol";
 import "../data/PbEntity.sol";
 
 /**

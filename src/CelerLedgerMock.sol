@@ -6,9 +6,9 @@ import "./lib/ledgerlib/LedgerOperation.sol";
 import "./lib/ledgerlib/LedgerBalanceLimit.sol";
 import "./lib/ledgerlib/LedgerMigrate.sol";
 import "./lib/ledgerlib/LedgerChannel.sol";
-import "./lib/interface/ICelerWallet.sol";
-import "./lib/interface/INativeWrap.sol";
-import "./lib/interface/IPayRegistry.sol";
+import "./interfaces/ICelerWallet.sol";
+import "./interfaces/INativeWrap.sol";
+import "./interfaces/IPayRegistry.sol";
 
 /**
  * @title CelerLedgerMock

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "../data/PbEntity.sol";
-import "../ledgerlib/LedgerStruct.sol";
+import "../lib/data/PbEntity.sol";
+import "../lib/ledgerlib/LedgerStruct.sol";
 
 /**
  * @title CelerLedger interface

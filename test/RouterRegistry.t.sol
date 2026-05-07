@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
 import {RouterRegistry} from "../src/RouterRegistry.sol";
-import {IRouterRegistry} from "../src/lib/interface/IRouterRegistry.sol";
+import {IRouterRegistry} from "../src/interfaces/IRouterRegistry.sol";
 
 /**
  * @title RouterRegistry tests

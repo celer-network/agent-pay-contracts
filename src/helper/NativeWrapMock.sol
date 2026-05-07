@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "../lib/interface/INativeWrap.sol";
+import "../interfaces/INativeWrap.sol";
 
 /**
  * @title NativeWrapMock

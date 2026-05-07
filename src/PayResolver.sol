@@ -3,11 +3,11 @@ pragma solidity ^0.8.20;
 
 import "./lib/data/PbChain.sol";
 import "./lib/data/PbEntity.sol";
-import "./lib/interface/IPayRegistry.sol";
-import "./lib/interface/IPayResolver.sol";
-import "./lib/interface/IBooleanCond.sol";
-import "./lib/interface/INumericCond.sol";
-import "./lib/interface/IVirtContractResolver.sol";
+import "./interfaces/IPayRegistry.sol";
+import "./interfaces/IPayResolver.sol";
+import "./interfaces/IBooleanCond.sol";
+import "./interfaces/INumericCond.sol";
+import "./interfaces/IVirtContractResolver.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";

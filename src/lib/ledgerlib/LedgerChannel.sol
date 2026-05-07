@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "./LedgerStruct.sol";
-import "../interface/ICelerLedger.sol";
+import "../../interfaces/ICelerLedger.sol";
 import "../data/PbEntity.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";

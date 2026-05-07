@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import "./LedgerOperation.sol";
 import "./LedgerChannel.sol";
 import "./LedgerStruct.sol";
-import "../interface/ICelerLedger.sol";
+import "../../interfaces/ICelerLedger.sol";
 import "../data/PbChain.sol";
 import "../data/PbEntity.sol";
 

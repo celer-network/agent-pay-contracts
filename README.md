@@ -86,10 +86,10 @@ src/
 ├── RouterRegistry.sol        # optional relay-router registry
 ├── VirtContractResolver.sol  # on-demand virtual-contract deployer
 ├── helper/                   # test fixtures (mocks + sample ERC20) — NOT production
+├── interfaces/              # I*.sol — public ABI surface
 └── lib/
     ├── data/                 # auto-generated protobuf decoders + .proto sources
-    ├── interface/            # I*.sol interfaces
-    └── ledgerlib/            # CelerLedger logic split into libraries
+    └── ledgerlib/            # CelerLedger logic split into libraries (EIP-170 size-split)
 
 test/                         # Foundry tests
 script/                       # Forge deploy scripts (TBD)

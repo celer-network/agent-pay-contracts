@@ -10,9 +10,11 @@ import "../lib/ledgerlib/LedgerStruct.sol";
  *  acts as the operator of a {ICelerWallet} and exposes the on-chain APIs for opening,
  *  funding, withdrawing from, settling, and migrating payment channels.
  * @dev The interface is grouped by the library that implements each section in
- *  `src/lib/ledgerlib/` (LedgerOperation, LedgerChannel, LedgerBalanceLimit,
- *  LedgerMigrate). Any change here must be mirrored in the corresponding library, and
- *  events declared here must match the library declarations bit-for-bit.
+ *  `src/lib/ledgerlib/` (LedgerOperation, LedgerChannel, LedgerMigrate).
+ *  Balance-limit admin and ledger-wide config getters are implemented directly on
+ *  CelerLedger (no library hop). Any change here must be mirrored in the
+ *  corresponding implementation, and events declared here must match the library
+ *  declarations bit-for-bit.
  */
 interface ICelerLedger {
     // =========================================================================
@@ -291,7 +293,7 @@ interface ICelerLedger {
         returns (address receiver, uint256 amount, uint256 requestTime, bytes32 recipientChannelId);
 
     // =========================================================================
-    // LedgerBalanceLimit — per-channel deposit caps
+    // Balance limits — per-channel deposit caps (owner-only admin, on CelerLedger)
     // =========================================================================
 
     /**

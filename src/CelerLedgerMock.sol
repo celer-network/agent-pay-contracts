@@ -3,7 +3,6 @@ pragma solidity ^0.8.20;
 
 import "./lib/ledgerlib/LedgerStruct.sol";
 import "./lib/ledgerlib/LedgerOperation.sol";
-import "./lib/ledgerlib/LedgerBalanceLimit.sol";
 import "./lib/ledgerlib/LedgerMigrate.sol";
 import "./lib/ledgerlib/LedgerChannel.sol";
 import "./interfaces/ICelerWallet.sol";

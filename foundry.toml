@@ -17,6 +17,17 @@ fs_permissions = [
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
 
+# Invariant-test budget. Defaults are 256 runs × 500 depth ≈ 128K calls per
+# invariant; with 6 invariants the wall-clock cost on this repo is ~6 minutes,
+# which is too heavy for routine CI. The values below trim each invariant to
+# 128 runs × 100 depth ≈ 13K calls, completing in ~30 seconds total while
+# still reaching every state transition reliably (verified locally). Bump
+# back toward defaults for deeper local sweeps before audits.
+[invariant]
+runs = 128
+depth = 100
+fail_on_revert = true
+
 [lint]
 exclude_lints = [
     "unaliased-plain-import",

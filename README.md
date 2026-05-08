@@ -92,7 +92,10 @@ src/
     └── ledgerlib/            # CelerLedger logic split into libraries (EIP-170 size-split)
 
 test/                         # Foundry tests
-script/                       # Forge deploy scripts (TBD)
+├── invariants/              # property-based / fuzz invariants for CelerLedger
+├── utils/                   # shared test base + fixtures + signing utils
+└── *.t.sol                  # per-contract unit tests
+script/                       # Forge deploy scripts
 lib/                          # git submodules: forge-std, openzeppelin
 ```
 

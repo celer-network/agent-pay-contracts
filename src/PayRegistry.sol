@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.26;
 
 import "./interfaces/IPayRegistry.sol";
+import "./lib/AgentPayErrors.sol";
 
 /**
  * @title PayRegistry
@@ -56,7 +57,7 @@ contract PayRegistry is IPayRegistry {
 
     /// @inheritdoc IPayRegistry
     function setPayAmounts(bytes32[] calldata _payHashes, uint256[] calldata _amts) external {
-        require(_payHashes.length == _amts.length, "Lengths do not match");
+        require(_payHashes.length == _amts.length, AgentPayErrors.LengthMismatch(_payHashes.length, _amts.length));
 
         bytes32 payId;
         address msgSender = msg.sender;
@@ -71,7 +72,9 @@ contract PayRegistry is IPayRegistry {
 
     /// @inheritdoc IPayRegistry
     function setPayDeadlines(bytes32[] calldata _payHashes, uint256[] calldata _deadlines) external {
-        require(_payHashes.length == _deadlines.length, "Lengths do not match");
+        require(
+            _payHashes.length == _deadlines.length, AgentPayErrors.LengthMismatch(_payHashes.length, _deadlines.length)
+        );
 
         bytes32 payId;
         address msgSender = msg.sender;
@@ -88,7 +91,10 @@ contract PayRegistry is IPayRegistry {
     function setPayInfos(bytes32[] calldata _payHashes, uint256[] calldata _amts, uint256[] calldata _deadlines)
         external
     {
-        require(_payHashes.length == _amts.length && _payHashes.length == _deadlines.length, "Lengths do not match");
+        require(_payHashes.length == _amts.length, AgentPayErrors.LengthMismatch(_payHashes.length, _amts.length));
+        require(
+            _payHashes.length == _deadlines.length, AgentPayErrors.LengthMismatch(_payHashes.length, _deadlines.length)
+        );
 
         bytes32 payId;
         address msgSender = msg.sender;
@@ -112,10 +118,10 @@ contract PayRegistry is IPayRegistry {
         for (uint256 i = 0; i < _payIds.length; i++) {
             if (payInfoMap[_payIds[i]].resolveDeadline == 0) {
                 // unresolved pays are gated by the caller-supplied upper-bound deadline
-                require(block.timestamp > _maxResolveDeadline, "Payment is not finalized");
+                require(block.timestamp > _maxResolveDeadline, AgentPayErrors.PaymentNotFinalized());
             } else {
                 // resolved pays are gated by their per-pay resolve deadline
-                require(block.timestamp > payInfoMap[_payIds[i]].resolveDeadline, "Payment is not finalized");
+                require(block.timestamp > payInfoMap[_payIds[i]].resolveDeadline, AgentPayErrors.PaymentNotFinalized());
             }
             amounts[i] = payInfoMap[_payIds[i]].amount;
         }

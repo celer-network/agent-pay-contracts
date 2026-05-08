@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.26;
 
 import "./interfaces/IRouterRegistry.sol";
+import "./lib/AgentPayErrors.sol";
 
 /**
  * @title RouterRegistry
@@ -19,7 +20,7 @@ contract RouterRegistry is IRouterRegistry {
      * @notice An external router could register to join the Celer Network
      */
     function registerRouter() external {
-        require(routerInfo[msg.sender] == 0, "Router address already exists");
+        require(routerInfo[msg.sender] == 0, AgentPayErrors.RouterAlreadyRegistered());
 
         routerInfo[msg.sender] = block.timestamp;
 
@@ -30,7 +31,7 @@ contract RouterRegistry is IRouterRegistry {
      * @notice An in-network router could deregister to leave the network
      */
     function deregisterRouter() external {
-        require(routerInfo[msg.sender] != 0, "Router address does not exist");
+        require(routerInfo[msg.sender] != 0, AgentPayErrors.RouterNotRegistered());
 
         delete routerInfo[msg.sender];
 
@@ -41,7 +42,7 @@ contract RouterRegistry is IRouterRegistry {
      * @notice Refresh the existed router's stored timestamp
      */
     function refreshRouter() external {
-        require(routerInfo[msg.sender] != 0, "Router address does not exist");
+        require(routerInfo[msg.sender] != 0, AgentPayErrors.RouterNotRegistered());
 
         routerInfo[msg.sender] = block.timestamp;
 

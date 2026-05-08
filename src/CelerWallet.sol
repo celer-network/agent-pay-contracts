@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.26;
 
 import "./interfaces/ICelerWallet.sol";
+import "./lib/AgentPayErrors.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
@@ -45,7 +46,7 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
      * @param _walletId id of the wallet to be operated
      */
     modifier onlyOperator(bytes32 _walletId) {
-        require(msg.sender == wallets[_walletId].operator, "msg.sender is not operator");
+        require(msg.sender == wallets[_walletId].operator, AgentPayErrors.NotOperator());
         _;
     }
 
@@ -55,7 +56,7 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
      * @param _addr address to be checked
      */
     modifier onlyWalletOwner(bytes32 _walletId, address _addr) {
-        require(_isWalletOwner(_walletId, _addr), "Given address is not wallet owner");
+        require(_isWalletOwner(_walletId, _addr), AgentPayErrors.NotWalletOwner());
         _;
     }
 
@@ -73,12 +74,12 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
         whenNotPaused
         returns (bytes32)
     {
-        require(_operator != address(0), "New operator is address(0)");
+        require(_operator != address(0), AgentPayErrors.ZeroAddress());
 
         bytes32 walletId = keccak256(abi.encodePacked(block.chainid, address(this), msg.sender, _nonce));
         Wallet storage w = wallets[walletId];
         // wallet must be uninitialized
-        require(w.operator == address(0), "Occupied wallet id");
+        require(w.operator == address(0), AgentPayErrors.WalletIdOccupied());
         w.owners = _owners;
         w.operator = _operator;
         walletNum++;
@@ -182,7 +183,7 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
      * @param _newOperator the new operator proposal
      */
     function proposeNewOperator(bytes32 _walletId, address _newOperator) public onlyWalletOwner(_walletId, msg.sender) {
-        require(_newOperator != address(0), "New operator is address(0)");
+        require(_newOperator != address(0), AgentPayErrors.ZeroAddress());
 
         Wallet storage w = wallets[_walletId];
         if (_newOperator != w.proposedNewOperator) {
@@ -273,7 +274,7 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
     function _withdrawToken(address _tokenAddress, address _receiver, uint256 _amount) internal {
         if (_tokenAddress == address(0)) {
             (bool success,) = payable(_receiver).call{value: _amount}("");
-            require(success, "Native transfer failed");
+            require(success, AgentPayErrors.NativeTransferFailed());
         } else {
             IERC20(_tokenAddress).safeTransfer(_receiver, _amount);
         }
@@ -313,7 +314,7 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
      * @param _newOperator the new operator
      */
     function _changeOperator(bytes32 _walletId, address _newOperator) internal {
-        require(_newOperator != address(0), "New operator is address(0)");
+        require(_newOperator != address(0), AgentPayErrors.ZeroAddress());
 
         Wallet storage w = wallets[_walletId];
         address oldOperator = w.operator;

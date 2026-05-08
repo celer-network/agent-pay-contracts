@@ -1,10 +1,10 @@
 ********** Gas Measurement of intendSettle() one state with multi pays **********
 
 pay number in head payIdList	used gas
-1	219405
-5	241272
-10	268556
-25	352065
-50	497538
-100	812347
-200	1545242
+1	219425
+5	241292
+10	268576
+25	352085
+50	497558
+100	812367
+200	1545262

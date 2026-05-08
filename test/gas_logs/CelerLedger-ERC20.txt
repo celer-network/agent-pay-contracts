@@ -1,8 +1,8 @@
 ********** Gas Measurement: CelerLedger ERC20 **********
 
 ***** Function Calls Gas Used *****
-openChannel() with zero deposit: 305397
-openChannel() with non-zero ERC20 deposits: 469427
+openChannel() with zero deposit: 305410
+openChannel() with non-zero ERC20 deposits: 469440
 deposit(): 149979
-cooperativeWithdraw(): 89116
-cooperativeSettle(): 88959
+cooperativeWithdraw(): 89247
+cooperativeSettle(): 89090

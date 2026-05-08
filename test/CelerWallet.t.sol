@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
+import {AgentPayErrors} from "../src/lib/AgentPayErrors.sol";
 import {CelerWallet} from "../src/CelerWallet.sol";
 import {WalletTestHelper} from "../src/helper/WalletTestHelper.sol";
 import {ERC20ExampleToken} from "../src/helper/ERC20ExampleToken.sol";
@@ -106,7 +107,7 @@ contract CelerWalletTest is Test {
         address[] memory owners = new address[](2);
         owners[0] = owner0;
         owners[1] = owner1;
-        vm.expectRevert(bytes("New operator is address(0)"));
+        vm.expectRevert(AgentPayErrors.ZeroAddress.selector);
         wallet.create(owners, address(0), bytes32(uint256(99)));
     }
 
@@ -115,7 +116,7 @@ contract CelerWalletTest is Test {
         owners[0] = owner0;
         owners[1] = owner1;
         wallet.create(owners, operator, bytes32(uint256(42)));
-        vm.expectRevert(bytes("Occupied wallet id"));
+        vm.expectRevert(AgentPayErrors.WalletIdOccupied.selector);
         wallet.create(owners, operator, bytes32(uint256(42)));
     }
 
@@ -168,13 +169,13 @@ contract CelerWalletTest is Test {
     }
 
     function test_withdraw_revertsForNonOperator() public {
-        vm.expectRevert(bytes("msg.sender is not operator"));
+        vm.expectRevert(AgentPayErrors.NotOperator.selector);
         vm.prank(stranger);
         wallet.withdraw(walletId, address(token), owner0, 50);
     }
 
     function test_withdraw_revertsForNonOwnerReceiver() public {
-        vm.expectRevert(bytes("Given address is not wallet owner"));
+        vm.expectRevert(AgentPayErrors.NotWalletOwner.selector);
         vm.prank(operator);
         wallet.withdraw(walletId, address(token), stranger, 50);
     }
@@ -194,7 +195,7 @@ contract CelerWalletTest is Test {
     }
 
     function test_transferToWallet_revertsForReceiverNotInBoth() public {
-        vm.expectRevert(bytes("Given address is not wallet owner"));
+        vm.expectRevert(AgentPayErrors.NotWalletOwner.selector);
         vm.prank(operator);
         wallet.transferToWallet(walletId, walletId2, address(token), stranger, 50);
     }
@@ -213,7 +214,7 @@ contract CelerWalletTest is Test {
     }
 
     function test_transferOperatorship_revertsForNonOperator() public {
-        vm.expectRevert(bytes("msg.sender is not operator"));
+        vm.expectRevert(AgentPayErrors.NotOperator.selector);
         vm.prank(stranger);
         wallet.transferOperatorship(walletId, newOperator);
     }
@@ -257,13 +258,13 @@ contract CelerWalletTest is Test {
     }
 
     function test_proposeNewOperator_revertsForZeroAddress() public {
-        vm.expectRevert(bytes("New operator is address(0)"));
+        vm.expectRevert(AgentPayErrors.ZeroAddress.selector);
         vm.prank(owner0);
         wallet.proposeNewOperator(walletId, address(0));
     }
 
     function test_proposeNewOperator_revertsForNonOwner() public {
-        vm.expectRevert(bytes("Given address is not wallet owner"));
+        vm.expectRevert(AgentPayErrors.NotWalletOwner.selector);
         vm.prank(stranger);
         wallet.proposeNewOperator(walletId, newOperator);
     }
@@ -378,7 +379,7 @@ contract CelerWalletTest is Test {
     // =========================================================================
 
     function test_getProposalVote_revertsForNonOwner() public {
-        vm.expectRevert(bytes("Given address is not wallet owner"));
+        vm.expectRevert(AgentPayErrors.NotWalletOwner.selector);
         wallet.getProposalVote(walletId, stranger);
     }
 

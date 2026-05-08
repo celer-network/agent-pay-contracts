@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
+import {AgentPayErrors} from "../src/lib/AgentPayErrors.sol";
 import {PayResolver} from "../src/PayResolver.sol";
 import {PayRegistry} from "../src/PayRegistry.sol";
 import {VirtContractResolver} from "../src/VirtContractResolver.sol";
@@ -268,14 +269,15 @@ contract PayResolverTest is Test {
         // Resolve via conditions to bump to 35 first, then try a vouched 30:
         _resolveByConditions(payBytes, TRUE_PREIMAGE);
 
-        vm.expectRevert(bytes("New amount is not larger"));
+        vm.expectRevert(AgentPayErrors.AmountNotGreater.selector);
         payResolver.resolvePaymentByVouchedResult(_vouched(payBytes, 30));
     }
 
     function test_resolveByVouchedResult_exceedingMax_reverts() public {
         bytes memory payBytes = _buildPay(0, 5, 3, 100, RESOLVE_DEADLINE);
 
-        vm.expectRevert(bytes("Exceed max transfer amount"));
+        // Full-payload assertion — locks down (attempted, max).
+        vm.expectRevert(abi.encodeWithSelector(AgentPayErrors.MaxTransferExceeded.selector, uint256(200), uint256(100)));
         payResolver.resolvePaymentByVouchedResult(_vouched(payBytes, 200));
     }
 
@@ -287,14 +289,14 @@ contract PayResolverTest is Test {
         // resolveDeadline already in the past.
         bytes memory payBytes = _buildPay(5, 1, 0, 10, block.timestamp - 1);
 
-        vm.expectRevert(bytes("Passed pay resolve deadline in condPay msg"));
+        vm.expectRevert(AgentPayErrors.DeadlinePassed.selector);
         _resolveByConditions(payBytes, TRUE_PREIMAGE);
     }
 
     function test_resolveByVouchedResult_pastResolveDeadline_reverts() public {
         bytes memory payBytes = _buildPay(6, 1, 0, 100, block.timestamp - 1);
 
-        vm.expectRevert(bytes("Passed pay resolve deadline in condPay msg"));
+        vm.expectRevert(AgentPayErrors.DeadlinePassed.selector);
         payResolver.resolvePaymentByVouchedResult(_vouched(payBytes, 20));
     }
 
@@ -307,7 +309,7 @@ contract PayResolverTest is Test {
         // Roll past the onchain resolve deadline.
         vm.warp(block.timestamp + RESOLVE_TIMEOUT + 1);
 
-        vm.expectRevert(bytes("Passed onchain resolve pay deadline"));
+        vm.expectRevert(AgentPayErrors.ResolveUpdateWindowClosed.selector);
         payResolver.resolvePaymentByVouchedResult(_vouched(payBytes, 30));
     }
 
@@ -317,7 +319,7 @@ contract PayResolverTest is Test {
         payResolver.resolvePaymentByVouchedResult(_vouched(payBytes, 20));
         vm.warp(block.timestamp + RESOLVE_TIMEOUT + 1);
 
-        vm.expectRevert(bytes("Passed onchain resolve pay deadline"));
+        vm.expectRevert(AgentPayErrors.ResolveUpdateWindowClosed.selector);
         _resolveByConditions(payBytes, TRUE_PREIMAGE);
     }
 
@@ -329,7 +331,7 @@ contract PayResolverTest is Test {
         // type 4: [hashLock, deployedTrue, hashLock]
         bytes memory payBytes = _buildPay(9, 4, 1, 200, RESOLVE_DEADLINE);
 
-        vm.expectRevert(bytes("Wrong preimage"));
+        vm.expectRevert(AgentPayErrors.PreimageMismatch.selector);
         _resolveByConditionsTwo(payBytes, TRUE_PREIMAGE, FALSE_PREIMAGE);
     }
 
@@ -379,7 +381,7 @@ contract PayResolverTest is Test {
             _buildPaySingleDeployed(20, address(boolMock), 0, NOT_FINALIZED_QUERY, abi.encodePacked(bytes1(0x01)));
 
         bytes[] memory preimages = new bytes[](0);
-        vm.expectRevert(bytes("Condition is not finalized"));
+        vm.expectRevert(AgentPayErrors.ConditionNotFinalized.selector);
         payResolver.resolvePaymentByConditions(Fixtures.encResolvePayByConditionsRequest(payBytes, preimages));
     }
 
@@ -389,7 +391,7 @@ contract PayResolverTest is Test {
             _buildPaySingleDeployed(21, address(boolMock), 1, NOT_FINALIZED_QUERY, abi.encodePacked(bytes1(0x01)));
 
         bytes[] memory preimages = new bytes[](0);
-        vm.expectRevert(bytes("Condition is not finalized"));
+        vm.expectRevert(AgentPayErrors.ConditionNotFinalized.selector);
         payResolver.resolvePaymentByConditions(Fixtures.encResolvePayByConditionsRequest(payBytes, preimages));
     }
 
@@ -399,7 +401,7 @@ contract PayResolverTest is Test {
             _buildPaySingleDeployed(22, address(numMock), 3, NOT_FINALIZED_QUERY, abi.encodePacked(uint8(10)));
 
         bytes[] memory preimages = new bytes[](0);
-        vm.expectRevert(bytes("Condition is not finalized"));
+        vm.expectRevert(AgentPayErrors.ConditionNotFinalized.selector);
         payResolver.resolvePaymentByConditions(Fixtures.encResolvePayByConditionsRequest(payBytes, preimages));
     }
 
@@ -434,7 +436,12 @@ contract PayResolverTest is Test {
 
         bytes[] memory preimages = new bytes[](1);
         preimages[0] = TRUE_PREIMAGE;
-        vm.expectRevert(bytes("Wrong chain id for pay"));
+        // Full-payload assertion — locks down the (expected, actual) args so a
+        // future edit that swaps argument order or returns the wrong values
+        // still fails the test.
+        vm.expectRevert(
+            abi.encodeWithSelector(AgentPayErrors.ChainIdMismatch.selector, block.chainid, block.chainid + 1)
+        );
         payResolver.resolvePaymentByConditions(Fixtures.encResolvePayByConditionsRequest(payBytes, preimages));
     }
 
@@ -442,7 +449,7 @@ contract PayResolverTest is Test {
         // Same wrong-chainid pay submitted via the vouched-result path.
         bytes memory payBytes = _buildPayWithChainId(31, block.chainid + 1);
 
-        vm.expectRevert(bytes("Wrong chain id for pay"));
+        vm.expectPartialRevert(AgentPayErrors.ChainIdMismatch.selector);
         payResolver.resolvePaymentByVouchedResult(_vouched(payBytes, 20));
     }
 
@@ -478,7 +485,7 @@ contract PayResolverTest is Test {
 
         bytes[] memory preimages = new bytes[](1);
         preimages[0] = TRUE_PREIMAGE;
-        vm.expectRevert(bytes("Wrong resolver for pay"));
+        vm.expectRevert(AgentPayErrors.ResolverAddressMismatch.selector);
         payResolver.resolvePaymentByConditions(Fixtures.encResolvePayByConditionsRequest(payBytes, preimages));
     }
 
@@ -487,7 +494,7 @@ contract PayResolverTest is Test {
         PayResolver siblingResolver = new PayResolver(address(payRegistry), address(virtResolver));
         bytes memory payBytes = _buildPayWithResolver(41, address(siblingResolver));
 
-        vm.expectRevert(bytes("Wrong resolver for pay"));
+        vm.expectRevert(AgentPayErrors.ResolverAddressMismatch.selector);
         payResolver.resolvePaymentByVouchedResult(_vouched(payBytes, 20));
     }
 

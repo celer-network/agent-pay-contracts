@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.26;
 
 import "./LedgerStruct.sol";
 import "./LedgerChannel.sol";
+import "../AgentPayErrors.sol";
 import "../../interfaces/ICelerWallet.sol";
 import "../data/PbChain.sol";
 import "../data/PbEntity.sol";
@@ -31,11 +32,14 @@ library LedgerOperation {
         PbChain.OpenChannelRequest memory openRequest = PbChain.decOpenChannelRequest(_openRequest);
         PbEntity.PaymentChannelInitializer memory channelInitializer =
             PbEntity.decPaymentChannelInitializer(openRequest.channelInitializer);
-        require(channelInitializer.initDistribution.distribution.length == 2, "Wrong length");
-        require(block.timestamp <= channelInitializer.openDeadline, "Open deadline passed");
+        require(channelInitializer.initDistribution.distribution.length == 2, AgentPayErrors.WrongPeerCount());
+        require(block.timestamp <= channelInitializer.openDeadline, AgentPayErrors.DeadlinePassed());
         // bind the co-signed initializer to its intended (chain, ledger) target
-        require(channelInitializer.chainId == block.chainid, "Wrong chain id for open");
-        require(channelInitializer.ledgerAddress == address(this), "Wrong ledger for open");
+        require(
+            channelInitializer.chainId == block.chainid,
+            AgentPayErrors.ChainIdMismatch(block.chainid, channelInitializer.chainId)
+        );
+        require(channelInitializer.ledgerAddress == address(this), AgentPayErrors.LedgerAddressMismatch());
 
         PbEntity.TokenInfo memory token = channelInitializer.initDistribution.token;
         uint256[2] memory amounts = [
@@ -47,7 +51,7 @@ library LedgerOperation {
             channelInitializer.initDistribution.distribution[1].account
         ];
         // enforce ascending order of peers' addresses to simplify contract code
-        require(peerAddrs[0] < peerAddrs[1], "Peer addrs are not ascending");
+        require(peerAddrs[0] < peerAddrs[1], AgentPayErrors.PeersNotAscending());
 
         bytes32 h = keccak256(openRequest.channelInitializer);
         (bytes32 channelId, LedgerStruct.Channel storage c) = _createWallet(_self, _self.celerWallet, peerAddrs, h);
@@ -60,20 +64,23 @@ library LedgerOperation {
         c.peerProfiles[1].peerAddr = peerAddrs[1];
         c.peerProfiles[1].deposit = amounts[1];
 
-        require(c._checkCoSignatures(h, openRequest.sigs), "Check co-sigs failed");
+        require(c._checkCoSignatures(h, openRequest.sigs), AgentPayErrors.InvalidCoSignatures());
 
         emit OpenChannel(channelId, uint256(token.tokenType), token.tokenAddress, peerAddrs, amounts);
 
         uint256 amtSum = amounts[0] + amounts[1];
         // if total deposit is 0
         if (amtSum == 0) {
-            require(msg.value == 0, "msg.value is not 0");
+            require(msg.value == 0, AgentPayErrors.MsgValueMustBeZero());
             return;
         }
 
         // if total deposit is larger than 0
         if (_self.balanceLimitsEnabled) {
-            require(amtSum <= _self.balanceLimits[token.tokenAddress], "Balance exceeds limit");
+            require(
+                amtSum <= _self.balanceLimits[token.tokenAddress],
+                AgentPayErrors.BalanceLimitExceeded(amtSum, _self.balanceLimits[token.tokenAddress])
+            );
         }
 
         _fundChannelOpen(_self, channelId, peerAddrs, amounts, amtSum, token, channelInitializer.msgValueReceiver);
@@ -101,7 +108,10 @@ library LedgerOperation {
         uint256 _msgValueReceiver
     ) internal {
         if (_token.tokenType == PbEntity.TokenType.NATIVE) {
-            require(msg.value == _amounts[_msgValueReceiver], "msg.value mismatch");
+            require(
+                msg.value == _amounts[_msgValueReceiver],
+                AgentPayErrors.MsgValueMismatch(_amounts[_msgValueReceiver], msg.value)
+            );
             uint256 pid = 1 - _msgValueReceiver;
             if (_amounts[pid] > 0) {
                 IERC20(address(_self.nativeWrap)).safeTransferFrom(_peerAddrs[pid], address(this), _amounts[pid]);
@@ -111,7 +121,7 @@ library LedgerOperation {
             // a single combined depositNative covers both peers' contributions.
             _self.celerWallet.depositNative{value: _amtSum}(_channelId);
         } else if (_token.tokenType == PbEntity.TokenType.ERC20) {
-            require(msg.value == 0, "msg.value is not 0");
+            require(msg.value == 0, AgentPayErrors.MsgValueMustBeZero());
 
             IERC20 erc20Token = IERC20(_token.tokenAddress);
             for (uint256 i = 0; i < 2; i++) {
@@ -156,7 +166,7 @@ library LedgerOperation {
                 _self.celerWallet.depositNative{value: _transferFromAmount}(_channelId);
             }
         } else if (c.token.tokenType == PbEntity.TokenType.ERC20) {
-            require(msgValue == 0, "msg.value is not 0");
+            require(msgValue == 0, AgentPayErrors.MsgValueMustBeZero());
 
             IERC20 erc20Token = IERC20(c.token.tokenAddress);
             erc20Token.safeTransferFrom(msg.sender, address(this), _transferFromAmount);
@@ -189,14 +199,16 @@ library LedgerOperation {
             bytes32 currentChannelId = simplexState.channelId;
             LedgerStruct.Channel storage c = _self.channelMap[currentChannelId];
 
-            require(c.status == LedgerStruct.ChannelStatus.Operable, "Channel status error");
+            require(c.status == LedgerStruct.ChannelStatus.Operable, AgentPayErrors.ChannelNotOperable());
 
             bytes32 stateHash = keccak256(signedSimplexStateArray.signedSimplexStates[i].simplexState);
             bytes[] memory sigs = signedSimplexStateArray.signedSimplexStates[i].sigs;
-            require(c._checkCoSignatures(stateHash, sigs), "Check co-sigs failed");
+            require(c._checkCoSignatures(stateHash, sigs), AgentPayErrors.InvalidCoSignatures());
             uint256 peerFromId = c._getPeerId(simplexState.peerFrom);
             LedgerStruct.PeerState storage state = c.peerProfiles[peerFromId].state;
-            require(simplexState.seqNum > state.seqNum, "seqNum error");
+            require(
+                simplexState.seqNum > state.seqNum, AgentPayErrors.SeqNumOutOfOrder(state.seqNum, simplexState.seqNum)
+            );
 
             // no need to update nextPayIdListHash and payClearDeadline for snapshot purpose
             state.seqNum = simplexState.seqNum;
@@ -209,7 +221,7 @@ library LedgerOperation {
                 simplexState =
                     PbEntity.decSimplexPaymentChannel(signedSimplexStateArray.signedSimplexStates[i + 1].simplexState);
                 // enforce channelIds of simplex states are ascending
-                require(currentChannelId <= simplexState.channelId, "Non-ascending channelIds");
+                require(currentChannelId <= simplexState.channelId, AgentPayErrors.NonAscendingChannelIds());
                 if (currentChannelId < simplexState.channelId) {
                     emit SnapshotStates(currentChannelId, c._getStateSeqNums());
                 }
@@ -237,11 +249,11 @@ library LedgerOperation {
         LedgerStruct.Channel storage c = _self.channelMap[_channelId];
         LedgerStruct.WithdrawIntent storage withdrawIntent = c.withdrawIntent;
         address receiver = msg.sender;
-        require(c.status == LedgerStruct.ChannelStatus.Operable, "Channel status error");
+        require(c.status == LedgerStruct.ChannelStatus.Operable, AgentPayErrors.ChannelNotOperable());
         // withdrawIntent.receiver is address(0) if and only if there is no pending WithdrawIntent,
         // because withdrawIntent.receiver may only be set as msg.sender which can't be address(0).
-        require(withdrawIntent.receiver == address(0), "Pending withdraw intent exists");
-        require(c._isPeer(receiver));
+        require(withdrawIntent.receiver == address(0), AgentPayErrors.WithdrawIntentExists());
+        require(c._isPeer(receiver), AgentPayErrors.NotPeer());
 
         withdrawIntent.receiver = receiver;
         withdrawIntent.amount = _amount;
@@ -259,9 +271,9 @@ library LedgerOperation {
      */
     function confirmWithdraw(LedgerStruct.Ledger storage _self, bytes32 _channelId) external {
         LedgerStruct.Channel storage c = _self.channelMap[_channelId];
-        require(c.status == LedgerStruct.ChannelStatus.Operable, "Channel status error");
-        require(c.withdrawIntent.receiver != address(0), "No pending withdraw intent");
-        require(block.timestamp >= c.withdrawIntent.requestTime + c.disputeTimeout, "Dispute not timeout");
+        require(c.status == LedgerStruct.ChannelStatus.Operable, AgentPayErrors.ChannelNotOperable());
+        require(c.withdrawIntent.receiver != address(0), AgentPayErrors.NoWithdrawIntent());
+        require(block.timestamp >= c.withdrawIntent.requestTime + c.disputeTimeout, AgentPayErrors.DisputeNotElapsed());
 
         address receiver = c.withdrawIntent.receiver;
         uint256 amount = c.withdrawIntent.amount;
@@ -274,7 +286,7 @@ library LedgerOperation {
         LedgerStruct.PeerProfile[2] storage peerProfiles = c.peerProfiles;
         uint256 withdrawLimit = peerProfiles[rid].deposit + peerProfiles[pid].state.transferOut
             - peerProfiles[rid].withdrawal - peerProfiles[rid].state.transferOut - peerProfiles[rid].state.pendingPayOut;
-        require(amount <= withdrawLimit, "Exceed withdraw limit");
+        require(amount <= withdrawLimit, AgentPayErrors.WithdrawLimitExceeded(amount, withdrawLimit));
 
         c._addWithdrawal(receiver, amount);
 
@@ -293,9 +305,9 @@ library LedgerOperation {
      */
     function vetoWithdraw(LedgerStruct.Ledger storage _self, bytes32 _channelId) external {
         LedgerStruct.Channel storage c = _self.channelMap[_channelId];
-        require(c.status == LedgerStruct.ChannelStatus.Operable, "Channel status error");
-        require(c.withdrawIntent.receiver != address(0), "No pending withdraw intent");
-        require(c._isPeer(msg.sender), "msg.sender is not peer");
+        require(c.status == LedgerStruct.ChannelStatus.Operable, AgentPayErrors.ChannelNotOperable());
+        require(c.withdrawIntent.receiver != address(0), AgentPayErrors.NoWithdrawIntent());
+        require(c._isPeer(msg.sender), AgentPayErrors.NotPeer());
 
         delete c.withdrawIntent;
 
@@ -318,12 +330,15 @@ library LedgerOperation {
         bytes32 recipientChannelId = withdrawInfo.recipientChannelId;
         LedgerStruct.Channel storage c = _self.channelMap[channelId];
 
-        require(c.status == LedgerStruct.ChannelStatus.Operable, "Channel status error");
+        require(c.status == LedgerStruct.ChannelStatus.Operable, AgentPayErrors.ChannelNotOperable());
         bytes32 h = keccak256(cooperativeWithdrawRequest.withdrawInfo);
-        require(c._checkCoSignatures(h, cooperativeWithdrawRequest.sigs), "Check co-sigs failed");
+        require(c._checkCoSignatures(h, cooperativeWithdrawRequest.sigs), AgentPayErrors.InvalidCoSignatures());
         // require an increment of exactly 1 for seqNum of each cooperative withdraw request
-        require(withdrawInfo.seqNum - c.cooperativeWithdrawSeqNum == 1, "seqNum error");
-        require(block.timestamp <= withdrawInfo.withdrawDeadline, "Withdraw deadline passed");
+        require(
+            withdrawInfo.seqNum - c.cooperativeWithdrawSeqNum == 1,
+            AgentPayErrors.SeqNumOutOfOrder(c.cooperativeWithdrawSeqNum, withdrawInfo.seqNum)
+        );
+        require(block.timestamp <= withdrawInfo.withdrawDeadline, AgentPayErrors.DeadlinePassed());
 
         address receiver = withdrawInfo.withdraw.account;
         c.cooperativeWithdrawSeqNum = withdrawInfo.seqNum;
@@ -363,14 +378,15 @@ library LedgerOperation {
             if (c._isPeer(msg.sender)) {
                 require(
                     c.status == LedgerStruct.ChannelStatus.Operable || c.status == LedgerStruct.ChannelStatus.Settling,
-                    "Peer channel status error"
+                    AgentPayErrors.ChannelNotOperableOrSettling()
                 );
             } else {
                 // A nonpeer cannot be the first one to call intendSettle
-                require(c.status == LedgerStruct.ChannelStatus.Settling, "Nonpeer channel status error");
+                require(c.status == LedgerStruct.ChannelStatus.Settling, AgentPayErrors.ChannelNotSettling());
             }
             require(
-                c.settleFinalizedTime == 0 || block.timestamp < c.settleFinalizedTime, "Settle has already finalized"
+                c.settleFinalizedTime == 0 || block.timestamp < c.settleFinalizedTime,
+                AgentPayErrors.IntendSettleWindowClosed()
             );
 
             bytes32 stateHash = keccak256(signedSimplexStateArray.signedSimplexStates[i].simplexState);
@@ -378,15 +394,21 @@ library LedgerOperation {
 
             if (simplexState.seqNum > 0) {
                 // non-null state
-                require(c._checkCoSignatures(stateHash, sigs), "Check co-sigs failed");
+                require(c._checkCoSignatures(stateHash, sigs), AgentPayErrors.InvalidCoSignatures());
                 uint256 peerFromId = c._getPeerId(simplexState.peerFrom);
                 LedgerStruct.PeerState storage state = c.peerProfiles[peerFromId].state;
                 // ensure each state can be intendSettle at most once
                 if (c.status == LedgerStruct.ChannelStatus.Operable) {
                     // "==" is the case of cooperative on-chain checkpoint
-                    require(simplexState.seqNum >= state.seqNum, "seqNum error");
+                    require(
+                        simplexState.seqNum >= state.seqNum,
+                        AgentPayErrors.SeqNumOutOfOrder(state.seqNum, simplexState.seqNum)
+                    );
                 } else if (c.status == LedgerStruct.ChannelStatus.Settling) {
-                    require(simplexState.seqNum > state.seqNum, "seqNum error");
+                    require(
+                        simplexState.seqNum > state.seqNum,
+                        AgentPayErrors.SeqNumOutOfOrder(state.seqNum, simplexState.seqNum)
+                    );
                 } else {
                     assert(false);
                 }
@@ -407,8 +429,10 @@ library LedgerOperation {
             } else if (simplexState.seqNum == 0) {
                 // null state
                 // this implies both stored seqNums are 0
-                require(c.settleFinalizedTime == 0, "intendSettle before");
-                require(sigs.length == 1 && c._checkSingleSignature(stateHash, sigs[0]), "Check sig failed");
+                require(c.settleFinalizedTime == 0, AgentPayErrors.SettlementAlreadyActive());
+                require(
+                    sigs.length == 1 && c._checkSingleSignature(stateHash, sigs[0]), AgentPayErrors.InvalidSignature()
+                );
             } else {
                 assert(false);
             }
@@ -419,7 +443,7 @@ library LedgerOperation {
                 simplexState =
                     PbEntity.decSimplexPaymentChannel(signedSimplexStateArray.signedSimplexStates[i + 1].simplexState);
                 // enforce channelIds of simplex states are ascending
-                require(currentChannelId <= simplexState.channelId, "Non-ascending channelIds");
+                require(currentChannelId <= simplexState.channelId, AgentPayErrors.NonAscendingChannelIds());
                 if (currentChannelId < simplexState.channelId) {
                     _updateOverallStatesByIntendState(_self, currentChannelId);
                 }
@@ -443,12 +467,12 @@ library LedgerOperation {
         bytes calldata _payIdList
     ) external {
         LedgerStruct.Channel storage c = _self.channelMap[_channelId];
-        require(c.status == LedgerStruct.ChannelStatus.Settling, "Channel status error");
+        require(c.status == LedgerStruct.ChannelStatus.Settling, AgentPayErrors.ChannelNotSettling());
         uint256 peerFromId = c._getPeerId(_peerFrom);
 
         bytes32 listHash = keccak256(_payIdList);
         LedgerStruct.PeerState storage state = c.peerProfiles[peerFromId].state;
-        require(state.nextPayIdListHash == listHash, "List hash mismatch");
+        require(state.nextPayIdListHash == listHash, AgentPayErrors.PayListHashMismatch());
 
         PbEntity.PayIdList memory payIdList = PbEntity.decPayIdList(_payIdList);
         state.nextPayIdListHash = payIdList.nextListHash;
@@ -465,9 +489,9 @@ library LedgerOperation {
         LedgerStruct.Channel storage c = _self.channelMap[_channelId];
         LedgerStruct.PeerProfile[2] storage peerProfiles = c.peerProfiles;
         uint256 nowTs = block.timestamp;
-        require(c.status == LedgerStruct.ChannelStatus.Settling, "Channel status error");
+        require(c.status == LedgerStruct.ChannelStatus.Settling, AgentPayErrors.ChannelNotSettling());
         // require no new intendSettle can be called
-        require(nowTs >= c.settleFinalizedTime, "Settle is not finalized");
+        require(nowTs >= c.settleFinalizedTime, AgentPayErrors.ConfirmSettleTooEarly());
 
         // require channel status of current intendSettle has been finalized,
         // namely all payments have already been either cleared or expired.
@@ -481,7 +505,7 @@ library LedgerOperation {
             (peerProfiles[0].state.nextPayIdListHash == bytes32(0) || nowTs > peerProfiles[0].state.payClearDeadline)
                 && (peerProfiles[1].state.nextPayIdListHash == bytes32(0)
                     || nowTs > peerProfiles[1].state.payClearDeadline),
-            "Payments are not finalized"
+            AgentPayErrors.PaymentNotFinalized()
         );
 
         (bool validBalance, uint256[2] memory settleBalance) = c._validateSettleBalance();
@@ -514,26 +538,31 @@ library LedgerOperation {
         LedgerStruct.Channel storage c = _self.channelMap[channelId];
         require(
             c.status == LedgerStruct.ChannelStatus.Operable || c.status == LedgerStruct.ChannelStatus.Settling,
-            "Channel status error"
+            AgentPayErrors.ChannelNotOperableOrSettling()
         );
 
         bytes32 h = keccak256(settleRequest.settleInfo);
-        require(c._checkCoSignatures(h, settleRequest.sigs), "Check co-sigs failed");
+        require(c._checkCoSignatures(h, settleRequest.sigs), AgentPayErrors.InvalidCoSignatures());
 
         address[2] memory peerAddrs = [c.peerProfiles[0].peerAddr, c.peerProfiles[1].peerAddr];
-        require(
-            settleInfo.seqNum > c.peerProfiles[0].state.seqNum && settleInfo.seqNum > c.peerProfiles[1].state.seqNum,
-            "seqNum error"
-        );
-        require(settleInfo.settleDeadline >= block.timestamp, "Settle deadline passed");
+        // settleInfo.seqNum must strictly exceed both simplex states' on-chain seqNums.
+        // For the parameterized error we surface the larger of the two on-chain seqNums
+        // since that's the binding minimum the proposed seqNum must clear.
+        {
+            uint256 maxSeq = c.peerProfiles[0].state.seqNum > c.peerProfiles[1].state.seqNum
+                ? c.peerProfiles[0].state.seqNum
+                : c.peerProfiles[1].state.seqNum;
+            require(settleInfo.seqNum > maxSeq, AgentPayErrors.SeqNumOutOfOrder(maxSeq, settleInfo.seqNum));
+        }
+        require(settleInfo.settleDeadline >= block.timestamp, AgentPayErrors.DeadlinePassed());
         // require distribution is consistent with the order of peerAddrs in channel
         require(
             settleInfo.settleBalance[0].account == peerAddrs[0] && settleInfo.settleBalance[1].account == peerAddrs[1],
-            "Settle accounts mismatch"
+            AgentPayErrors.SettlePeersMismatch()
         );
 
         uint256[2] memory settleBalance = [settleInfo.settleBalance[0].amt, settleInfo.settleBalance[1].amt];
-        require(settleBalance[0] + settleBalance[1] == c.getTotalBalance(), "Balance sum mismatch");
+        require(settleBalance[0] + settleBalance[1] == c.getTotalBalance(), AgentPayErrors.SettleBalanceSumMismatch());
 
         _updateChannelStatus(_self, c, LedgerStruct.ChannelStatus.Closed);
 
@@ -576,10 +605,10 @@ library LedgerOperation {
         // use walletId as channelId
         bytes32 channelId = _w.create(owners, address(this), _nonce);
         // 0 is reserved for non-channel indication
-        require(channelId != bytes32(0), "channelId gets 0");
+        require(channelId != bytes32(0), AgentPayErrors.ZeroChannelId());
         LedgerStruct.Channel storage c = _self.channelMap[channelId];
         // No harm in having this check in case of keccak256 being broken
-        require(c.status == LedgerStruct.ChannelStatus.Uninitialized, "Occupied channelId");
+        require(c.status == LedgerStruct.ChannelStatus.Uninitialized, AgentPayErrors.ChannelIdOccupied());
 
         return (channelId, c);
     }
@@ -595,12 +624,17 @@ library LedgerOperation {
         internal
     {
         LedgerStruct.Channel storage c = _self.channelMap[_channelId];
-        require(c.status == LedgerStruct.ChannelStatus.Operable, "Channel status error");
+        require(c.status == LedgerStruct.ChannelStatus.Operable, AgentPayErrors.ChannelNotOperable());
 
         // this implicitly require _receiver be a peer
         uint256 rid = c._getPeerId(_receiver);
         if (_self.balanceLimitsEnabled) {
-            require(_amount + c.getTotalBalance() <= _self.balanceLimits[c.token.tokenAddress], "Balance exceeds limit");
+            require(
+                _amount + c.getTotalBalance() <= _self.balanceLimits[c.token.tokenAddress],
+                AgentPayErrors.BalanceLimitExceeded(
+                    _amount + c.getTotalBalance(), _self.balanceLimits[c.token.tokenAddress]
+                )
+            );
         }
 
         c.peerProfiles[rid].deposit = c.peerProfiles[rid].deposit + _amount;
@@ -656,7 +690,7 @@ library LedgerOperation {
             require(
                 c.token.tokenType == recipientChannel.token.tokenType
                     && c.token.tokenAddress == recipientChannel.token.tokenAddress,
-                "Token mismatch of recipient channel"
+                AgentPayErrors.RecipientChannelTokenMismatch()
             );
             _addDeposit(_self, _recipientChannelId, _receiver, _amount);
 
@@ -765,10 +799,10 @@ library LedgerOperation {
      */
     function _validateTokenInfo(PbEntity.TokenInfo memory _token) internal view returns (PbEntity.TokenInfo memory) {
         if (_token.tokenType == PbEntity.TokenType.NATIVE) {
-            require(_token.tokenAddress == address(0));
+            require(_token.tokenAddress == address(0), AgentPayErrors.InvalidTokenAddress());
         } else if (_token.tokenType == PbEntity.TokenType.ERC20) {
-            require(_token.tokenAddress != address(0));
-            require(_token.tokenAddress.code.length > 0);
+            require(_token.tokenAddress != address(0), AgentPayErrors.InvalidTokenAddress());
+            require(_token.tokenAddress.code.length > 0, AgentPayErrors.TokenNotContract());
         } else {
             assert(false);
         }

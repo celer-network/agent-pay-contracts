@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.26;
 
 import "./LedgerOperation.sol";
 import "./LedgerChannel.sol";
 import "./LedgerStruct.sol";
 import "../../interfaces/ICelerLedger.sol";
+import "../AgentPayErrors.sol";
 import "../data/PbChain.sol";
 import "../data/PbEntity.sol";
 
@@ -38,13 +39,15 @@ library LedgerMigrate {
         LedgerStruct.Channel storage c = _self.channelMap[channelId];
         address toLedgerAddr = migrationInfo.toLedgerAddress;
 
-        require(c.status == LedgerStruct.ChannelStatus.Operable || c.status == LedgerStruct.ChannelStatus.Settling);
+        require(
+            c.status == LedgerStruct.ChannelStatus.Operable || c.status == LedgerStruct.ChannelStatus.Settling,
+            AgentPayErrors.ChannelNotOperableOrSettling()
+        );
         bytes32 h = keccak256(migrationRequest.channelMigrationInfo);
-        // use Channel Library instead
-        require(c._checkCoSignatures(h, migrationRequest.sigs), "Check co-sigs failed");
-        require(migrationInfo.fromLedgerAddress == address(this), "From ledger address is not this");
-        require(toLedgerAddr == msg.sender, "To ledger address is not msg.sender");
-        require(block.timestamp <= migrationInfo.migrationDeadline, "Passed migration deadline");
+        require(c._checkCoSignatures(h, migrationRequest.sigs), AgentPayErrors.InvalidCoSignatures());
+        require(migrationInfo.fromLedgerAddress == address(this), AgentPayErrors.FromLedgerAddressMismatch());
+        require(toLedgerAddr == msg.sender, AgentPayErrors.ToLedgerAddressMismatch());
+        require(block.timestamp <= migrationInfo.migrationDeadline, AgentPayErrors.DeadlinePassed());
 
         _self._updateChannelStatus(c, LedgerStruct.ChannelStatus.Migrated);
         c.migratedTo = toLedgerAddr;
@@ -71,8 +74,8 @@ library LedgerMigrate {
         address payable fromLedgerAddrPayable = payable(_fromLedgerAddr);
         bytes32 channelId = ICelerLedger(fromLedgerAddrPayable).migrateChannelTo(_migrationRequest);
         LedgerStruct.Channel storage c = _self.channelMap[channelId];
-        require(c.status == LedgerStruct.ChannelStatus.Uninitialized, "Immigrated channel already exists");
-        require(_self.celerWallet.getOperator(channelId) == address(this), "Operatorship not transferred");
+        require(c.status == LedgerStruct.ChannelStatus.Uninitialized, AgentPayErrors.ChannelAlreadyMigrated());
+        require(_self.celerWallet.getOperator(channelId) == address(this), AgentPayErrors.OperatorshipNotTransferred());
 
         _self._updateChannelStatus(c, LedgerStruct.ChannelStatus.Operable);
         // Do not migrate WithdrawIntent, in other words, migration will implicitly veto

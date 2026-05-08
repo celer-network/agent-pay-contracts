@@ -101,9 +101,10 @@ chains.
 
 [Source](../src/CelerLedger.sol) · [Interface](../src/interfaces/ICelerLedger.sol) · **Versioned**
 
-The channel state machine and primary user entry point. The contract itself is a thin
-wrapper — the actual logic is split across five libraries under
-[`src/lib/ledgerlib/`](../src/lib/ledgerlib/) and attached via `using ... for ...`. See
+The channel state machine and primary user entry point. The contract is a thin
+facade — the bulk of channel logic is split across three libraries under
+[`src/lib/ledgerlib/`](../src/lib/ledgerlib/) and attached via `using ... for ...`,
+with the type-only `LedgerStruct` namespace alongside them. See
 [Ledger libraries](#ledger-libraries) below.
 
 > **Supported tokens:** native (e.g. ETH) and plain ERC-20 only — see the same
@@ -330,38 +331,43 @@ refresh.
 
 ## Ledger libraries
 
-`CelerLedger.sol` is intentionally thin. The actual channel logic lives in five
+`CelerLedger.sol` is intentionally thin. The bulk of channel logic lives in three
 libraries under [`src/lib/ledgerlib/`](../src/lib/ledgerlib/), attached to `CelerLedger`
-via `using ... for ...`:
+via `using ... for ...`. A fourth file, `LedgerStruct.sol`, holds shared types but
+compiles to no bytecode (no functions).
 
 | Library | Responsibility |
 |---|---|
-| [`LedgerStruct`](../src/lib/ledgerlib/LedgerStruct.sol) | All shared structs and the `ChannelStatus` enum. No logic. |
+| [`LedgerStruct`](../src/lib/ledgerlib/LedgerStruct.sol) | All shared structs and the `ChannelStatus` enum. No logic; type-only namespace. |
 | [`LedgerOperation`](../src/lib/ledgerlib/LedgerOperation.sol) | Open / deposit / withdraw / settle / snapshot — the bulk of the user-facing flows. |
-| [`LedgerChannel`](../src/lib/ledgerlib/LedgerChannel.sol) | View functions and channel-state derivations (balance maps, peer state, withdraw intent, etc.). |
+| [`LedgerChannel`](../src/lib/ledgerlib/LedgerChannel.sol) | Channel-scoped view functions and state derivations (balance maps, peer state, withdraw intent, etc.). Operates on `LedgerStruct.Channel`. |
 | [`LedgerMigrate`](../src/lib/ledgerlib/LedgerMigrate.sol) | `migrateChannelFrom` / `migrateChannelTo` — peer-controlled version migration. |
-| [`LedgerBalanceLimit`](../src/lib/ledgerlib/LedgerBalanceLimit.sol) | Per-token per-channel deposit caps (gate enabled by default). |
 
 **When debugging or extending channel behavior, the implementation almost always lives
 in one of these libraries — not in `CelerLedger.sol`.**
 
+Balance-limit admin (`setBalanceLimits` / `disableBalanceLimits` / `enableBalanceLimits` /
+`getBalanceLimit` / `getBalanceLimitsEnabled`) and ledger-wide config getters
+(`getNativeWrap` / `getPayRegistry` / `getCelerWallet`) live **directly on
+`CelerLedger`** rather than in a library. They're pure storage reads / writes — going
+through a library would only add a DELEGATECALL hop with no logic benefit.
+
 ### Why split into libraries?
 
 The split is **forced by the EIP-170 deployed-bytecode limit (24,576 bytes)**. The
-hot-path library `LedgerOperation` alone is currently ~20.7 KB, leaving only ~3.8 KB
-of headroom; merging the rest back into a single `CelerLedger` contract would total
-~39.5 KB and fail to deploy.
+hot-path library `LedgerOperation` alone is ~20.5 KB, leaving only ~4.0 KB of
+headroom; merging the rest back into a single `CelerLedger` contract would total
+~37.9 KB and fail to deploy.
 
 | Component | Deployed size | % of 24,576 budget |
 |---|---:|---:|
-| `LedgerOperation` | ~20.7 KB | 84% |
-| `CelerLedger` (facade only) | ~8.9 KB | 36% |
+| `LedgerOperation` | ~20.5 KB | 84% |
+| `CelerLedger` (facade + balance-limit admin + config getters) | ~8.4 KB | 34% |
 | `LedgerMigrate` | ~5.2 KB | 21% |
 | `LedgerChannel` | ~3.8 KB | 15% |
-| `LedgerBalanceLimit` | ~0.9 KB | 4% |
 
-The split-by-responsibility above also keeps cold paths (migration, balance limits)
-out of the hot path's bytecode budget.
+The split-by-responsibility above also keeps the cold migration path out of the hot
+path's bytecode budget.
 
 ### How the libraries work mechanically
 

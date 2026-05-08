@@ -3,7 +3,6 @@ pragma solidity ^0.8.20;
 
 import "./lib/ledgerlib/LedgerStruct.sol";
 import "./lib/ledgerlib/LedgerOperation.sol";
-import "./lib/ledgerlib/LedgerBalanceLimit.sol";
 import "./lib/ledgerlib/LedgerMigrate.sol";
 import "./lib/ledgerlib/LedgerChannel.sol";
 import "./interfaces/ICelerWallet.sol";
@@ -15,15 +14,16 @@ import "@openzeppelin/contracts/access/Ownable.sol";
  * @title CelerLedger
  * @notice Channel state machine and primary user entry point for AgentPay. The
  *  contract itself is a thin wrapper — the bulk of channel logic lives in the
- *  libraries under `src/lib/ledgerlib/` (LedgerOperation, LedgerChannel, LedgerMigrate,
- *  LedgerBalanceLimit) attached via `using ... for ...`. CelerLedger acts as the
+ *  libraries under `src/lib/ledgerlib/` (LedgerOperation, LedgerChannel, LedgerMigrate)
+ *  attached via `using ... for ...`. Balance-limit admin and ledger-wide config
+ *  getters live directly on this contract since they are pure storage reads /
+ *  writes that don't justify a separate library hop. CelerLedger acts as the
  *  operator of a {ICelerWallet}; cooperative migration to a future ledger version
  *  is supported via {migrateChannelTo} / {migrateChannelFrom}.
  * @dev See {ICelerLedger} for canonical NatSpec on each function.
  */
 contract CelerLedger is ICelerLedger, Ownable {
     using LedgerOperation for LedgerStruct.Ledger;
-    using LedgerBalanceLimit for LedgerStruct.Ledger;
     using LedgerMigrate for LedgerStruct.Ledger;
     using LedgerChannel for LedgerStruct.Channel;
 
@@ -68,21 +68,24 @@ contract CelerLedger is ICelerLedger, Ownable {
      * @param _limits balance limits of the tokens
      */
     function setBalanceLimits(address[] calldata _tokenAddrs, uint256[] calldata _limits) external onlyOwner {
-        ledger.setBalanceLimits(_tokenAddrs, _limits);
+        require(_tokenAddrs.length == _limits.length, "Lengths do not match");
+        for (uint256 i = 0; i < _tokenAddrs.length; i++) {
+            ledger.balanceLimits[_tokenAddrs[i]] = _limits[i];
+        }
     }
 
     /**
      * @notice Disable balance limits of all tokens
      */
     function disableBalanceLimits() external onlyOwner {
-        ledger.disableBalanceLimits();
+        ledger.balanceLimitsEnabled = false;
     }
 
     /**
      * @notice Enable balance limits of all tokens
      */
     function enableBalanceLimits() external onlyOwner {
-        ledger.enableBalanceLimits();
+        ledger.balanceLimitsEnabled = true;
     }
 
     /**
@@ -454,11 +457,11 @@ contract CelerLedger is ICelerLedger, Ownable {
     }
 
     /**
-     * @notice Return the wrapped-native (wrapped-native) contract used by this CelerLedger
+     * @notice Return the wrapped-native contract used by this CelerLedger
      * @return wrapped-native contract address
      */
     function getNativeWrap() external view returns (address) {
-        return ledger.getNativeWrap();
+        return address(ledger.nativeWrap);
     }
 
     /**
@@ -466,7 +469,7 @@ contract CelerLedger is ICelerLedger, Ownable {
      * @return PayRegistry address
      */
     function getPayRegistry() external view returns (address) {
-        return ledger.getPayRegistry();
+        return address(ledger.payRegistry);
     }
 
     /**
@@ -474,7 +477,7 @@ contract CelerLedger is ICelerLedger, Ownable {
      * @return CelerWallet address
      */
     function getCelerWallet() external view returns (address) {
-        return ledger.getCelerWallet();
+        return address(ledger.celerWallet);
     }
 
     /**
@@ -483,7 +486,7 @@ contract CelerLedger is ICelerLedger, Ownable {
      * @return token balance limit
      */
     function getBalanceLimit(address _tokenAddr) external view returns (uint256) {
-        return ledger.getBalanceLimit(_tokenAddr);
+        return ledger.balanceLimits[_tokenAddr];
     }
 
     /**
@@ -491,6 +494,6 @@ contract CelerLedger is ICelerLedger, Ownable {
      * @return balanceLimitsEnabled
      */
     function getBalanceLimitsEnabled() external view returns (bool) {
-        return ledger.getBalanceLimitsEnabled();
+        return ledger.balanceLimitsEnabled;
     }
 }

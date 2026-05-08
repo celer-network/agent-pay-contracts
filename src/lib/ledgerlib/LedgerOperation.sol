@@ -557,33 +557,6 @@ library LedgerOperation {
     }
 
     /**
-     * @notice Return wrapped-native (wrapped-native) contract used by this CelerLedger
-     * @param _self storage data of CelerLedger contract
-     * @return wrapped-native contract address
-     */
-    function getNativeWrap(LedgerStruct.Ledger storage _self) external view returns (address) {
-        return address(_self.nativeWrap);
-    }
-
-    /**
-     * @notice Return PayRegistry used by this CelerLedger contract
-     * @param _self storage data of CelerLedger contract
-     * @return PayRegistry address
-     */
-    function getPayRegistry(LedgerStruct.Ledger storage _self) external view returns (address) {
-        return address(_self.payRegistry);
-    }
-
-    /**
-     * @notice Return CelerWallet used by this CelerLedger contract
-     * @param _self storage data of CelerLedger contract
-     * @return CelerWallet address
-     */
-    function getCelerWallet(LedgerStruct.Ledger storage _self) external view returns (address) {
-        return address(_self.celerWallet);
-    }
-
-    /**
      * @notice create a wallet for a new channel
      * @param _self storage data of CelerLedger contract
      * @param _w celer wallet

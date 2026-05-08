@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
+import {AgentPayErrors} from "../src/lib/AgentPayErrors.sol";
 import {VirtContractResolver} from "../src/VirtContractResolver.sol";
 
 /**
@@ -29,7 +30,7 @@ contract VirtContractResolverTest is Test {
     }
 
     function test_resolve_revertsForUnknownVirtAddr() public {
-        vm.expectRevert(bytes("Nonexistent virtual address"));
+        vm.expectRevert(AgentPayErrors.VirtAddressUnresolved.selector);
         resolver.resolve(bytes32(uint256(1)));
     }
 
@@ -51,7 +52,7 @@ contract VirtContractResolverTest is Test {
     function test_deploy_revertsIfAlreadyDeployed() public {
         resolver.deploy(SAMPLE_CODE, 7);
 
-        vm.expectRevert(bytes("Current real address is not 0"));
+        vm.expectRevert(AgentPayErrors.VirtAddressOccupied.selector);
         resolver.deploy(SAMPLE_CODE, 7);
     }
 }

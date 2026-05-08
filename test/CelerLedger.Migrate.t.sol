@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {LedgerTestBase} from "./utils/LedgerTestBase.t.sol";
+import {AgentPayErrors} from "../src/lib/AgentPayErrors.sol";
 import {LedgerStruct} from "../src/lib/ledgerlib/LedgerStruct.sol";
 import {CelerLedger} from "../src/CelerLedger.sol";
 import {Fixtures} from "./utils/Fixtures.sol";
@@ -95,7 +96,7 @@ contract CelerLedgerMigrateTest is LedgerTestBase {
         bytes memory request =
             _buildMigrationRequest(channelId, address(celerLedger), address(celerLedgerNew), block.timestamp - 1);
 
-        vm.expectRevert(bytes("Passed migration deadline"));
+        vm.expectRevert(AgentPayErrors.DeadlinePassed.selector);
         celerLedgerNew.migrateChannelFrom(address(celerLedger), request);
     }
 
@@ -105,7 +106,7 @@ contract CelerLedgerMigrateTest is LedgerTestBase {
         // Migration request claims a different fromLedger (not address(celerLedger)).
         bytes memory request = _buildMigrationRequest(channelId, stranger, address(celerLedgerNew), 99_999_999);
 
-        vm.expectRevert(bytes("From ledger address is not this"));
+        vm.expectRevert(AgentPayErrors.FromLedgerAddressMismatch.selector);
         celerLedgerNew.migrateChannelFrom(address(celerLedger), request);
     }
 

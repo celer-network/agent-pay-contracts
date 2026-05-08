@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.26;
 
 import "./lib/ledgerlib/LedgerStruct.sol";
 import "./lib/ledgerlib/LedgerOperation.sol";
 import "./lib/ledgerlib/LedgerMigrate.sol";
 import "./lib/ledgerlib/LedgerChannel.sol";
+import "./lib/AgentPayErrors.sol";
 import "./interfaces/ICelerWallet.sol";
 import "./interfaces/INativeWrap.sol";
 import "./interfaces/IPayRegistry.sol";
@@ -43,8 +44,8 @@ contract CelerLedger is ICelerLedger, Ownable {
      *  later become its operator (during channel opening or via wallet creation).
      */
     constructor(address _nativeWrap, address _payRegistry, address _celerWallet) Ownable(msg.sender) {
-        require(_nativeWrap != address(0), "nativeWrap address required");
-        require(_nativeWrap.code.length > 0, "nativeWrap code required");
+        require(_nativeWrap != address(0), AgentPayErrors.ZeroAddress());
+        require(_nativeWrap.code.length > 0, AgentPayErrors.NativeWrapNotContract());
         ledger.nativeWrap = INativeWrap(_nativeWrap);
         ledger.payRegistry = IPayRegistry(_payRegistry);
         ledger.celerWallet = ICelerWallet(_celerWallet);
@@ -59,7 +60,7 @@ contract CelerLedger is ICelerLedger, Ownable {
      *  native-drain path).
      */
     receive() external payable {
-        require(msg.sender == address(ledger.nativeWrap), "Only nativeWrap");
+        require(msg.sender == address(ledger.nativeWrap), AgentPayErrors.CallerNotNativeWrap());
     }
 
     /**
@@ -68,7 +69,7 @@ contract CelerLedger is ICelerLedger, Ownable {
      * @param _limits balance limits of the tokens
      */
     function setBalanceLimits(address[] calldata _tokenAddrs, uint256[] calldata _limits) external onlyOwner {
-        require(_tokenAddrs.length == _limits.length, "Lengths do not match");
+        require(_tokenAddrs.length == _limits.length, AgentPayErrors.LengthMismatch(_tokenAddrs.length, _limits.length));
         for (uint256 i = 0; i < _tokenAddrs.length; i++) {
             ledger.balanceLimits[_tokenAddrs[i]] = _limits[i];
         }
@@ -126,8 +127,12 @@ contract CelerLedger is ICelerLedger, Ownable {
         uint256[] calldata _transferFromAmounts
     ) external {
         require(
-            _channelIds.length == _receivers.length && _receivers.length == _transferFromAmounts.length,
-            "Lengths do not match"
+            _channelIds.length == _receivers.length,
+            AgentPayErrors.LengthMismatch(_channelIds.length, _receivers.length)
+        );
+        require(
+            _receivers.length == _transferFromAmounts.length,
+            AgentPayErrors.LengthMismatch(_receivers.length, _transferFromAmounts.length)
         );
         for (uint256 i = 0; i < _channelIds.length; i++) {
             ledger.deposit(_channelIds[i], _receivers[i], _transferFromAmounts[i]);

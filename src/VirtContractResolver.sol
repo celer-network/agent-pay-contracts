@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.26;
 
 import "./interfaces/IVirtContractResolver.sol";
+import "./lib/AgentPayErrors.sol";
 
 /**
  * @title VirtContractResolver
@@ -18,12 +19,12 @@ contract VirtContractResolver is IVirtContractResolver {
     function deploy(bytes calldata _code, uint256 _nonce) external returns (bool) {
         bytes32 virtAddr = keccak256(abi.encodePacked(_code, _nonce));
         bytes memory c = _code;
-        require(virtToRealMap[virtAddr] == address(0), "Current real address is not 0");
+        require(virtToRealMap[virtAddr] == address(0), AgentPayErrors.VirtAddressOccupied());
         address deployedAddress;
         assembly {
             deployedAddress := create(0, add(c, 32), mload(c))
         }
-        require(deployedAddress != address(0), "Create contract failed.");
+        require(deployedAddress != address(0), AgentPayErrors.CreateContractFailed());
 
         virtToRealMap[virtAddr] = deployedAddress;
         emit Deploy(virtAddr);
@@ -32,7 +33,7 @@ contract VirtContractResolver is IVirtContractResolver {
 
     /// @inheritdoc IVirtContractResolver
     function resolve(bytes32 _virtAddr) external view returns (address) {
-        require(virtToRealMap[_virtAddr] != address(0), "Nonexistent virtual address");
+        require(virtToRealMap[_virtAddr] != address(0), AgentPayErrors.VirtAddressUnresolved());
         return virtToRealMap[_virtAddr];
     }
 }

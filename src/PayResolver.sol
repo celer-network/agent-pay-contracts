@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.26;
 
 import "./lib/data/PbChain.sol";
 import "./lib/data/PbEntity.sol";
@@ -8,6 +8,7 @@ import "./interfaces/IPayResolver.sol";
 import "./interfaces/IBooleanCond.sol";
 import "./interfaces/INumericCond.sol";
 import "./interfaces/IVirtContractResolver.sol";
+import "./lib/AgentPayErrors.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
@@ -73,12 +74,17 @@ contract PayResolver is IPayResolver {
         PbEntity.CondPayResult memory payResult = PbEntity.decCondPayResult(vouchedPayResult.condPayResult);
         PbEntity.ConditionalPay memory pay = PbEntity.decConditionalPay(payResult.condPay);
 
-        require(payResult.amount <= pay.transferFunc.maxTransfer.receiver.amt, "Exceed max transfer amount");
+        require(
+            payResult.amount <= pay.transferFunc.maxTransfer.receiver.amt,
+            AgentPayErrors.MaxTransferExceeded(payResult.amount, pay.transferFunc.maxTransfer.receiver.amt)
+        );
         // check signatures
         bytes32 hash = keccak256(vouchedPayResult.condPayResult).toEthSignedMessageHash();
         address recoveredSrc = hash.recover(vouchedPayResult.sigOfSrc);
         address recoveredDest = hash.recover(vouchedPayResult.sigOfDest);
-        require(recoveredSrc == address(pay.src) && recoveredDest == address(pay.dest), "Check sigs failed");
+        require(
+            recoveredSrc == address(pay.src) && recoveredDest == address(pay.dest), AgentPayErrors.InvalidCoSignatures()
+        );
 
         bytes32 payHash = keccak256(payResult.condPay);
         _resolvePayment(pay, payHash, payResult.amount);
@@ -92,21 +98,23 @@ contract PayResolver is IPayResolver {
      */
     function _resolvePayment(PbEntity.ConditionalPay memory _pay, bytes32 _payHash, uint256 _amount) internal {
         // bind the signed pay to its intended (chain, resolver) target
-        require(_pay.chainId == block.chainid, "Wrong chain id for pay");
-        require(_pay.payResolver == address(this), "Wrong resolver for pay");
+        require(_pay.chainId == block.chainid, AgentPayErrors.ChainIdMismatch(block.chainid, _pay.chainId));
+        require(_pay.payResolver == address(this), AgentPayErrors.ResolverAddressMismatch());
         uint256 nowTs = block.timestamp;
-        require(nowTs <= _pay.resolveDeadline, "Passed pay resolve deadline in condPay msg");
+        require(nowTs <= _pay.resolveDeadline, AgentPayErrors.DeadlinePassed());
 
         bytes32 payId = _calculatePayId(_payHash, address(this));
         (uint256 currentAmt, uint256 currentDeadline) = payRegistry.getPayInfo(payId);
 
-        // should never resolve a pay before or not reaching onchain resolve deadline
-        require(currentDeadline == 0 || nowTs <= currentDeadline, "Passed onchain resolve pay deadline");
+        // If a prior on-chain resolution exists (`currentDeadline > 0`), updates
+        // are only accepted while the registry's stored deadline has not yet
+        // passed. First-time resolution (`currentDeadline == 0`) always passes.
+        require(currentDeadline == 0 || nowTs <= currentDeadline, AgentPayErrors.ResolveUpdateWindowClosed());
 
         if (currentDeadline > 0) {
             // currentDeadline > 0 implies that this pay has been updated
             // payment amount must be monotone increasing
-            require(_amount > currentAmt, "New amount is not larger");
+            require(_amount > currentAmt, AgentPayErrors.AmountNotGreater());
 
             if (_amount == _pay.transferFunc.maxTransfer.receiver.amt) {
                 // set resolve deadline = current timestamp if amount = max
@@ -124,7 +132,7 @@ contract PayResolver is IPayResolver {
             } else {
                 newDeadline = Math.min(nowTs + _pay.resolveTimeout, _pay.resolveDeadline);
                 // 0 is reserved for unresolved status of a payment
-                require(newDeadline > 0, "New resolve deadline is 0");
+                require(newDeadline > 0, AgentPayErrors.ZeroDeadline());
             }
 
             payRegistry.setPayInfo(_payHash, _amount, newDeadline);
@@ -148,7 +156,7 @@ contract PayResolver is IPayResolver {
         for (uint256 i = 0; i < _pay.conditions.length; i++) {
             PbEntity.Condition memory cond = _pay.conditions[i];
             if (cond.conditionType == PbEntity.ConditionType.HASH_LOCK) {
-                require(keccak256(_preimages[j]) == cond.hashLock, "Wrong preimage");
+                require(keccak256(_preimages[j]) == cond.hashLock, AgentPayErrors.PreimageMismatch());
                 j++;
             } else if (
                 cond.conditionType == PbEntity.ConditionType.DEPLOYED_CONTRACT
@@ -156,7 +164,7 @@ contract PayResolver is IPayResolver {
             ) {
                 address addr = _getCondAddress(cond);
                 IBooleanCond dependent = IBooleanCond(addr);
-                require(dependent.isFinalized(cond.argsQueryFinalization), "Condition is not finalized");
+                require(dependent.isFinalized(cond.argsQueryFinalization), AgentPayErrors.ConditionNotFinalized());
 
                 if (!dependent.getOutcome(cond.argsQueryOutcome)) {
                     hasFalseContractCond = true;
@@ -191,7 +199,7 @@ contract PayResolver is IPayResolver {
         for (uint256 i = 0; i < _pay.conditions.length; i++) {
             PbEntity.Condition memory cond = _pay.conditions[i];
             if (cond.conditionType == PbEntity.ConditionType.HASH_LOCK) {
-                require(keccak256(_preimages[j]) == cond.hashLock, "Wrong preimage");
+                require(keccak256(_preimages[j]) == cond.hashLock, AgentPayErrors.PreimageMismatch());
                 j++;
             } else if (
                 cond.conditionType == PbEntity.ConditionType.DEPLOYED_CONTRACT
@@ -199,7 +207,7 @@ contract PayResolver is IPayResolver {
             ) {
                 address addr = _getCondAddress(cond);
                 IBooleanCond dependent = IBooleanCond(addr);
-                require(dependent.isFinalized(cond.argsQueryFinalization), "Condition is not finalized");
+                require(dependent.isFinalized(cond.argsQueryFinalization), AgentPayErrors.ConditionNotFinalized());
 
                 hasContractCond = true;
                 if (dependent.getOutcome(cond.argsQueryOutcome)) {
@@ -236,7 +244,7 @@ contract PayResolver is IPayResolver {
         for (uint256 i = 0; i < _pay.conditions.length; i++) {
             PbEntity.Condition memory cond = _pay.conditions[i];
             if (cond.conditionType == PbEntity.ConditionType.HASH_LOCK) {
-                require(keccak256(_preimages[j]) == cond.hashLock, "Wrong preimage");
+                require(keccak256(_preimages[j]) == cond.hashLock, AgentPayErrors.PreimageMismatch());
                 j++;
             } else if (
                 cond.conditionType == PbEntity.ConditionType.DEPLOYED_CONTRACT
@@ -244,7 +252,7 @@ contract PayResolver is IPayResolver {
             ) {
                 address addr = _getCondAddress(cond);
                 INumericCond dependent = INumericCond(addr);
-                require(dependent.isFinalized(cond.argsQueryFinalization), "Condition is not finalized");
+                require(dependent.isFinalized(cond.argsQueryFinalization), AgentPayErrors.ConditionNotFinalized());
 
                 if (_funcType == PbEntity.TransferFunctionType.NUMERIC_ADD) {
                     amount = amount + dependent.getOutcome(cond.argsQueryOutcome);
@@ -267,7 +275,10 @@ contract PayResolver is IPayResolver {
         }
 
         if (hasContractCond) {
-            require(amount <= _pay.transferFunc.maxTransfer.receiver.amt, "Exceed max transfer amount");
+            require(
+                amount <= _pay.transferFunc.maxTransfer.receiver.amt,
+                AgentPayErrors.MaxTransferExceeded(amount, _pay.transferFunc.maxTransfer.receiver.amt)
+            );
             return amount;
         } else {
             return _pay.transferFunc.maxTransfer.receiver.amt;
@@ -288,7 +299,7 @@ contract PayResolver is IPayResolver {
         } else if (_cond.conditionType == PbEntity.ConditionType.VIRTUAL_CONTRACT) {
             return virtResolver.resolve(_cond.virtualContractAddress);
         } else {
-            revert("Invalid condition type");
+            revert AgentPayErrors.InvalidConditionType();
         }
     }
 

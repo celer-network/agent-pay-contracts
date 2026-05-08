@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
+import {AgentPayErrors} from "../src/lib/AgentPayErrors.sol";
 import {PayRegistry} from "../src/PayRegistry.sol";
 
 /**
@@ -135,7 +136,9 @@ contract PayRegistryTest is Test {
         uint256[] memory amts = new uint256[](1);
         amts[0] = 11;
 
-        vm.expectRevert(bytes("Lengths do not match"));
+        // Full-payload assertion — locks down the (a, b) lengths so a future
+        // edit that swaps argument order or returns the wrong sides still fails.
+        vm.expectRevert(abi.encodeWithSelector(AgentPayErrors.LengthMismatch.selector, uint256(2), uint256(1)));
         vm.prank(setterA);
         registry.setPayAmounts(hashes, amts);
     }
@@ -186,7 +189,7 @@ contract PayRegistryTest is Test {
         uint256[] memory amts = new uint256[](2);
         uint256[] memory deadlines = new uint256[](1);
 
-        vm.expectRevert(bytes("Lengths do not match"));
+        vm.expectPartialRevert(AgentPayErrors.LengthMismatch.selector);
         vm.prank(setterA);
         registry.setPayInfos(hashes, amts, deadlines);
     }
@@ -218,7 +221,7 @@ contract PayRegistryTest is Test {
         ids[0] = registry.calculatePayId(payHash1, setterA);
 
         // Per-pay deadline is in the future; should revert.
-        vm.expectRevert(bytes("Payment is not finalized"));
+        vm.expectRevert(AgentPayErrors.PaymentNotFinalized.selector);
         registry.getPayAmounts(ids, block.timestamp);
     }
 
@@ -239,7 +242,7 @@ contract PayRegistryTest is Test {
         ids[0] = registry.calculatePayId(payHash1, setterA);
 
         // Channel-level payClearDeadline is in the future → revert.
-        vm.expectRevert(bytes("Payment is not finalized"));
+        vm.expectRevert(AgentPayErrors.PaymentNotFinalized.selector);
         registry.getPayAmounts(ids, block.timestamp + 100);
     }
 

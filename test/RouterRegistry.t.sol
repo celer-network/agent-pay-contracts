@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
+import {AgentPayErrors} from "../src/lib/AgentPayErrors.sol";
 import {RouterRegistry} from "../src/RouterRegistry.sol";
 import {IRouterRegistry} from "../src/interfaces/IRouterRegistry.sol";
 
@@ -45,7 +46,7 @@ contract RouterRegistryTest is Test {
         vm.prank(router0);
         registry.registerRouter();
 
-        vm.expectRevert(bytes("Router address already exists"));
+        vm.expectRevert(AgentPayErrors.RouterAlreadyRegistered.selector);
         vm.prank(router0);
         registry.registerRouter();
     }
@@ -68,7 +69,7 @@ contract RouterRegistryTest is Test {
     }
 
     function test_deregisterRouter_revertsForUnregistered() public {
-        vm.expectRevert(bytes("Router address does not exist"));
+        vm.expectRevert(AgentPayErrors.RouterNotRegistered.selector);
         vm.prank(router0);
         registry.deregisterRouter();
     }
@@ -95,7 +96,7 @@ contract RouterRegistryTest is Test {
     }
 
     function test_refreshRouter_revertsForUnregistered() public {
-        vm.expectRevert(bytes("Router address does not exist"));
+        vm.expectRevert(AgentPayErrors.RouterNotRegistered.selector);
         vm.prank(router0);
         registry.refreshRouter();
     }

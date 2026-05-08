@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {LedgerTestBase} from "./utils/LedgerTestBase.t.sol";
+import {AgentPayErrors} from "../src/lib/AgentPayErrors.sol";
 import {LedgerStruct} from "../src/lib/ledgerlib/LedgerStruct.sol";
 
 /**
@@ -39,7 +40,7 @@ contract CelerLedgerErc20Test is LedgerTestBase {
     function test_openErc20Channel_withFunds_revertsBeforeBalanceLimit() public {
         uint256 deadline = openDeadlineCursor++;
         (bytes memory request,,) = _buildOpenErc20(address(erc20), [uint256(100), 200], deadline);
-        vm.expectRevert(bytes("Balance exceeds limit"));
+        vm.expectPartialRevert(AgentPayErrors.BalanceLimitExceeded.selector);
         celerLedger.openChannel(request);
     }
 
@@ -84,7 +85,7 @@ contract CelerLedgerErc20Test is LedgerTestBase {
         _setErc20BalanceLimit(50);
         bytes32 channelId = _openZeroErc20Channel();
 
-        vm.expectRevert(bytes("Balance exceeds limit"));
+        vm.expectPartialRevert(AgentPayErrors.BalanceLimitExceeded.selector);
         vm.prank(peer0);
         celerLedger.deposit(channelId, peer0, 100);
     }
@@ -95,7 +96,7 @@ contract CelerLedgerErc20Test is LedgerTestBase {
 
         // ERC20 channel deposit must not have msg.value.
         vm.deal(peer0, 1 ether);
-        vm.expectRevert(bytes("msg.value is not 0"));
+        vm.expectRevert(AgentPayErrors.MsgValueMustBeZero.selector);
         vm.prank(peer0);
         celerLedger.deposit{value: 1}(channelId, peer0, 25);
     }

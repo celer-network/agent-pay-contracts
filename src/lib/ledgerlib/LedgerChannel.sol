@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.26;
 
 import "./LedgerStruct.sol";
+import "../AgentPayErrors.sol";
 import "../../interfaces/ICelerLedger.sol";
 import "../data/PbEntity.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
@@ -357,7 +358,7 @@ library LedgerChannel {
         } else if (_peer == _c.peerProfiles[1].peerAddr) {
             return 1;
         } else {
-            revert("Nonexist peer");
+            revert AgentPayErrors.NotPeer();
         }
     }
 

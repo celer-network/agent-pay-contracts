@@ -120,6 +120,16 @@ contract CelerWalletTest is Test {
         wallet.create(owners, operator, bytes32(uint256(42)));
     }
 
+    function test_create_revertsForTooManyOwners() public {
+        // Bound at MAX_OWNERS = 10. Pass 11 to exercise the gate.
+        address[] memory owners = new address[](wallet.MAX_OWNERS() + 1);
+        for (uint256 i = 0; i < owners.length; i++) {
+            owners[i] = address(uint160(0x1000 + i));
+        }
+        vm.expectRevert(AgentPayErrors.TooManyOwners.selector);
+        wallet.create(owners, operator, bytes32(uint256(7)));
+    }
+
     function test_getWalletOwners_returnsBothOwners() public view {
         address[] memory owners = wallet.getWalletOwners(walletId);
         assertEq(owners.length, 2);
@@ -239,6 +249,26 @@ contract CelerWalletTest is Test {
         assertEq(wallet.getOperator(walletId), newOperator);
         assertEq(wallet.getProposalVote(walletId, owner0), false);
         assertEq(wallet.getProposalVote(walletId, owner1), false);
+        // The proposed-new-operator slot is also cleared on success — leaving
+        // it stale would confuse the next `proposeNewOperator` call's reset
+        // condition (`_newOperator != w.proposedNewOperator`).
+        assertEq(wallet.getProposedNewOperator(walletId), address(0));
+    }
+
+    function test_transferOperatorship_clearsPendingProposal() public {
+        // owner0 has an in-flight proposal for `newOperator`.
+        vm.prank(owner0);
+        wallet.proposeNewOperator(walletId, newOperator);
+        assertEq(wallet.getProposedNewOperator(walletId), newOperator);
+        assertEq(wallet.getProposalVote(walletId, owner0), true);
+
+        // Current operator transfers operatorship directly — should also wipe
+        // any pending proposal + vote tally.
+        vm.prank(operator);
+        wallet.transferOperatorship(walletId, newOperator);
+
+        assertEq(wallet.getProposedNewOperator(walletId), address(0));
+        assertEq(wallet.getProposalVote(walletId, owner0), false);
     }
 
     function test_proposeNewOperator_differentProposalResetsVotes() public {
@@ -378,9 +408,10 @@ contract CelerWalletTest is Test {
     // Getters (revert paths)
     // =========================================================================
 
-    function test_getProposalVote_revertsForNonOwner() public {
-        vm.expectRevert(AgentPayErrors.NotWalletOwner.selector);
-        wallet.getProposalVote(walletId, stranger);
+    function test_getProposalVote_returnsFalseForNonOwner() public view {
+        // The vote map is non-sensitive — non-owners can read freely; their
+        // unset entry returns the default (false).
+        assertEq(wallet.getProposalVote(walletId, stranger), false);
     }
 
     function test_getProposedNewOperator_zeroByDefault() public view {

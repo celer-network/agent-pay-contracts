@@ -39,7 +39,7 @@ contract CelerWalletTest is Test {
 
     event Paused(address account);
     event OperatorChanged(bytes32 indexed walletId, address indexed oldOperator, address indexed newOperator);
-    event OperatorVoted(bytes32 indexed walletId, address indexed newOperator, address indexed proposer);
+    event OperatorVoted(bytes32 indexed walletId, address indexed candidate, address indexed voter);
     event Deposited(bytes32 indexed walletId, address indexed tokenAddress, uint256 amount);
     event Withdrawn(bytes32 indexed walletId, address indexed tokenAddress, address indexed receiver, uint256 amount);
     event TransferredBetweenWallets(
@@ -227,8 +227,8 @@ contract CelerWalletTest is Test {
         wallet.transferOperatorship(walletId, newOperator);
     }
 
-    function test_proposeNewOperator_unanimous_changesOperator() public {
-        // First owner proposes — operator does not change yet.
+    function test_voteForOperator_unanimous_changesOperator() public {
+        // First owner votes — operator does not change yet.
         vm.expectEmit(true, true, true, false, address(wallet));
         emit OperatorVoted(walletId, newOperator, owner0);
         vm.prank(owner0);
@@ -247,9 +247,9 @@ contract CelerWalletTest is Test {
         assertEq(wallet.walletOperator(walletId), newOperator);
         assertEq(wallet.hasVoted(walletId, owner0), false);
         assertEq(wallet.hasVoted(walletId, owner1), false);
-        // The proposed-new-operator slot is also cleared on success — leaving
-        // it stale would confuse the next `proposeNewOperator` call's reset
-        // condition (`_newOperator != w.proposedNewOperator`).
+        // The pendingOperator slot is also cleared on success — leaving
+        // it stale would confuse the next `voteForOperator` call's reset
+        // condition (`_candidate != w.pendingOperator`).
         assertEq(wallet.pendingOperator(walletId), address(0));
     }
 
@@ -269,12 +269,12 @@ contract CelerWalletTest is Test {
         assertEq(wallet.hasVoted(walletId, owner0), false);
     }
 
-    function test_proposeNewOperator_differentProposalResetsVotes() public {
+    function test_voteForOperator_differentCandidateResetsVotes() public {
         vm.prank(owner0);
         wallet.voteForOperator(walletId, newOperator);
         assertEq(wallet.hasVoted(walletId, owner0), true);
 
-        // owner1 proposes a different address — the prior tally is wiped.
+        // owner1 votes for a different candidate — the prior tally is wiped.
         address otherCandidate = makeAddr("otherCandidate");
         vm.prank(owner1);
         wallet.voteForOperator(walletId, otherCandidate);
@@ -285,19 +285,19 @@ contract CelerWalletTest is Test {
         assertEq(wallet.walletOperator(walletId), operator);
     }
 
-    function test_proposeNewOperator_revertsForZeroAddress() public {
+    function test_voteForOperator_revertsForZeroAddress() public {
         vm.expectRevert(AgentPayErrors.ZeroAddress.selector);
         vm.prank(owner0);
         wallet.voteForOperator(walletId, address(0));
     }
 
-    function test_proposeNewOperator_revertsForNonOwner() public {
+    function test_voteForOperator_revertsForNonOwner() public {
         vm.expectRevert(AgentPayErrors.NotWalletOwner.selector);
         vm.prank(stranger);
         wallet.voteForOperator(walletId, newOperator);
     }
 
-    function test_proposeNewOperator_succeedsEvenWhenPaused() public {
+    function test_voteForOperator_succeedsEvenWhenPaused() public {
         wallet.pause();
 
         vm.expectEmit(true, true, true, false, address(wallet));
@@ -412,7 +412,7 @@ contract CelerWalletTest is Test {
         assertEq(wallet.hasVoted(walletId, stranger), false);
     }
 
-    function test_getProposedNewOperator_zeroByDefault() public view {
+    function test_pendingOperator_zeroByDefault() public view {
         assertEq(wallet.pendingOperator(walletId), address(0));
     }
 }

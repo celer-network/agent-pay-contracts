@@ -44,7 +44,7 @@ can `pause` / `unpause` and (when paused) `drainToken` to recover stuck funds.
 
 ### Roles
 
-- **Owners** — the channel peers; receive withdrawals and vote on operator proposals.
+- **Owners** — the channel peers; receive withdrawals and vote on operator candidates.
 - **Operator** — exactly one per wallet; the `CelerLedger` instance authorized to move
   funds. Operatorship is the migration pivot point.
 - **Contract owner** (Ownable) — can pause / unpause and drain when paused.
@@ -59,7 +59,7 @@ can `pause` / `unpause` and (when paused) `drainToken` to recover stuck funds.
 | [`withdraw`](../src/CelerWallet.sol#L119) | operator only | Withdraw funds to a receiver. |
 | [`transferBetweenWallets`](../src/CelerWallet.sol#L141) | operator only | Move funds between two wallets sharing the same operator (channel rebalancing). |
 | [`transferOperatorship`](../src/CelerWallet.sol#L164) | current operator | Transfer operatorship to a new operator (the migration path). |
-| [`voteForOperator`](../src/CelerWallet.sol#L179) | wallet owner | Propose a new operator; takes effect when *all* owners propose the same address (manual fallback for stuck migrations). |
+| [`voteForOperator`](../src/CelerWallet.sol#L179) | wallet owner | Vote for a new operator candidate; the change takes effect when *all* owners have voted for the same candidate (manual fallback for stuck migrations). |
 | [`drainToken`](../src/CelerWallet.sol#L207) | contract owner, when paused | Emergency token recovery. |
 | `pause` / `unpause` | contract owner | Pause guard for deposits / withdrawals / operator changes. |
 | `walletOwners` / `walletOperator` / `balanceOf` / `pendingOperator` / `hasVoted` | view | Wallet introspection. |

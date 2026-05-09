@@ -120,8 +120,13 @@ interface ICelerWallet {
     /// @notice True iff `_owner` has voted for the current `pendingOperator(_walletId)`.
     function hasVoted(bytes32 _walletId, address _owner) external view returns (bool);
 
-    /// @notice Emitted on wallet creation.
-    event WalletCreated(bytes32 indexed walletId, address[] owners, address indexed operator);
+    /// @notice Emitted on wallet creation. `owners` is indexed — subscribers
+    ///  receive a `keccak256(abi.encode(owners))` topic rather than the array
+    ///  itself, so per-owner filtering via topic is not directly supported.
+    ///  For AgentPay's channel use case, the parallel `CelerLedger.OpenChannel`
+    ///  event emits the two peer addresses unindexed in its data field, which
+    ///  is the cheaper place to read them from.
+    event WalletCreated(bytes32 indexed walletId, address[] indexed owners, address indexed operator);
 
     /// @notice Emitted on every successful deposit.
     event Deposited(bytes32 indexed walletId, address indexed tokenAddress, uint256 amount);

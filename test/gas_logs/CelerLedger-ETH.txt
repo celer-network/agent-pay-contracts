@@ -4,13 +4,13 @@
 VirtContractResolver Deploy Gas: 176893
 NativeWrapMock Deploy Gas: 416605
 PayRegistry Deploy Gas: 554814
-CelerWallet Deploy Gas: 1058902
-PayResolver Deploy Gas: 1806981
+CelerWallet Deploy Gas: 1055891
+PayResolver Deploy Gas: 1806985
 CelerLedger Deploy Gas: 1820981
 
 ***** Function Calls Gas Used *****
-openChannel() with zero deposit: 301788
-openChannel() using nativeWrap and msg.value: 433272
+openChannel() with zero deposit: 301168
+openChannel() using nativeWrap and msg.value: 432652
 setBalanceLimits(): 24553
 disableBalanceLimits(): 1132
 enableBalanceLimits(): 29544

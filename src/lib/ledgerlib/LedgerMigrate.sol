@@ -75,7 +75,9 @@ library LedgerMigrate {
         bytes32 channelId = ICelerLedger(fromLedgerAddrPayable).migrateChannelTo(_migrationRequest);
         LedgerStruct.Channel storage c = _self.channelMap[channelId];
         require(c.status == LedgerStruct.ChannelStatus.Uninitialized, AgentPayErrors.ChannelAlreadyMigrated());
-        require(_self.celerWallet.getOperator(channelId) == address(this), AgentPayErrors.OperatorshipNotTransferred());
+        require(
+            _self.celerWallet.walletOperator(channelId) == address(this), AgentPayErrors.OperatorshipNotTransferred()
+        );
 
         _self._updateChannelStatus(c, LedgerStruct.ChannelStatus.Operable);
         // Do not migrate WithdrawIntent, in other words, migration will implicitly veto

@@ -57,17 +57,17 @@ can `pause` / `unpause` and (when paused) `drainToken` to recover stuck funds.
 | [`depositNative`](../src/CelerWallet.sol#L89) | anyone (payable) | Deposit native (e.g., ETH) into a wallet. |
 | [`depositERC20`](../src/CelerWallet.sol#L101) | anyone | Deposit ERC-20 tokens (requires prior `approve`). |
 | [`withdraw`](../src/CelerWallet.sol#L119) | operator only | Withdraw funds to a receiver. |
-| [`transferToWallet`](../src/CelerWallet.sol#L141) | operator only | Move funds between two wallets sharing the same operator (channel rebalancing). |
+| [`transferBetweenWallets`](../src/CelerWallet.sol#L141) | operator only | Move funds between two wallets sharing the same operator (channel rebalancing). |
 | [`transferOperatorship`](../src/CelerWallet.sol#L164) | current operator | Transfer operatorship to a new operator (the migration path). |
-| [`proposeNewOperator`](../src/CelerWallet.sol#L179) | wallet owner | Propose a new operator; takes effect when *all* owners propose the same address (manual fallback for stuck migrations). |
+| [`voteForOperator`](../src/CelerWallet.sol#L179) | wallet owner | Propose a new operator; takes effect when *all* owners propose the same address (manual fallback for stuck migrations). |
 | [`drainToken`](../src/CelerWallet.sol#L207) | contract owner, when paused | Emergency token recovery. |
 | `pause` / `unpause` | contract owner | Pause guard for deposits / withdrawals / operator changes. |
-| `getWalletOwners` / `getOperator` / `getBalance` / `getProposedNewOperator` / `getProposalVote` | view | Wallet introspection. |
+| `walletOwners` / `walletOperator` / `balanceOf` / `pendingOperator` / `hasVoted` | view | Wallet introspection. |
 
 ### Events
 
-`CreateWallet`, `DepositToWallet`, `WithdrawFromWallet`, `TransferToWallet`,
-`ChangeOperator`, `ProposeNewOperator`, `DrainToken`. See
+`WalletCreated`, `Deposited`, `Withdrawn`, `TransferredBetweenWallets`,
+`OperatorChanged`, `OperatorVoted`, `TokenDrained`. See
 [`ICelerWallet.sol`](../src/interfaces/ICelerWallet.sol).
 
 ### Storage
@@ -76,11 +76,11 @@ can `pause` / `unpause` and (when paused) `drainToken` to recover stuck funds.
 struct Wallet {
     address[] owners;
     address operator;
-    mapping(address => uint256) balances;            // tokenAddr (0 = ETH) → balance
-    address proposedNewOperator;
-    mapping(address => bool) proposalVotes;
+    mapping(address => uint256) balances;            // tokenAddr (0 = native) → balance
+    address pendingOperator;
+    mapping(address => bool) votes;
 }
-uint256 public walletNum;
+uint256 public walletCount;
 mapping(bytes32 => Wallet) private wallets;
 ```
 

@@ -30,11 +30,13 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
         address operator;
         // address(0) for native
         mapping(address => uint256) balances;
-        address proposedNewOperator;
-        mapping(address => bool) proposalVotes;
+        // operator candidate currently being voted on; address(0) when no vote in flight
+        address pendingOperator;
+        // owner => has-voted for the current pendingOperator
+        mapping(address => bool) votes;
     }
 
-    uint256 public walletNum;
+    uint256 public walletCount;
     mapping(bytes32 => Wallet) private wallets;
 
     constructor() Ownable(msg.sender) {}
@@ -82,9 +84,9 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
         require(w.operator == address(0), AgentPayErrors.WalletIdOccupied());
         w.owners = _owners;
         w.operator = _operator;
-        walletNum++;
+        walletCount++;
 
-        emit CreateWallet(walletId, _owners, _operator);
+        emit WalletCreated(walletId, _owners, _operator);
         return walletId;
     }
 
@@ -92,13 +94,13 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
     function depositNative(bytes32 _walletId) external payable whenNotPaused {
         uint256 amount = msg.value;
         wallets[_walletId].balances[address(0)] += amount;
-        emit DepositToWallet(_walletId, address(0), amount);
+        emit Deposited(_walletId, address(0), amount);
     }
 
     /// @inheritdoc ICelerWallet
     function depositERC20(bytes32 _walletId, address _tokenAddress, uint256 _amount) external whenNotPaused {
         wallets[_walletId].balances[_tokenAddress] += _amount;
-        emit DepositToWallet(_walletId, _tokenAddress, _amount);
+        emit Deposited(_walletId, _tokenAddress, _amount);
 
         IERC20(_tokenAddress).safeTransferFrom(msg.sender, address(this), _amount);
     }
@@ -122,13 +124,13 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
         // Solidity 0.8 checked subtraction reverts on underflow if the wallet
         // doesn't hold enough of `_tokenAddress` — implicit balance gate.
         wallets[_walletId].balances[_tokenAddress] -= _amount;
-        emit WithdrawFromWallet(_walletId, _tokenAddress, _receiver, _amount);
+        emit Withdrawn(_walletId, _tokenAddress, _receiver, _amount);
 
         _withdrawToken(_tokenAddress, _receiver, _amount);
     }
 
     /// @inheritdoc ICelerWallet
-    function transferToWallet(
+    function transferBetweenWallets(
         bytes32 _fromWalletId,
         bytes32 _toWalletId,
         address _tokenAddress,
@@ -143,7 +145,7 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
     {
         wallets[_fromWalletId].balances[_tokenAddress] -= _amount;
         wallets[_toWalletId].balances[_tokenAddress] += _amount;
-        emit TransferToWallet(_fromWalletId, _toWalletId, _tokenAddress, _receiver, _amount);
+        emit TransferredBetweenWallets(_fromWalletId, _toWalletId, _tokenAddress, _receiver, _amount);
     }
 
     /// @inheritdoc ICelerWallet
@@ -156,30 +158,29 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
     }
 
     /// @inheritdoc ICelerWallet
-    function proposeNewOperator(bytes32 _walletId, address _newOperator)
-        external
-        onlyWalletOwner(_walletId, msg.sender)
-    {
-        require(_newOperator != address(0), AgentPayErrors.ZeroAddress());
+    function voteForOperator(bytes32 _walletId, address _candidate) external onlyWalletOwner(_walletId, msg.sender) {
+        require(_candidate != address(0), AgentPayErrors.ZeroAddress());
 
         Wallet storage w = wallets[_walletId];
-        if (_newOperator != w.proposedNewOperator) {
+        // Voting for a different candidate replaces the in-flight proposal
+        // and resets every owner's tally — consensus is per-candidate.
+        if (_candidate != w.pendingOperator) {
             _clearVotes(w);
-            w.proposedNewOperator = _newOperator;
+            w.pendingOperator = _candidate;
         }
 
-        w.proposalVotes[msg.sender] = true;
-        emit ProposeNewOperator(_walletId, _newOperator, msg.sender);
+        w.votes[msg.sender] = true;
+        emit OperatorVoted(_walletId, _candidate, msg.sender);
 
-        // _changeOperator clears the proposal + vote tally on success.
+        // _changeOperator clears the pendingOperator + vote tally on success.
         if (_checkAllVotes(w)) {
-            _changeOperator(_walletId, _newOperator);
+            _changeOperator(_walletId, _candidate);
         }
     }
 
     /// @inheritdoc ICelerWallet
     function drainToken(address _tokenAddress, address _receiver, uint256 _amount) external whenPaused onlyOwner {
-        emit DrainToken(_tokenAddress, _receiver, _amount);
+        emit TokenDrained(_tokenAddress, _receiver, _amount);
 
         _withdrawToken(_tokenAddress, _receiver, _amount);
     }
@@ -199,28 +200,28 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
     // -------------------------------------------------------------------------
 
     /// @inheritdoc ICelerWallet
-    function getWalletOwners(bytes32 _walletId) external view returns (address[] memory) {
+    function walletOwners(bytes32 _walletId) external view returns (address[] memory) {
         return wallets[_walletId].owners;
     }
 
     /// @inheritdoc ICelerWallet
-    function getOperator(bytes32 _walletId) external view returns (address) {
+    function walletOperator(bytes32 _walletId) external view returns (address) {
         return wallets[_walletId].operator;
     }
 
     /// @inheritdoc ICelerWallet
-    function getBalance(bytes32 _walletId, address _tokenAddress) external view returns (uint256) {
+    function balanceOf(bytes32 _walletId, address _tokenAddress) external view returns (uint256) {
         return wallets[_walletId].balances[_tokenAddress];
     }
 
     /// @inheritdoc ICelerWallet
-    function getProposedNewOperator(bytes32 _walletId) external view returns (address) {
-        return wallets[_walletId].proposedNewOperator;
+    function pendingOperator(bytes32 _walletId) external view returns (address) {
+        return wallets[_walletId].pendingOperator;
     }
 
     /// @inheritdoc ICelerWallet
-    function getProposalVote(bytes32 _walletId, address _owner) external view returns (bool) {
-        return wallets[_walletId].proposalVotes[_owner];
+    function hasVoted(bytes32 _walletId, address _owner) external view returns (bool) {
+        return wallets[_walletId].votes[_owner];
     }
 
     // -------------------------------------------------------------------------
@@ -239,16 +240,20 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
         }
     }
 
-    /// @notice Clear all owners' votes on the current `proposedNewOperator`.
+    /// @notice Clear all owners' votes on the current pendingOperator.
     function _clearVotes(Wallet storage _w) internal {
-        for (uint256 i = 0; i < _w.owners.length; i++) {
-            _w.proposalVotes[_w.owners[i]] = false;
+        uint256 n = _w.owners.length;
+        for (uint256 i = 0; i < n;) {
+            _w.votes[_w.owners[i]] = false;
+            unchecked {
+                ++i;
+            }
         }
     }
 
-    /// @notice Internal operator change. Also clears any in-flight new-operator
-    ///  proposal — the just-completed change supersedes any pending vote, and
-    ///  leaving stale state confuses subsequent `proposeNewOperator` calls.
+    /// @notice Internal operator change. Also clears any in-flight pending
+    ///  candidate — the just-completed change supersedes any pending vote, and
+    ///  leaving stale state confuses subsequent {voteForOperator} calls.
     function _changeOperator(bytes32 _walletId, address _newOperator) internal {
         require(_newOperator != address(0), AgentPayErrors.ZeroAddress());
 
@@ -256,19 +261,23 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
         address oldOperator = w.operator;
         w.operator = _newOperator;
 
-        if (w.proposedNewOperator != address(0)) {
+        if (w.pendingOperator != address(0)) {
             _clearVotes(w);
-            delete w.proposedNewOperator;
+            delete w.pendingOperator;
         }
 
-        emit ChangeOperator(_walletId, oldOperator, _newOperator);
+        emit OperatorChanged(_walletId, oldOperator, _newOperator);
     }
 
-    /// @notice True iff every owner has voted for the current `proposedNewOperator`.
+    /// @notice True iff every owner has voted for the current pendingOperator.
     function _checkAllVotes(Wallet storage _w) internal view returns (bool) {
-        for (uint256 i = 0; i < _w.owners.length; i++) {
-            if (_w.proposalVotes[_w.owners[i]] == false) {
+        uint256 n = _w.owners.length;
+        for (uint256 i = 0; i < n;) {
+            if (_w.votes[_w.owners[i]] == false) {
                 return false;
+            }
+            unchecked {
+                ++i;
             }
         }
         return true;
@@ -277,9 +286,13 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
     /// @notice True iff `_addr` appears in the wallet's `owners` array.
     function _isWalletOwner(bytes32 _walletId, address _addr) internal view returns (bool) {
         Wallet storage w = wallets[_walletId];
-        for (uint256 i = 0; i < w.owners.length; i++) {
+        uint256 n = w.owners.length;
+        for (uint256 i = 0; i < n;) {
             if (_addr == w.owners[i]) {
                 return true;
+            }
+            unchecked {
+                ++i;
             }
         }
         return false;

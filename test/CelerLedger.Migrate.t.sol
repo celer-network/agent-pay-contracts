@@ -142,7 +142,7 @@ contract CelerLedgerMigrateTest is LedgerTestBase {
     }
 
     function _assertOperatorOnChannel(bytes32 _channelId, address _expectedOperator) internal view {
-        assertEq(celerWallet.getOperator(_channelId), _expectedOperator);
+        assertEq(celerWallet.walletOperator(_channelId), _expectedOperator);
     }
 
     function _assertMigratedFromOldToNew(bytes32 _channelId) internal view {

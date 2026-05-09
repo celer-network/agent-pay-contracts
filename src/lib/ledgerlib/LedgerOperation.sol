@@ -696,7 +696,7 @@ library LedgerOperation {
 
             // move funds from one channel's wallet to another channel's wallet
             _self.celerWallet
-                .transferToWallet(_channelId, _recipientChannelId, c.token.tokenAddress, _receiver, _amount);
+                .transferBetweenWallets(_channelId, _recipientChannelId, c.token.tokenAddress, _receiver, _amount);
         }
     }
 

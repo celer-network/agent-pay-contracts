@@ -126,7 +126,7 @@ not violate them.
   settle in flight.
 - `CelerWallet` has exactly one **operator** (a `CelerLedger` instance). Operatorship
   transfer is the migration pivot; only the current operator (or all owners
-  cooperatively, via `proposeNewOperator`) can transfer it.
+  cooperatively, via `voteForOperator`) can transfer it.
 
 ---
 

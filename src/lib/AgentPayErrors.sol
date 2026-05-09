@@ -111,6 +111,12 @@ library AgentPayErrors {
     /// @notice Native transfer via `payable.call{value:}` returned false.
     error NativeTransferFailed();
 
+    /// @notice `create` was called with more owners than `MAX_OWNERS`.
+    ///  Bounds the loop costs of `_isWalletOwner` / `_clearVotes` /
+    ///  `_checkAllVotes` so a malicious caller can't DoS wallet ops by
+    ///  inflating the owner list.
+    error TooManyOwners();
+
     // -------------------------------------------------------------------------
     // LedgerOperation: openChannel
     // -------------------------------------------------------------------------

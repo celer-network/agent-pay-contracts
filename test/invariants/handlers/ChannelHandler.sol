@@ -128,7 +128,7 @@ contract ChannelHandler is CommonBase, StdCheats, StdUtils {
     }
 
     function _walletBalanceForChannel(bytes32 _id) internal view returns (uint256) {
-        return wallet.getBalance(_id, channelToken[_id]);
+        return wallet.balanceOf(_id, channelToken[_id]);
     }
 
     /// @dev Compute `confirmWithdraw`'s `withdrawLimit` for `_receiver` exactly

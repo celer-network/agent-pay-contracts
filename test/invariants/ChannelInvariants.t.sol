@@ -168,7 +168,7 @@ contract ChannelInvariants is LedgerTestBase {
             bytes32 id = handler.channelIds(i);
             uint256 status = uint256(celerLedger.getChannelStatus(id));
             address token = handler.channelToken(id);
-            uint256 walletBal = celerWallet.getBalance(id, token);
+            uint256 walletBal = celerWallet.balanceOf(id, token);
 
             (, uint256[2] memory deps, uint256[2] memory wds) = celerLedger.getBalanceMap(id);
             uint256 netLedger = deps[0] + deps[1] - wds[0] - wds[1];

@@ -53,14 +53,14 @@ can `pause` / `unpause` and (when paused) `drainToken` to recover stuck funds.
 
 | Function | Caller | Purpose |
 |---|---|---|
-| [`create`](../src/CelerWallet.sol#L66) | anyone (typically a `CelerLedger`) | Create a new wallet for a peer-pair, returning its `walletId`. |
-| [`depositNative`](../src/CelerWallet.sol#L89) | anyone (payable) | Deposit native (e.g., ETH) into a wallet. |
-| [`depositERC20`](../src/CelerWallet.sol#L101) | anyone | Deposit ERC-20 tokens (requires prior `approve`). |
-| [`withdraw`](../src/CelerWallet.sol#L119) | operator only | Withdraw funds to a receiver. |
-| [`transferBetweenWallets`](../src/CelerWallet.sol#L141) | operator only | Move funds between two wallets sharing the same operator (channel rebalancing). |
-| [`transferOperatorship`](../src/CelerWallet.sol#L164) | current operator | Transfer operatorship to a new operator (the migration path). |
-| [`voteForOperator`](../src/CelerWallet.sol#L179) | wallet owner | Vote for a new operator candidate; the change takes effect when *all* owners have voted for the same candidate (manual fallback for stuck migrations). |
-| [`drainToken`](../src/CelerWallet.sol#L207) | contract owner, when paused | Emergency token recovery. |
+| [`create`](../src/CelerWallet.sol) | anyone (typically a `CelerLedger`) | Create a new wallet for a peer-pair, returning its `walletId`. |
+| [`depositNative`](../src/CelerWallet.sol) | anyone (payable) | Deposit native (e.g., ETH) into a wallet. |
+| [`depositERC20`](../src/CelerWallet.sol) | anyone | Deposit ERC-20 tokens (requires prior `approve`). |
+| [`withdraw`](../src/CelerWallet.sol) | operator only | Withdraw funds to a receiver. |
+| [`transferBetweenWallets`](../src/CelerWallet.sol) | operator only | Move funds between two wallets sharing the same operator (channel rebalancing). |
+| [`transferOperatorship`](../src/CelerWallet.sol) | current operator | Transfer operatorship to a new operator (the migration path). |
+| [`voteForOperator`](../src/CelerWallet.sol) | wallet owner | Vote for a new operator candidate; the change takes effect when *all* owners have voted for the same candidate (manual fallback for stuck migrations). |
+| [`drainToken`](../src/CelerWallet.sol) | contract owner, when paused | Emergency token recovery. |
 | `pause` / `unpause` | contract owner | Pause guard for deposits / withdrawals / operator changes. |
 | `walletOwners` / `walletOperator` / `balanceOf` / `pendingOperator` / `hasVoted` | view | Wallet introspection. |
 
@@ -131,35 +131,35 @@ Balance limits are **enabled by default** post-deployment. Configure them via
 
 | Function | Purpose |
 |---|---|
-| [`openChannel`](../src/CelerLedger.sol#L66) | Open a fully-funded channel from a co-signed `PaymentChannelInitializer` (single tx). |
-| [`deposit`](../src/CelerLedger.sol#L78) | Deposit native (msg.value) and/or pull from pre-approved wrapped-native or ERC-20 into a channel. |
-| [`depositInBatch`](../src/CelerLedger.sol#L91) | Batch deposit across multiple channels in one tx. Not payable — native entries fund only via pre-approved wrapped-native (no `msg.value` path). |
-| [`snapshotStates`](../src/CelerLedger.sol#L114) | Persist a co-signed simplex state on-chain (lightweight checkpoint). |
+| [`openChannel`](../src/CelerLedger.sol) | Open a fully-funded channel from a co-signed `PaymentChannelInitializer` (single tx). |
+| [`deposit`](../src/CelerLedger.sol) | Deposit native (msg.value) and/or pull from pre-approved wrapped-native or ERC-20 into a channel. |
+| [`depositInBatch`](../src/CelerLedger.sol) | Batch deposit across multiple channels in one tx. Not payable — native entries fund only via pre-approved wrapped-native (no `msg.value` path). |
+| [`snapshotStates`](../src/CelerLedger.sol) | Persist a co-signed simplex state on-chain (lightweight checkpoint). |
 
 ### External functions — withdrawals
 
 | Function | Purpose |
 |---|---|
-| [`cooperativeWithdraw`](../src/CelerLedger.sol#L153) | Single-tx withdrawal with a co-signed `CooperativeWithdrawInfo`. |
-| [`intendWithdraw`](../src/CelerLedger.sol#L126) | Start a unilateral withdrawal challenge window. |
-| [`vetoWithdraw`](../src/CelerLedger.sol#L145) | Counterparty cancels an in-flight unilateral withdrawal. |
-| [`confirmWithdraw`](../src/CelerLedger.sol#L135) | Finalize a unilateral withdrawal after the window closes. |
+| [`cooperativeWithdraw`](../src/CelerLedger.sol) | Single-tx withdrawal with a co-signed `CooperativeWithdrawInfo`. |
+| [`intendWithdraw`](../src/CelerLedger.sol) | Start a unilateral withdrawal challenge window. |
+| [`vetoWithdraw`](../src/CelerLedger.sol) | Counterparty cancels an in-flight unilateral withdrawal. |
+| [`confirmWithdraw`](../src/CelerLedger.sol) | Finalize a unilateral withdrawal after the window closes. |
 
 ### External functions — settlement
 
 | Function | Purpose |
 |---|---|
-| [`cooperativeSettle`](../src/CelerLedger.sol#L192) | Single-tx close with a co-signed `CooperativeSettleInfo`. |
-| [`intendSettle`](../src/CelerLedger.sol#L165) | Start unilateral settlement using the latest co-signed simplex states. |
-| [`clearPays`](../src/CelerLedger.sol#L175) | Settle additional pending pays via a `PayIdList` after `intendSettle`. |
-| [`confirmSettle`](../src/CelerLedger.sol#L184) | Finalize unilateral settlement after the challenge window. |
+| [`cooperativeSettle`](../src/CelerLedger.sol) | Single-tx close with a co-signed `CooperativeSettleInfo`. |
+| [`intendSettle`](../src/CelerLedger.sol) | Start unilateral settlement using the latest co-signed simplex states. |
+| [`clearPays`](../src/CelerLedger.sol) | Settle additional pending pays via a `PayIdList` after `intendSettle`. |
+| [`confirmSettle`](../src/CelerLedger.sol) | Finalize unilateral settlement after the challenge window. |
 
 ### External functions — migration (decentralized versioning)
 
 | Function | Purpose |
 |---|---|
-| [`migrateChannelFrom`](../src/CelerLedger.sol#L210) | Called on the **new** ledger; orchestrates the migration end-to-end. |
-| [`migrateChannelTo`](../src/CelerLedger.sol#L201) | Called on the **old** ledger by the new one; transfers operatorship and exposes state. |
+| [`migrateChannelFrom`](../src/CelerLedger.sol) | Called on the **new** ledger; orchestrates the migration end-to-end. |
+| [`migrateChannelTo`](../src/CelerLedger.sol) | Called on the **old** ledger by the new one; transfers operatorship and exposes state. |
 
 ### External functions — admin
 
@@ -221,8 +221,8 @@ constructor(address _registryAddr, address _virtResolverAddr)
 
 | Function | Purpose |
 |---|---|
-| [`resolvePaymentByConditions`](../src/PayResolver.sol#L44) | Evaluate every condition (hash-locks via preimages, deployed/virtual contracts via `isFinalized`+`getOutcome`), apply the `transfer_func`, write to `PayRegistry`. Reverts if any condition is not finalized. |
-| [`resolvePaymentByVouchedResult`](../src/PayResolver.sol#L71) | Bypass condition evaluation by accepting a result co-signed by `pay.src` and `pay.dest`; capped at `pay.transferFunc.maxTransfer.receiver.amt`. |
+| [`resolvePaymentByConditions`](../src/PayResolver.sol) | Evaluate every condition (hash-locks via preimages, deployed/virtual contracts via `isFinalized`+`getOutcome`), apply the `transfer_func`, write to `PayRegistry`. Reverts if any condition is not finalized. |
+| [`resolvePaymentByVouchedResult`](../src/PayResolver.sol) | Bypass condition evaluation by accepting a result co-signed by `pay.src` and `pay.dest`; capped at `pay.transferFunc.maxTransfer.receiver.amt`. |
 
 ### Resolution rules
 
@@ -263,13 +263,13 @@ No constructor (no state to initialize).
 
 | Function | Purpose |
 |---|---|
-| [`calculatePayId`](../src/PayRegistry.sol#L25) | Pure helper: `keccak256(payHash, setter)`. |
-| [`setPayAmount`](../src/PayRegistry.sol#L29) | Setter writes the resolved amount under its own namespace. |
-| [`setPayDeadline`](../src/PayRegistry.sol#L37) | Setter writes the resolve deadline under its own namespace. |
-| [`setPayInfo`](../src/PayRegistry.sol#L45) | Combined `setPayAmount` + `setPayDeadline`. |
-| [`setPayAmounts`](../src/PayRegistry.sol#L54) / [`setPayDeadlines`](../src/PayRegistry.sol#L68) / [`setPayInfos`](../src/PayRegistry.sol#L82) | Batched variants. |
-| [`getPayAmounts`](../src/PayRegistry.sol#L107) | Bulk read for settlement; gates each pay by its own `resolveDeadline` if resolved, or the per-channel `pay_clear_deadline` (`max(pay.resolveDeadline) + clearMargin`) if never resolved. |
-| [`getPayInfo`](../src/PayRegistry.sol#L126) | Single-pay read. |
+| [`calculatePayId`](../src/PayRegistry.sol) | Pure helper: `keccak256(payHash, setter)`. |
+| [`setPayAmount`](../src/PayRegistry.sol) | Setter writes the resolved amount under its own namespace. |
+| [`setPayDeadline`](../src/PayRegistry.sol) | Setter writes the resolve deadline under its own namespace. |
+| [`setPayInfo`](../src/PayRegistry.sol) | Combined `setPayAmount` + `setPayDeadline`. |
+| [`setPayAmounts`](../src/PayRegistry.sol) / [`setPayDeadlines`](../src/PayRegistry.sol) / [`setPayInfos`](../src/PayRegistry.sol) | Batched variants. |
+| [`getPayAmounts`](../src/PayRegistry.sol) | Bulk read for settlement; gates each pay by its own `resolveDeadline` if resolved, or the per-channel `pay_clear_deadline` (`max(pay.resolveDeadline) + clearMargin`) if never resolved. |
+| [`getPayInfo`](../src/PayRegistry.sol) | Single-pay read. |
 | `payInfoMap` (auto-getter) | Public mapping accessor. |
 
 ### Events
@@ -297,8 +297,8 @@ virtual address (used in `Condition.virtual_contract_address`) is
 
 | Function | Purpose |
 |---|---|
-| [`deploy`](../src/VirtContractResolver.sol#L20) | Deploy bytecode under the (code, nonce) virtual address; reverts if already deployed. |
-| [`resolve`](../src/VirtContractResolver.sol#L40) | Look up the deployed address for a virtual address. |
+| [`deploy`](../src/VirtContractResolver.sol) | Deploy bytecode under the (code, nonce) virtual address; reverts if already deployed. |
+| [`resolve`](../src/VirtContractResolver.sol) | Look up the deployed address for a virtual address. |
 
 ### Events
 
@@ -318,9 +318,9 @@ refresh.
 
 | Function | Purpose |
 |---|---|
-| [`registerRouter`](../src/RouterRegistry.sol#L18) | Add `msg.sender` to the registry. Reverts if already present. |
-| [`deregisterRouter`](../src/RouterRegistry.sol#L29) | Remove `msg.sender`. |
-| [`refreshRouter`](../src/RouterRegistry.sol#L40) | Update the stored timestamp for `msg.sender`. |
+| [`registerRouter`](../src/RouterRegistry.sol) | Add `msg.sender` to the registry. Reverts if already present. |
+| [`deregisterRouter`](../src/RouterRegistry.sol) | Remove `msg.sender`. |
+| [`refreshRouter`](../src/RouterRegistry.sol) | Update the stored timestamp for `msg.sender`. |
 
 ### Events
 

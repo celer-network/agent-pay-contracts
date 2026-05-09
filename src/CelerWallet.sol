@@ -107,13 +107,10 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
 
     /**
      * @inheritdoc ICelerWallet
-     * @dev Reentrancy considerations: state is debited *before* the external
-     *  transfer (CEI), so re-entry cannot double-spend. `onlyOperator` blocks
-     *  reentrant `withdraw` calls (msg.sender of any re-entry would be the
-     *  receiver, not the operator). Reentering `depositNative` for the same
-     *  wallet is harmless — it credits the wallet but doesn't drain it; the
-     *  net effect is a voluntary donation that CelerLedger's per-peer
-     *  accounting won't reflect, but no balance invariant is violated.
+     * @dev CEI: balance debit precedes the external transfer. Combined with
+     *  Solidity 0.8's checked arithmetic, this bounds any reentrant
+     *  withdraw chain at the wallet's actual balance — equivalent to N
+     *  sequential withdraw calls.
      */
     function withdraw(bytes32 _walletId, address _tokenAddress, address _receiver, uint256 _amount)
         external

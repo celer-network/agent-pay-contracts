@@ -3,7 +3,7 @@ pragma solidity ^0.8.26;
 
 import "./LedgerStruct.sol";
 import "../AgentPayErrors.sol";
-import "../../interfaces/ICelerLedger.sol";
+import "../../interfaces/IAgentPayLedger.sol";
 import "../data/PbEntity.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
@@ -11,7 +11,7 @@ import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 /**
  * @title LedgerChannel
  * @notice Library of `Channel` view helpers and per-channel state derivations used
- *  by {CelerLedger}'s getters. Also hosts shared signature-verification helpers used
+ *  by {AgentPayLedger}'s getters. Also hosts shared signature-verification helpers used
  *  by other ledger libraries.
  * @dev Could be folded into LedgerOperation for marginal gas savings; kept separate
  *  for code clarity.
@@ -278,7 +278,7 @@ library LedgerChannel {
     }
 
     /**
-     * @notice Import channel migration arguments from old CelerLedger contract
+     * @notice Import channel migration arguments from old AgentPayLedger contract
      * @param _c the channel to be viewed
      * @param _fromLedgerAddr old ledger address to import channel config from
      * @param _channelId ID of the channel to be viewed
@@ -292,12 +292,12 @@ library LedgerChannel {
     ) internal {
         uint256 tokenType;
         (_c.disputeTimeout, tokenType, _c.token.tokenAddress, _c.cooperativeWithdrawSeqNum) =
-            ICelerLedger(_fromLedgerAddr).getChannelMigrationArgs(_channelId);
+            IAgentPayLedger(_fromLedgerAddr).getChannelMigrationArgs(_channelId);
         _c.token.tokenType = PbEntity.TokenType(tokenType);
     }
 
     /**
-     * @notice import channel peers' migration info from old CelerLedger contract
+     * @notice import channel peers' migration info from old AgentPayLedger contract
      * @param _c the channel to be viewed
      * @param _fromLedgerAddr old ledger address to import channel config from
      * @param _channelId ID of the channel to be viewed
@@ -315,7 +315,7 @@ library LedgerChannel {
             uint256[2] memory seqNums,
             uint256[2] memory transferOuts,
             uint256[2] memory pendingPayOuts
-        ) = ICelerLedger(_fromLedgerAddr).getPeersMigrationInfo(_channelId);
+        ) = IAgentPayLedger(_fromLedgerAddr).getPeersMigrationInfo(_channelId);
 
         for (uint256 i = 0; i < 2; i++) {
             LedgerStruct.PeerProfile storage peerProfile = _c.peerProfiles[i];

@@ -3,12 +3,12 @@ pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
 import {AgentPayErrors} from "../src/lib/AgentPayErrors.sol";
-import {CelerWallet} from "../src/CelerWallet.sol";
+import {AgentPayWallet} from "../src/AgentPayWallet.sol";
 import {WalletTestHelper} from "../src/helper/WalletTestHelper.sol";
 import {ERC20ExampleToken} from "../src/helper/ERC20ExampleToken.sol";
 
 /**
- * @title CelerWallet tests
+ * @title AgentPayWallet tests
  * @notice Unit tests for the multi-owner / multi-token wallet that holds funds
  *  for every channel in the AgentPay network. Covers wallet creation, ETH /
  *  ERC-20 deposits and withdrawals, inter-wallet transfer, operator transfer
@@ -16,12 +16,12 @@ import {ERC20ExampleToken} from "../src/helper/ERC20ExampleToken.sol";
  *
  * @dev Pause control runs through `Ownable` — the contract owner is the pauser.
  */
-contract CelerWalletTest is Test {
+contract AgentPayWalletTest is Test {
     // =========================================================================
     // Setup
     // =========================================================================
 
-    CelerWallet internal wallet;
+    AgentPayWallet internal wallet;
     WalletTestHelper internal walletHelper;
     ERC20ExampleToken internal token;
 
@@ -54,7 +54,7 @@ contract CelerWalletTest is Test {
     function setUp() public {
         owner = address(this);
         token = new ERC20ExampleToken();
-        wallet = new CelerWallet();
+        wallet = new AgentPayWallet();
         walletHelper = new WalletTestHelper(address(wallet));
 
         walletOwners.push(owner0);
@@ -80,7 +80,7 @@ contract CelerWalletTest is Test {
         walletId2 = _walletIdViaHelper(1);
     }
 
-    /// @dev Replicates `WalletTestHelper.create` + `CelerWallet.create` id derivation:
+    /// @dev Replicates `WalletTestHelper.create` + `AgentPayWallet.create` id derivation:
     ///  helper hashes the user nonce into `bytes32 n`, then the wallet derives
     ///  `id = keccak256(chainid, walletAddr, helperAddr, n)`.
     function _walletIdViaHelper(uint256 _nonce) internal view returns (bytes32) {

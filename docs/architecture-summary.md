@@ -21,13 +21,13 @@ conditional payments through routed paths. The blockchain is only touched for de
 withdrawals, settlement, dispute resolution, and (rarely) deploying virtual contracts.
 
 The six contracts split cleanly into two roles. **Asset custody** lives in
-permanent, audited contracts that change rarely or never (`CelerWallet`, `PayRegistry`,
+permanent, audited contracts that change rarely or never (`AgentPayWallet`, `PayRegistry`,
 `VirtContractResolver`). **Channel and payment logic** lives in *versioned*
-contracts (`CelerLedger`, `PayResolver`) that peers can cooperatively migrate between
+contracts (`AgentPayLedger`, `PayResolver`) that peers can cooperatively migrate between
 without disturbing the assets — see [Decentralized Versioning][versioning] in the full
 docs. `RouterRegistry` is an optional advertisement registry for relay nodes.
 
-`CelerLedger` additionally depends on the chain's canonical wrapped-native
+`AgentPayLedger` additionally depends on the chain's canonical wrapped-native
 (wrapped-native) contract for the multi-party-funding path on native channels —
 wired at deploy time, never user-visible. Users still deposit and receive native.
 
@@ -51,8 +51,8 @@ These shape every choice in the codebase. Read the full text in
 
 A sixth, structural principle: **decentralized, peer-controlled versioning** — instead
 of admin-controlled proxy upgrades, channel peers cooperatively migrate to new
-`CelerLedger` / `PayResolver` versions. This eliminates trusted upgrade controllers and
-keeps asset custody (`CelerWallet`) immutable.
+`AgentPayLedger` / `PayResolver` versions. This eliminates trusted upgrade controllers and
+keeps asset custody (`AgentPayWallet`) immutable.
 
 [system-overview]: https://agentpay-docs.celer.network/agentpay-architecture/system-overview
 
@@ -60,7 +60,7 @@ keeps asset custody (`CelerWallet`) immutable.
 
 ## Channel state machine
 
-The status of a payment channel inside `CelerLedger` (see
+The status of a payment channel inside `AgentPayLedger` (see
 [`LedgerStruct.ChannelStatus`](../src/lib/ledgerlib/LedgerStruct.sol)):
 
 ```
@@ -79,13 +79,13 @@ The status of a payment channel inside `CelerLedger` (see
                             (on the OLD ledger)
 ```
 
-- **Uninitialized** — channel does not yet exist in this `CelerLedger` instance.
+- **Uninitialized** — channel does not yet exist in this `AgentPayLedger` instance.
 - **Operable** — active; deposits, withdrawals, snapshots, off-chain pay forwarding.
 - **Settling** — `intendSettle` opened a challenge window; counterparty can submit
   newer simplex states.
 - **Closed** — terminal; balances paid out, channel finalized.
 - **Migrated** — terminal *on the old ledger*; the channel continues life on a new
-  `CelerLedger` version. Migration outranks `intendSettle`: peers can migrate even
+  `AgentPayLedger` version. Migration outranks `intendSettle`: peers can migrate even
   while `Settling`, returning the channel to `Operable` on the new ledger.
 
 For the full state-transition rules, see
@@ -99,8 +99,8 @@ For the full state-transition rules, see
 
 | Contract | Role | Versioned? |
 |---|---|---|
-| [`CelerWallet`](../src/CelerWallet.sol) | Multi-owner / multi-token asset custodian. One global instance. | No (permanent) |
-| [`CelerLedger`](../src/CelerLedger.sol) | Channel state machine + primary user entry point. Operator of `CelerWallet`. | **Yes** |
+| [`AgentPayWallet`](../src/AgentPayWallet.sol) | Multi-owner / multi-token asset custodian. One global instance. | No (permanent) |
+| [`AgentPayLedger`](../src/AgentPayLedger.sol) | Channel state machine + primary user entry point. Operator of `AgentPayWallet`. | **Yes** |
 | [`PayResolver`](../src/PayResolver.sol) | On-chain conditional-pay resolution; writes results to `PayRegistry`. | **Yes** (chosen per-payment) |
 | [`PayRegistry`](../src/PayRegistry.sol) | Global `payId → (amount, deadline)` map; immutable, public reference. | No (permanent) |
 | [`VirtContractResolver`](../src/VirtContractResolver.sol) | On-demand deployment of virtual contracts during disputes. | No (permanent) |
@@ -124,7 +124,7 @@ not violate them.
   never lowered. This protects relay nodes from collusive source/dest pairs.
 - Migration outranks `intendSettle`. Cooperative migration always wins over a unilateral
   settle in flight.
-- `CelerWallet` has exactly one **operator** (a `CelerLedger` instance). Operatorship
+- `AgentPayWallet` has exactly one **operator** (a `AgentPayLedger` instance). Operatorship
   transfer is the migration pivot; only the current operator (or all owners
   cooperatively, via `voteForOperator`) can transfer it.
 

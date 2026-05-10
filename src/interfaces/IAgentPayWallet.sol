@@ -2,15 +2,15 @@
 pragma solidity ^0.8.26;
 
 /**
- * @title CelerWallet interface
+ * @title AgentPayWallet interface
  * @notice Multi-owner, multi-token wallet that holds funds for every channel in the
- *  AgentPay network. A CelerWallet has two distinct roles: a set of *owners* (the
+ *  AgentPay network. A AgentPayWallet has two distinct roles: a set of *owners* (the
  *  channel peers, recipients of withdrawals) and a single *operator* (typically a
- *  CelerLedger contract version) authorized to move funds. Operatorship is the pivot
+ *  AgentPayLedger contract version) authorized to move funds. Operatorship is the pivot
  *  point for cooperative migration to a new ledger version — see
  *  {transferOperatorship} and {voteForOperator}.
  */
-interface ICelerWallet {
+interface IAgentPayWallet {
     /**
      * @notice Create a new wallet.
      * @dev `walletId = keccak256(chainid, walletContract, msg.sender, _nonce)`.
@@ -25,7 +25,7 @@ interface ICelerWallet {
 
     /**
      * @notice Deposit `msg.value` native (e.g. ETH) into a wallet's native balance.
-     * @dev Public payable; called directly by users or by `CelerLedger` after
+     * @dev Public payable; called directly by users or by `AgentPayLedger` after
      *  unwrapping wrapped-native internally for the multi-party-funding path.
      *  Credits `balances[walletId][address(0)]`.
      * @param _walletId Wallet to deposit into.
@@ -72,7 +72,7 @@ interface ICelerWallet {
 
     /**
      * @notice Operator transfers operatorship of a wallet to a new operator.
-     * @dev Migration pivot point: the new operator is typically a newer CelerLedger
+     * @dev Migration pivot point: the new operator is typically a newer AgentPayLedger
      *  version cooperatively chosen by the peers. Also clears any in-flight
      *  {voteForOperator} candidate + tally — the direct transfer supersedes any
      *  pending vote.
@@ -107,7 +107,7 @@ interface ICelerWallet {
     function walletOwners(bytes32 _walletId) external view returns (address[] memory);
 
     /// @notice Current operator of `_walletId`. Distinct from this contract's
-    ///  Ownable owner — the wallet operator is per-wallet (typically a CelerLedger).
+    ///  Ownable owner — the wallet operator is per-wallet (typically a AgentPayLedger).
     function walletOperator(bytes32 _walletId) external view returns (address);
 
     /// @notice Token balance of `_walletId` for `_tokenAddress` (`address(0)` for native).
@@ -123,7 +123,7 @@ interface ICelerWallet {
     /// @notice Emitted on wallet creation. `owners` is indexed — subscribers
     ///  receive a `keccak256(abi.encode(owners))` topic rather than the array
     ///  itself, so per-owner filtering via topic is not directly supported.
-    ///  For AgentPay's channel use case, the parallel `CelerLedger.OpenChannel`
+    ///  For AgentPay's channel use case, the parallel `AgentPayLedger.OpenChannel`
     ///  event emits the two peer addresses unindexed in its data field, which
     ///  is the cheaper place to read them from.
     event WalletCreated(bytes32 indexed walletId, address[] indexed owners, address indexed operator);

@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import "../../interfaces/ICelerWallet.sol";
+import "../../interfaces/IAgentPayWallet.sol";
 import "../../interfaces/INativeWrap.sol";
 import "../../interfaces/IPayRegistry.sol";
 import "../data/PbEntity.sol";
 
 /**
  * @title LedgerStruct
- * @notice Shared struct and enum definitions used across all CelerLedger libraries.
+ * @notice Shared struct and enum definitions used across all AgentPayLedger libraries.
  *  No logic — types only. Field semantics map onto the protobuf messages defined in
  *  `proto/entity.proto`; field numbers in those `.proto` files are noted alongside the
  *  Solidity counterparts where relevant.
  */
 library LedgerStruct {
     /**
-     * @notice Lifecycle status of a channel inside a CelerLedger instance.
+     * @notice Lifecycle status of a channel inside an AgentPayLedger instance.
      * @dev `Uninitialized` is the implicit default when a channel id is not present in
      *  `Ledger.channelMap`. State transitions: see `docs/architecture-summary.md`.
      */
@@ -62,8 +62,8 @@ library LedgerStruct {
 
     /**
      * @notice On-chain representation of a duplex state channel between two peers.
-     * @dev Funds physically reside in {ICelerWallet}; this struct holds only state
-     *  and metadata. Peers may cooperatively migrate a channel to a new CelerLedger
+     * @dev Funds physically reside in {IAgentPayWallet}; this struct holds only state
+     *  and metadata. Peers may cooperatively migrate a channel to a new AgentPayLedger
      *  version, in which case `status = Migrated` and `migratedTo` is set on the old
      *  ledger.
      */
@@ -75,7 +75,7 @@ library LedgerStruct {
         uint256 disputeTimeout;
         PbEntity.TokenInfo token;
         ChannelStatus status;
-        // Address of the successor CelerLedger after migration, if any.
+        // Address of the successor AgentPayLedger after migration, if any.
         address migratedTo;
         // Two-peer channels only.
         PeerProfile[2] peerProfiles;
@@ -85,8 +85,8 @@ library LedgerStruct {
 
     /**
      * @notice Top-level ledger storage: many channels under one operation logic.
-     * @dev Held in CelerLedger as a single private state variable. Each Ledger
-     *  binds to one CelerWallet (asset custody), one PayRegistry (resolved-pay
+     * @dev Held in AgentPayLedger as a single private state variable. Each Ledger
+     *  binds to one AgentPayWallet (asset custody), one PayRegistry (resolved-pay
      *  results), and one wrapped-native contract (used as funding-flow primitive only).
      */
     struct Ledger {
@@ -94,7 +94,7 @@ library LedgerStruct {
         mapping(uint256 => uint256) channelStatusNums;
         INativeWrap nativeWrap;
         IPayRegistry payRegistry;
-        ICelerWallet celerWallet;
+        IAgentPayWallet wallet;
         // Per-token per-channel deposit caps.
         mapping(address => uint256) balanceLimits;
         // Whether balance-limit enforcement is currently active.

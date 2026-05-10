@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import "../interfaces/ICelerWallet.sol";
+import "../interfaces/IAgentPayWallet.sol";
 
 /**
  * @title WalletTestHelper
- * @notice **Test-only.** Thin wrapper used to create CelerWallet wallets from a
+ * @notice **Test-only.** Thin wrapper used to create AgentPayWallet wallets from a
  *  contract (rather than an EOA) so tests can exercise non-EOA owner / operator
  *  paths and verify event emission. **Do not deploy to a production network.**
  */
 contract WalletTestHelper {
     event NewWallet(bytes32 walletId);
 
-    ICelerWallet wallet;
+    IAgentPayWallet wallet;
 
-    constructor(address _celerWallet) {
-        wallet = ICelerWallet(_celerWallet);
+    constructor(address _wallet) {
+        wallet = IAgentPayWallet(_wallet);
     }
 
     function create(address[] memory _owners, address _operator, uint256 _nonce) public {

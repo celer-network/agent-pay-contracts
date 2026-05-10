@@ -7,8 +7,8 @@ contract file is authoritative.
 
 ## Table of Contents
 
-- [CelerWallet](#celerwallet)
-- [CelerLedger](#celerledger)
+- [AgentPayWallet](#agentpaywallet)
+- [AgentPayLedger](#agentpayledger)
 - [PayResolver](#payresolver)
 - [PayRegistry](#payregistry)
 - [VirtContractResolver](#virtcontractresolver)
@@ -18,12 +18,12 @@ contract file is authoritative.
 
 ---
 
-## CelerWallet
+## AgentPayWallet
 
-[Source](../src/CelerWallet.sol) · [Interface](../src/interfaces/ICelerWallet.sol) · **Permanent** (not versioned)
+[Source](../src/AgentPayWallet.sol) · [Interface](../src/interfaces/IAgentPayWallet.sol) · **Permanent** (not versioned)
 
 Multi-owner, multi-token wallet that holds the funds for every channel in the network.
-A single `CelerWallet` instance is shared globally; every `CelerLedger` (current or
+A single `AgentPayWallet` instance is shared globally; every `AgentPayLedger` (current or
 future versions) is an *operator* over individual wallets within it. The contract has
 deliberately minimal logic — it only knows how to deposit, withdraw, and transfer
 operatorship — to keep the audit surface small.
@@ -45,7 +45,7 @@ can `pause` / `unpause` and (when paused) `drainToken` to recover stuck funds.
 ### Roles
 
 - **Owners** — the channel peers; receive withdrawals and vote on operator candidates.
-- **Operator** — exactly one per wallet; the `CelerLedger` instance authorized to move
+- **Operator** — exactly one per wallet; the `AgentPayLedger` instance authorized to move
   funds. Operatorship is the migration pivot point.
 - **Contract owner** (Ownable) — can pause / unpause and drain when paused.
 
@@ -53,14 +53,14 @@ can `pause` / `unpause` and (when paused) `drainToken` to recover stuck funds.
 
 | Function | Caller | Purpose |
 |---|---|---|
-| [`create`](../src/CelerWallet.sol) | anyone (typically a `CelerLedger`) | Create a new wallet for a peer-pair, returning its `walletId`. |
-| [`depositNative`](../src/CelerWallet.sol) | anyone (payable) | Deposit native (e.g., ETH) into a wallet. |
-| [`depositERC20`](../src/CelerWallet.sol) | anyone | Deposit ERC-20 tokens (requires prior `approve`). |
-| [`withdraw`](../src/CelerWallet.sol) | operator only | Withdraw funds to a receiver. |
-| [`transferBetweenWallets`](../src/CelerWallet.sol) | operator only | Move funds between two wallets sharing the same operator (channel rebalancing). |
-| [`transferOperatorship`](../src/CelerWallet.sol) | current operator | Transfer operatorship to a new operator (the migration path). |
-| [`voteForOperator`](../src/CelerWallet.sol) | wallet owner | Vote for a new operator candidate; the change takes effect when *all* owners have voted for the same candidate (manual fallback for stuck migrations). |
-| [`drainToken`](../src/CelerWallet.sol) | contract owner, when paused | Emergency token recovery. |
+| [`create`](../src/AgentPayWallet.sol) | anyone (typically a `AgentPayLedger`) | Create a new wallet for a peer-pair, returning its `walletId`. |
+| [`depositNative`](../src/AgentPayWallet.sol) | anyone (payable) | Deposit native (e.g., ETH) into a wallet. |
+| [`depositERC20`](../src/AgentPayWallet.sol) | anyone | Deposit ERC-20 tokens (requires prior `approve`). |
+| [`withdraw`](../src/AgentPayWallet.sol) | operator only | Withdraw funds to a receiver. |
+| [`transferBetweenWallets`](../src/AgentPayWallet.sol) | operator only | Move funds between two wallets sharing the same operator (channel rebalancing). |
+| [`transferOperatorship`](../src/AgentPayWallet.sol) | current operator | Transfer operatorship to a new operator (the migration path). |
+| [`voteForOperator`](../src/AgentPayWallet.sol) | wallet owner | Vote for a new operator candidate; the change takes effect when *all* owners have voted for the same candidate (manual fallback for stuck migrations). |
+| [`drainToken`](../src/AgentPayWallet.sol) | contract owner, when paused | Emergency token recovery. |
 | `pause` / `unpause` | contract owner | Pause guard for deposits / withdrawals / operator changes. |
 | `walletOwners` / `walletOperator` / `balanceOf` / `pendingOperator` / `hasVoted` | view | Wallet introspection. |
 
@@ -68,7 +68,7 @@ can `pause` / `unpause` and (when paused) `drainToken` to recover stuck funds.
 
 `WalletCreated`, `Deposited`, `Withdrawn`, `TransferredBetweenWallets`,
 `OperatorChanged`, `OperatorVoted`, `TokenDrained`. See
-[`ICelerWallet.sol`](../src/interfaces/ICelerWallet.sol).
+[`IAgentPayWallet.sol`](../src/interfaces/IAgentPayWallet.sol).
 
 ### Storage
 
@@ -90,16 +90,16 @@ mapping(bytes32 => Wallet) private wallets;
 walletId = keccak256(chainid, walletAddr, creatorAddr, nonce)
 ```
 
-`creatorAddr` is `msg.sender` at the time `CelerWallet.create` is called — typically
-the `CelerLedger` contract, not the end-user operator. The `chainid` prefix prevents
+`creatorAddr` is `msg.sender` at the time `AgentPayWallet.create` is called — typically
+the `AgentPayLedger` contract, not the end-user operator. The `chainid` prefix prevents
 cross-chain wallet-id collisions when the same creator and nonce are reused across
 chains.
 
 ---
 
-## CelerLedger
+## AgentPayLedger
 
-[Source](../src/CelerLedger.sol) · [Interface](../src/interfaces/ICelerLedger.sol) · **Versioned**
+[Source](../src/AgentPayLedger.sol) · [Interface](../src/interfaces/IAgentPayLedger.sol) · **Versioned**
 
 The channel state machine and primary user entry point. The contract is a thin
 facade — the bulk of channel logic is split across three libraries under
@@ -108,21 +108,21 @@ with the type-only `LedgerStruct` namespace alongside them. See
 [Ledger libraries](#ledger-libraries) below.
 
 > **Supported tokens:** native (e.g. ETH) and plain ERC-20 only — see the same
-> note under [CelerWallet](#celerwallet). Non-standard ERC-20s
+> note under [AgentPayWallet](#agentpaywallet). Non-standard ERC-20s
 > (fee-on-transfer / rebasing / ERC-777 hooks) will desync channel accounting
 > from the wallet's real token balance.
 
 ### Constructor
 
 ```solidity
-constructor(address _nativeWrap, address _payRegistry, address _celerWallet) Ownable(msg.sender)
+constructor(address _nativeWrap, address _payRegistry, address _wallet) Ownable(msg.sender)
 ```
 
 | Param | Purpose |
 |---|---|
 | `_nativeWrap` | Chain's canonical wrapped-native (wrapped-native) address. Used internally as a funding-flow primitive for native channels; never user-visible. Constructor-set; no setter. |
 | `_payRegistry` | Address of the deployed [`PayRegistry`](#payregistry). |
-| `_celerWallet` | Address of the deployed [`CelerWallet`](#celerwallet). |
+| `_wallet` | Address of the deployed [`AgentPayWallet`](#agentpaywallet). |
 
 Balance limits are **enabled by default** post-deployment. Configure them via
 `setBalanceLimits` or call `disableBalanceLimits` for unlimited per-channel deposits.
@@ -131,35 +131,35 @@ Balance limits are **enabled by default** post-deployment. Configure them via
 
 | Function | Purpose |
 |---|---|
-| [`openChannel`](../src/CelerLedger.sol) | Open a fully-funded channel from a co-signed `PaymentChannelInitializer` (single tx). |
-| [`deposit`](../src/CelerLedger.sol) | Deposit native (msg.value) and/or pull from pre-approved wrapped-native or ERC-20 into a channel. |
-| [`depositInBatch`](../src/CelerLedger.sol) | Batch deposit across multiple channels in one tx. Not payable — native entries fund only via pre-approved wrapped-native (no `msg.value` path). |
-| [`snapshotStates`](../src/CelerLedger.sol) | Persist a co-signed simplex state on-chain (lightweight checkpoint). |
+| [`openChannel`](../src/AgentPayLedger.sol) | Open a fully-funded channel from a co-signed `PaymentChannelInitializer` (single tx). |
+| [`deposit`](../src/AgentPayLedger.sol) | Deposit native (msg.value) and/or pull from pre-approved wrapped-native or ERC-20 into a channel. |
+| [`depositInBatch`](../src/AgentPayLedger.sol) | Batch deposit across multiple channels in one tx. Not payable — native entries fund only via pre-approved wrapped-native (no `msg.value` path). |
+| [`snapshotStates`](../src/AgentPayLedger.sol) | Persist a co-signed simplex state on-chain (lightweight checkpoint). |
 
 ### External functions — withdrawals
 
 | Function | Purpose |
 |---|---|
-| [`cooperativeWithdraw`](../src/CelerLedger.sol) | Single-tx withdrawal with a co-signed `CooperativeWithdrawInfo`. |
-| [`intendWithdraw`](../src/CelerLedger.sol) | Start a unilateral withdrawal challenge window. |
-| [`vetoWithdraw`](../src/CelerLedger.sol) | Counterparty cancels an in-flight unilateral withdrawal. |
-| [`confirmWithdraw`](../src/CelerLedger.sol) | Finalize a unilateral withdrawal after the window closes. |
+| [`cooperativeWithdraw`](../src/AgentPayLedger.sol) | Single-tx withdrawal with a co-signed `CooperativeWithdrawInfo`. |
+| [`intendWithdraw`](../src/AgentPayLedger.sol) | Start a unilateral withdrawal challenge window. |
+| [`vetoWithdraw`](../src/AgentPayLedger.sol) | Counterparty cancels an in-flight unilateral withdrawal. |
+| [`confirmWithdraw`](../src/AgentPayLedger.sol) | Finalize a unilateral withdrawal after the window closes. |
 
 ### External functions — settlement
 
 | Function | Purpose |
 |---|---|
-| [`cooperativeSettle`](../src/CelerLedger.sol) | Single-tx close with a co-signed `CooperativeSettleInfo`. |
-| [`intendSettle`](../src/CelerLedger.sol) | Start unilateral settlement using the latest co-signed simplex states. |
-| [`clearPays`](../src/CelerLedger.sol) | Settle additional pending pays via a `PayIdList` after `intendSettle`. |
-| [`confirmSettle`](../src/CelerLedger.sol) | Finalize unilateral settlement after the challenge window. |
+| [`cooperativeSettle`](../src/AgentPayLedger.sol) | Single-tx close with a co-signed `CooperativeSettleInfo`. |
+| [`intendSettle`](../src/AgentPayLedger.sol) | Start unilateral settlement using the latest co-signed simplex states. |
+| [`clearPays`](../src/AgentPayLedger.sol) | Settle additional pending pays via a `PayIdList` after `intendSettle`. |
+| [`confirmSettle`](../src/AgentPayLedger.sol) | Finalize unilateral settlement after the challenge window. |
 
 ### External functions — migration (decentralized versioning)
 
 | Function | Purpose |
 |---|---|
-| [`migrateChannelFrom`](../src/CelerLedger.sol) | Called on the **new** ledger; orchestrates the migration end-to-end. |
-| [`migrateChannelTo`](../src/CelerLedger.sol) | Called on the **old** ledger by the new one; transfers operatorship and exposes state. |
+| [`migrateChannelFrom`](../src/AgentPayLedger.sol) | Called on the **new** ledger; orchestrates the migration end-to-end. |
+| [`migrateChannelTo`](../src/AgentPayLedger.sol) | Called on the **old** ledger by the new one; transfers operatorship and exposes state. |
 
 ### External functions — admin
 
@@ -176,8 +176,8 @@ A wide set of getters: `getChannelStatus`, `getTokenContract`, `getTokenType`,
 `getWithdrawIntent`, `getCooperativeWithdrawSeqNum`, `getSettleFinalizedTime`,
 `getDisputeTimeout`, `getMigratedTo`, `getChannelMigrationArgs`,
 `getPeersMigrationInfo`, `getChannelStatusNum`, `getNativeWrap`, `getPayRegistry`,
-`getCelerWallet`, `getBalanceLimit`, `getBalanceLimitsEnabled`. See
-[`ICelerLedger.sol`](../src/interfaces/ICelerLedger.sol).
+`getAgentPayWallet`, `getBalanceLimit`, `getBalanceLimitsEnabled`. See
+[`IAgentPayLedger.sol`](../src/interfaces/IAgentPayLedger.sol).
 
 ### Events
 
@@ -190,7 +190,7 @@ Settle: `IntendSettle`, `ClearOnePay`, `ConfirmSettle`, `ConfirmSettleFail`,
 
 ```solidity
 LedgerStruct.Ledger private ledger;
-// → channelStatusNums, nativeWrap, payRegistry, celerWallet,
+// → channelStatusNums, nativeWrap, payRegistry, wallet,
 //   balanceLimits, balanceLimitsEnabled, channelMap (bytes32 → Channel)
 ```
 
@@ -331,8 +331,8 @@ refresh.
 
 ## Ledger libraries
 
-`CelerLedger.sol` is intentionally thin. The bulk of channel logic lives in three
-libraries under [`src/lib/ledgerlib/`](../src/lib/ledgerlib/), attached to `CelerLedger`
+`AgentPayLedger.sol` is intentionally thin. The bulk of channel logic lives in three
+libraries under [`src/lib/ledgerlib/`](../src/lib/ledgerlib/), attached to `AgentPayLedger`
 via `using ... for ...`. A fourth file, `LedgerStruct.sol`, holds shared types but
 compiles to no bytecode (no functions).
 
@@ -344,25 +344,25 @@ compiles to no bytecode (no functions).
 | [`LedgerMigrate`](../src/lib/ledgerlib/LedgerMigrate.sol) | `migrateChannelFrom` / `migrateChannelTo` — peer-controlled version migration. |
 
 **When debugging or extending channel behavior, the implementation almost always lives
-in one of these libraries — not in `CelerLedger.sol`.**
+in one of these libraries — not in `AgentPayLedger.sol`.**
 
 Balance-limit admin (`setBalanceLimits` / `disableBalanceLimits` / `enableBalanceLimits` /
 `getBalanceLimit` / `getBalanceLimitsEnabled`) and ledger-wide config getters
-(`getNativeWrap` / `getPayRegistry` / `getCelerWallet`) live **directly on
-`CelerLedger`** rather than in a library. They're pure storage reads / writes — going
+(`getNativeWrap` / `getPayRegistry` / `getAgentPayWallet`) live **directly on
+`AgentPayLedger`** rather than in a library. They're pure storage reads / writes — going
 through a library would only add a DELEGATECALL hop with no logic benefit.
 
 ### Why split into libraries?
 
 The split is **forced by the EIP-170 deployed-bytecode limit (24,576 bytes)**. The
 hot-path library `LedgerOperation` alone is ~20.5 KB, leaving only ~4.0 KB of
-headroom; merging the rest back into a single `CelerLedger` contract would total
+headroom; merging the rest back into a single `AgentPayLedger` contract would total
 ~37.9 KB and fail to deploy.
 
 | Component | Deployed size | % of 24,576 budget |
 |---|---:|---:|
 | `LedgerOperation` | ~20.5 KB | 84% |
-| `CelerLedger` (facade + balance-limit admin + config getters) | ~8.4 KB | 34% |
+| `AgentPayLedger` (facade + balance-limit admin + config getters) | ~8.4 KB | 34% |
 | `LedgerMigrate` | ~5.2 KB | 21% |
 | `LedgerChannel` | ~3.8 KB | 15% |
 
@@ -371,20 +371,20 @@ path's bytecode budget.
 
 ### How the libraries work mechanically
 
-1. **Storage layout** is owned by `CelerLedger` — the `Ledger` and `Channel` structs
+1. **Storage layout** is owned by `AgentPayLedger` — the `Ledger` and `Channel` structs
    defined in [`LedgerStruct`](../src/lib/ledgerlib/LedgerStruct.sol) describe the
-   slots; `CelerLedger` declares the actual storage variable.
+   slots; `AgentPayLedger` declares the actual storage variable.
 2. **Library functions take a `storage` pointer** as their first parameter (e.g.
    `function openChannel(LedgerStruct.Ledger storage _self, ...) external`).
-3. **`using LedgerOperation for LedgerStruct.Ledger;`** in `CelerLedger` lets the
+3. **`using LedgerOperation for LedgerStruct.Ledger;`** in `AgentPayLedger` lets the
    facade write `ledger.openChannel(...)`; the compiler rewrites that as a `DELEGATECALL`
    into the deployed library, passing the storage pointer.
-4. **DELEGATECALL semantics** mean the library code executes in `CelerLedger`'s
-   context: storage reads/writes hit `CelerLedger`'s slots; `msg.sender` and
-   `msg.value` are whatever the user sent to `CelerLedger`. The library is just code
+4. **DELEGATECALL semantics** mean the library code executes in `AgentPayLedger`'s
+   context: storage reads/writes hit `AgentPayLedger`'s slots; `msg.sender` and
+   `msg.value` are whatever the user sent to `AgentPayLedger`. The library is just code
    on a separate address.
 
-The libraries are deployed as their own contracts; `CelerLedger`'s bytecode contains
+The libraries are deployed as their own contracts; `AgentPayLedger`'s bytecode contains
 20-byte placeholders that are patched with each library's address at deployment time.
 See [`script/README.md`](../script/README.md#how-the-libraries-are-deployed) for the
 deployment mechanics.
@@ -399,10 +399,10 @@ never be deployed to a production network.
 
 | File | Purpose |
 |---|---|
-| [`CelerLedgerMock`](../src/CelerLedgerMock.sol) | Test ledger with extra hooks; used in migration tests where two ledger versions must coexist. |
+| [`AgentPayLedgerMock`](../src/AgentPayLedgerMock.sol) | Test ledger with extra hooks; used in migration tests where two ledger versions must coexist. |
 | [`BooleanCondMock`](../src/helper/BooleanCondMock.sol) | Mock condition contract returning a settable boolean outcome. Used in `PayResolver` tests. |
 | [`NumericCondMock`](../src/helper/NumericCondMock.sol) | Mock condition contract returning a settable numeric outcome. |
-| [`WalletTestHelper`](../src/helper/WalletTestHelper.sol) | Helper for direct `CelerWallet` integration tests. |
+| [`WalletTestHelper`](../src/helper/WalletTestHelper.sol) | Helper for direct `AgentPayWallet` integration tests. |
 | [`ERC20ExampleToken`](../src/helper/ERC20ExampleToken.sol) | Sample ERC-20 used in token-channel tests. |
 
 The protobuf decoders [`Pb.sol`](../src/lib/data/Pb.sol),

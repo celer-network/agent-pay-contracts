@@ -5,8 +5,8 @@ import {CommonBase} from "forge-std/Base.sol";
 import {StdCheats} from "forge-std/StdCheats.sol";
 import {StdUtils} from "forge-std/StdUtils.sol";
 
-import {CelerLedger} from "../../../src/CelerLedger.sol";
-import {CelerWallet} from "../../../src/CelerWallet.sol";
+import {AgentPayLedger} from "../../../src/AgentPayLedger.sol";
+import {AgentPayWallet} from "../../../src/AgentPayWallet.sol";
 import {NativeWrapMock} from "../../../src/helper/NativeWrapMock.sol";
 import {ERC20ExampleToken} from "../../../src/helper/ERC20ExampleToken.sol";
 import {LedgerStruct} from "../../../src/lib/ledgerlib/LedgerStruct.sol";
@@ -15,7 +15,7 @@ import {SignUtil} from "../../utils/SignUtil.sol";
 
 /**
  * @title ChannelHandler
- * @notice Invariant-test driver for `CelerLedger`. Each public function wraps one
+ * @notice Invariant-test driver for `AgentPayLedger`. Each public function wraps one
  *  user-facing channel action (open / deposit / cooperative withdraw / cooperative
  *  settle / unilateral withdraw + veto + confirm / snapshotStates / intendSettle /
  *  confirmSettle). Foundry selects functions and fuzzes their args; the handler
@@ -32,8 +32,8 @@ contract ChannelHandler is CommonBase, StdCheats, StdUtils {
     // -----------------------------------------------------------------------------
     // Wired contracts (deployed by the invariant test, passed in via constructor).
     // -----------------------------------------------------------------------------
-    CelerLedger public immutable ledger;
-    CelerWallet public immutable wallet;
+    AgentPayLedger public immutable ledger;
+    AgentPayWallet public immutable wallet;
     NativeWrapMock public immutable nativeWrap;
     ERC20ExampleToken public immutable erc20;
 
@@ -72,8 +72,8 @@ contract ChannelHandler is CommonBase, StdCheats, StdUtils {
     mapping(bytes32 => uint256) public callsByName;
 
     constructor(
-        CelerLedger _ledger,
-        CelerWallet _wallet,
+        AgentPayLedger _ledger,
+        AgentPayWallet _wallet,
         NativeWrapMock _nativeWrap,
         ERC20ExampleToken _erc20,
         address _peer0,

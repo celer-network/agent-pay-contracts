@@ -2,8 +2,8 @@
 pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
-import {CelerWallet} from "../../src/CelerWallet.sol";
-import {CelerLedger} from "../../src/CelerLedger.sol";
+import {AgentPayWallet} from "../../src/AgentPayWallet.sol";
+import {AgentPayLedger} from "../../src/AgentPayLedger.sol";
 import {NativeWrapMock} from "../../src/helper/NativeWrapMock.sol";
 import {PayRegistry} from "../../src/PayRegistry.sol";
 import {PayResolver} from "../../src/PayResolver.sol";
@@ -14,7 +14,7 @@ import {ERC20ExampleToken} from "../../src/helper/ERC20ExampleToken.sol";
  * @title BaseTest
  * @notice Common deployment + helper utilities for AgentPay Foundry tests. Inherit
  *  this from individual test contracts to get a fully wired contract graph
- *  (`celerWallet`, `celerLedger`, `nativeWrap`, `payRegistry`, `payResolver`,
+ *  (`wallet`, `ledger`, `nativeWrap`, `payRegistry`, `payResolver`,
  *  `virtResolver`, `erc20`) and a few addressing helpers.
  * @dev `setUp()` here can be called from a child's own `setUp()` via `super.setUp()`.
  *  Tests that don't need every dependency may reach into the contracts directly
@@ -24,8 +24,8 @@ contract BaseTest is Test {
     // -------------------------------------------------------------------------
     // Deployed contracts
     // -------------------------------------------------------------------------
-    CelerWallet internal celerWallet;
-    CelerLedger internal celerLedger;
+    AgentPayWallet internal wallet;
+    AgentPayLedger internal ledger;
     NativeWrapMock internal nativeWrap;
     PayRegistry internal payRegistry;
     PayResolver internal payResolver;
@@ -64,12 +64,12 @@ contract BaseTest is Test {
         payRegistry = new PayRegistry();
         virtResolver = new VirtContractResolver();
         payResolver = new PayResolver(address(payRegistry), address(virtResolver));
-        celerWallet = new CelerWallet();
-        celerLedger = new CelerLedger(address(nativeWrap), address(payRegistry), address(celerWallet));
+        wallet = new AgentPayWallet();
+        ledger = new AgentPayLedger(address(nativeWrap), address(payRegistry), address(wallet));
         erc20 = new ERC20ExampleToken();
 
-        vm.label(address(celerWallet), "CelerWallet");
-        vm.label(address(celerLedger), "CelerLedger");
+        vm.label(address(wallet), "AgentPayWallet");
+        vm.label(address(ledger), "AgentPayLedger");
         vm.label(address(nativeWrap), "NativeWrap");
         vm.label(address(payRegistry), "PayRegistry");
         vm.label(address(payResolver), "PayResolver");

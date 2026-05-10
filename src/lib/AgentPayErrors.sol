@@ -81,7 +81,7 @@ library AgentPayErrors {
     error InvalidSignature();
 
     // -------------------------------------------------------------------------
-    // CelerLedger
+    // AgentPayLedger
     // -------------------------------------------------------------------------
 
     /// @notice Constructor's `_nativeWrap` argument has no deployed
@@ -96,7 +96,7 @@ library AgentPayErrors {
     error CallerNotNativeWrap();
 
     // -------------------------------------------------------------------------
-    // CelerWallet
+    // AgentPayWallet
     // -------------------------------------------------------------------------
 
     /// @notice `msg.sender` is not the wallet's operator.

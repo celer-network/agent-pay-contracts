@@ -1,0 +1,8 @@
+********** Gas Measurement: AgentPayLedger ERC20 **********
+
+***** Function Calls Gas Used *****
+openChannel() with zero deposit: 305141
+openChannel() with non-zero ERC20 deposits: 468969
+deposit(): 149771
+cooperativeWithdraw(): 89032
+cooperativeSettle(): 88555

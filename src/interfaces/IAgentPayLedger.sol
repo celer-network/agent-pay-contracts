@@ -5,25 +5,25 @@ import "../lib/data/PbEntity.sol";
 import "../lib/ledgerlib/LedgerStruct.sol";
 
 /**
- * @title CelerLedger interface
- * @notice Channel state machine and primary user entry point for AgentPay. CelerLedger
- *  acts as the operator of a {ICelerWallet} and exposes the on-chain APIs for opening,
+ * @title AgentPayLedger interface
+ * @notice Channel state machine and primary user entry point for AgentPay. AgentPayLedger
+ *  acts as the operator of a {IAgentPayWallet} and exposes the on-chain APIs for opening,
  *  funding, withdrawing from, settling, and migrating payment channels.
  * @dev The interface is grouped by the library that implements each section in
  *  `src/lib/ledgerlib/` (LedgerOperation, LedgerChannel, LedgerMigrate).
  *  Balance-limit admin and ledger-wide config getters are implemented directly on
- *  CelerLedger (no library hop). Any change here must be mirrored in the
+ *  AgentPayLedger (no library hop). Any change here must be mirrored in the
  *  corresponding implementation, and events declared here must match the library
  *  declarations bit-for-bit.
  */
-interface ICelerLedger {
+interface IAgentPayLedger {
     // =========================================================================
     // LedgerOperation — channel lifecycle, deposit, withdraw, settle
     // =========================================================================
 
     /**
      * @notice Open a fully-funded channel from a co-signed initializer in one tx.
-     * @dev Atomically creates a wallet in the underlying CelerWallet, derives
+     * @dev Atomically creates a wallet in the underlying AgentPayWallet, derives
      *  `channelId = keccak256(chainid, walletAddr, ledgerAddr, keccak256(initializer))`,
      *  and pulls the initial deposits. Native value is allowed via `msg.value`.
      *  The initializer's `chain_id` and `ledger_address` must match this
@@ -143,8 +143,8 @@ interface ICelerLedger {
     /// @notice Address of the configured {IPayRegistry}.
     function getPayRegistry() external view returns (address);
 
-    /// @notice Address of the configured {ICelerWallet}.
-    function getCelerWallet() external view returns (address);
+    /// @notice Address of the configured {IAgentPayWallet}.
+    function getAgentPayWallet() external view returns (address);
 
     /// @notice Emitted on successful {openChannel}.
     event OpenChannel(
@@ -293,7 +293,7 @@ interface ICelerLedger {
         returns (address receiver, uint256 amount, uint256 requestTime, bytes32 recipientChannelId);
 
     // =========================================================================
-    // Balance limits — per-channel deposit caps (owner-only admin, on CelerLedger)
+    // Balance limits — per-channel deposit caps (owner-only admin, on AgentPayLedger)
     // =========================================================================
 
     /**

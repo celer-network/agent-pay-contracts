@@ -5,19 +5,19 @@ import "./lib/ledgerlib/LedgerStruct.sol";
 import "./lib/ledgerlib/LedgerOperation.sol";
 import "./lib/ledgerlib/LedgerMigrate.sol";
 import "./lib/ledgerlib/LedgerChannel.sol";
-import "./interfaces/ICelerWallet.sol";
+import "./interfaces/IAgentPayWallet.sol";
 import "./interfaces/INativeWrap.sol";
 import "./interfaces/IPayRegistry.sol";
 
 /**
- * @title CelerLedgerMock
- * @notice **Test-only.** Mock CelerLedger that exposes raw state-mutating helpers
+ * @title AgentPayLedgerMock
+ * @notice **Test-only.** Mock AgentPayLedger that exposes raw state-mutating helpers
  *  (`*MockSet`) and minimal stubs of the production API (`openChannel`, `deposit`,
  *  `intendSettle`, etc.) to set up isolated test scenarios without going through the
  *  full ledger logic. Used primarily by the migration tests, which require two ledger
  *  contracts to coexist. **Do not deploy to a production network.**
  */
-contract CelerLedgerMock {
+contract AgentPayLedgerMock {
     using LedgerChannel for LedgerStruct.Channel;
 
     LedgerStruct.Ledger private ledger;
@@ -25,14 +25,14 @@ contract CelerLedgerMock {
     bytes32[] public tmpChannelIds;
 
     /**
-     * @notice CelerLedger constructor
+     * @notice AgentPayLedger constructor
      * @param _nativeWrap address of wrapped-native (wrapped-native) contract
      * @param _payRegistry address of PayRegistry
      */
-    constructor(address _nativeWrap, address _payRegistry, address _celerWallet) {
+    constructor(address _nativeWrap, address _payRegistry, address _wallet) {
         ledger.nativeWrap = INativeWrap(_nativeWrap);
         ledger.payRegistry = IPayRegistry(_payRegistry);
-        ledger.celerWallet = ICelerWallet(_celerWallet);
+        ledger.wallet = IAgentPayWallet(_wallet);
         // enable balance limits in default
         ledger.balanceLimitsEnabled = true;
     }
@@ -474,7 +474,7 @@ contract CelerLedgerMock {
     }
 
     /**
-     * @notice Return wrapped-native (wrapped-native) contract used by this CelerLedger
+     * @notice Return wrapped-native (wrapped-native) contract used by this AgentPayLedger
      * @return wrapped-native contract address
      */
     function getNativeWrap() external view returns (address) {
@@ -482,7 +482,7 @@ contract CelerLedgerMock {
     }
 
     /**
-     * @notice Return PayRegistry used by this CelerLedger contract
+     * @notice Return PayRegistry used by this AgentPayLedger contract
      * @return PayRegistry address
      */
     function getPayRegistry() external view returns (address) {
@@ -490,11 +490,11 @@ contract CelerLedgerMock {
     }
 
     /**
-     * @notice Return CelerWallet used by this CelerLedger contract
-     * @return CelerWallet address
+     * @notice Return AgentPayWallet used by this AgentPayLedger contract
+     * @return AgentPayWallet address
      */
-    function getCelerWallet() external view returns (address) {
-        return address(ledger.celerWallet);
+    function getAgentPayWallet() external view returns (address) {
+        return address(ledger.wallet);
     }
 
     /**

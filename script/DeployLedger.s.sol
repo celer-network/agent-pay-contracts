@@ -6,7 +6,7 @@ import {AgentPayLedger} from "../src/AgentPayLedger.sol";
 
 /**
  * @title DeployLedger
- * @notice Deploys a `AgentPayLedger` instance wired against the existing core
+ * @notice Deploys an `AgentPayLedger` instance wired against the existing core
  *  contracts and the chain's canonical wrapped-native (wrapped-native)
  *  contract. Run once per ledger version — peers cooperatively migrate
  *  channels between versions; the wallet / registry / nativeWrap stay shared.

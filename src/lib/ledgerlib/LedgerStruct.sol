@@ -15,7 +15,7 @@ import "../data/PbEntity.sol";
  */
 library LedgerStruct {
     /**
-     * @notice Lifecycle status of a channel inside a AgentPayLedger instance.
+     * @notice Lifecycle status of a channel inside an AgentPayLedger instance.
      * @dev `Uninitialized` is the implicit default when a channel id is not present in
      *  `Ledger.channelMap`. State transitions: see `docs/architecture-summary.md`.
      */

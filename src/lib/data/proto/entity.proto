@@ -186,7 +186,7 @@ message PaymentChannelInitializer {
   // chain id of the intended target chain; binds the signed initializer
   // against cross-chain replay
   uint64 chain_id = 5 [(soltype) = "uint"];
-  // address of the intended target CelerLedger; binds the signed initializer
+  // address of the intended target AgentPayLedger; binds the signed initializer
   // against same-chain wrong-ledger replay
   bytes ledger_address = 6 [(soltype) = "address"];
 }

@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  *  target chain (e.g., WETH on Ethereum). AgentPay uses this only internally
  *  as a funding-flow primitive — `LedgerOperation` pulls a peer's pre-approved
  *  wrapped-native via `transferFrom`, then unwraps via `withdraw` to forward
- *  the resulting native (e.g., ETH) to `CelerWallet`. Users never see
+ *  the resulting native (e.g., ETH) to `AgentPayWallet`. Users never see
  *  wrapped-native through AgentPay's native-channel API.
  */
 interface INativeWrap is IERC20 {

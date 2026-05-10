@@ -5,8 +5,8 @@ import {VmSafe} from "forge-std/Vm.sol";
 import {LedgerTestBase} from "./utils/LedgerTestBase.t.sol";
 import {Fixtures} from "./utils/Fixtures.sol";
 import {SignUtil} from "./utils/SignUtil.sol";
-import {CelerLedger} from "../src/CelerLedger.sol";
-import {CelerWallet} from "../src/CelerWallet.sol";
+import {AgentPayLedger} from "../src/AgentPayLedger.sol";
+import {AgentPayWallet} from "../src/AgentPayWallet.sol";
 import {NativeWrapMock} from "../src/helper/NativeWrapMock.sol";
 import {PayRegistry} from "../src/PayRegistry.sol";
 import {PayResolver} from "../src/PayResolver.sol";
@@ -22,9 +22,9 @@ import {BooleanCondMock} from "../src/helper/BooleanCondMock.sol";
  *  size).
  *
  * @dev Top-level reports (per-call gas):
- *  - `test/gas_logs/CelerLedger-ETH.txt`
- *  - `test/gas_logs/CelerLedger-ERC20.txt`
- *  - `test/gas_logs/CelerLedger-Migrate.txt`
+ *  - `test/gas_logs/AgentPayLedger-ETH.txt`
+ *  - `test/gas_logs/AgentPayLedger-ERC20.txt`
+ *  - `test/gas_logs/AgentPayLedger-Migrate.txt`
  *  - `test/gas_logs/PayResolver.txt`
  *  - `test/gas_logs/VirtContractResolver.txt`
  *
@@ -43,29 +43,29 @@ import {BooleanCondMock} from "../src/helper/BooleanCondMock.sol";
 contract GasReport is LedgerTestBase {
     function setUp() public override {
         super.setUp();
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
 
         erc20.transfer(peer0, 1_000_000_000);
         erc20.transfer(peer1, 1_000_000_000);
         vm.prank(peer0);
-        erc20.approve(address(celerLedger), type(uint256).max);
+        erc20.approve(address(ledger), type(uint256).max);
         vm.prank(peer1);
-        erc20.approve(address(celerLedger), type(uint256).max);
+        erc20.approve(address(ledger), type(uint256).max);
     }
 
     // =========================================================================
-    // Top-level report — CelerLedger ETH
+    // Top-level report — AgentPayLedger ETH
     // =========================================================================
 
-    function test_writeReport_CelerLedgerEth() public {
-        string memory s = "********** Gas Measurement: CelerLedger ETH **********\n\n";
+    function test_writeReport_AgentPayLedgerEth() public {
+        string memory s = "********** Gas Measurement: AgentPayLedger ETH **********\n\n";
         s = string.concat(s, "***** Deploy Gas Used *****\n");
         s = string.concat(s, _deployRow("VirtContractResolver", _measureDeploy_virt()));
         s = string.concat(s, _deployRow("NativeWrapMock", _measureDeploy_nativeWrap()));
         s = string.concat(s, _deployRow("PayRegistry", _measureDeploy_payRegistry()));
-        s = string.concat(s, _deployRow("CelerWallet", _measureDeploy_celerWallet()));
+        s = string.concat(s, _deployRow("AgentPayWallet", _measureDeploy_wallet()));
         s = string.concat(s, _deployRow("PayResolver", _measureDeploy_payResolver()));
-        s = string.concat(s, _deployRow("CelerLedger", _measureDeploy_celerLedger()));
+        s = string.concat(s, _deployRow("AgentPayLedger", _measureDeploy_ledger()));
 
         s = string.concat(s, "\n***** Function Calls Gas Used *****\n");
         s = string.concat(s, _row("openChannel() with zero deposit", _measure_openChannel_zeroDeposit()));
@@ -89,35 +89,35 @@ contract GasReport is LedgerTestBase {
         s = string.concat(s, _row("confirmSettle()", _measure_confirmSettle()));
         s = string.concat(s, _row("cooperativeSettle()", _measure_cooperativeSettle()));
 
-        _writeReport("test/gas_logs/CelerLedger-ETH.txt", s);
+        _writeReport("test/gas_logs/AgentPayLedger-ETH.txt", s);
     }
 
     // =========================================================================
-    // Top-level report — CelerLedger ERC20
+    // Top-level report — AgentPayLedger ERC20
     // =========================================================================
 
-    function test_writeReport_CelerLedgerErc20() public {
-        string memory s = "********** Gas Measurement: CelerLedger ERC20 **********\n\n";
+    function test_writeReport_AgentPayLedgerErc20() public {
+        string memory s = "********** Gas Measurement: AgentPayLedger ERC20 **********\n\n";
         s = string.concat(s, "***** Function Calls Gas Used *****\n");
         s = string.concat(s, _row("openChannel() with zero deposit", _measure_openChannel_erc20_zero()));
         s = string.concat(s, _row("openChannel() with non-zero ERC20 deposits", _measure_openChannel_erc20_funded()));
         s = string.concat(s, _row("deposit()", _measure_deposit_erc20()));
         s = string.concat(s, _row("cooperativeWithdraw()", _measure_cooperativeWithdraw_erc20()));
         s = string.concat(s, _row("cooperativeSettle()", _measure_cooperativeSettle_erc20()));
-        _writeReport("test/gas_logs/CelerLedger-ERC20.txt", s);
+        _writeReport("test/gas_logs/AgentPayLedger-ERC20.txt", s);
     }
 
     // =========================================================================
     // Top-level report — Migration
     // =========================================================================
 
-    function test_writeReport_CelerLedgerMigrate() public {
-        string memory s = "********** Gas Measurement: CelerLedger Migration **********\n\n";
+    function test_writeReport_AgentPayLedgerMigrate() public {
+        string memory s = "********** Gas Measurement: AgentPayLedger Migration **********\n\n";
         s = string.concat(s, "***** Function Calls Gas Used *****\n");
         s = string.concat(s, _row("migrateChannelFrom() an Operable ETH channel", _measure_migrate_operableEth()));
         s = string.concat(s, _row("migrateChannelFrom() a Settling ETH channel", _measure_migrate_settlingEth()));
         s = string.concat(s, _row("migrateChannelFrom() an Operable ERC20 channel", _measure_migrate_operableErc20()));
-        _writeReport("test/gas_logs/CelerLedger-Migrate.txt", s);
+        _writeReport("test/gas_logs/AgentPayLedger-Migrate.txt", s);
     }
 
     // =========================================================================
@@ -268,10 +268,10 @@ contract GasReport is LedgerTestBase {
         vm.revertToState(snap);
     }
 
-    function _measureDeploy_celerWallet() internal returns (uint256 g) {
+    function _measureDeploy_wallet() internal returns (uint256 g) {
         uint256 snap = vm.snapshotState();
         uint256 g0 = gasleft();
-        new CelerWallet();
+        new AgentPayWallet();
         g = g0 - gasleft();
         vm.revertToState(snap);
     }
@@ -284,10 +284,10 @@ contract GasReport is LedgerTestBase {
         vm.revertToState(snap);
     }
 
-    function _measureDeploy_celerLedger() internal returns (uint256 g) {
+    function _measureDeploy_ledger() internal returns (uint256 g) {
         uint256 snap = vm.snapshotState();
         uint256 g0 = gasleft();
-        new CelerLedger(address(nativeWrap), address(payRegistry), address(celerWallet));
+        new AgentPayLedger(address(nativeWrap), address(payRegistry), address(wallet));
         g = g0 - gasleft();
         vm.revertToState(snap);
     }
@@ -296,7 +296,7 @@ contract GasReport is LedgerTestBase {
         uint256 snap = vm.snapshotState();
         (bytes memory request,,) = _buildOpenEth([uint256(0), 0], 0, openDeadlineCursor++);
         uint256 g0 = gasleft();
-        celerLedger.openChannel(request);
+        ledger.openChannel(request);
         g = g0 - gasleft();
         vm.revertToState(snap);
     }
@@ -306,7 +306,7 @@ contract GasReport is LedgerTestBase {
         (bytes memory request,,) = _buildOpenEth([uint256(100), 200], 0, openDeadlineCursor++);
         vm.prank(peer0);
         uint256 g0 = gasleft();
-        celerLedger.openChannel{value: 100}(request);
+        ledger.openChannel{value: 100}(request);
         g = g0 - gasleft();
         vm.revertToState(snap);
     }
@@ -315,7 +315,7 @@ contract GasReport is LedgerTestBase {
         uint256 snap = vm.snapshotState();
         (bytes memory request,,) = _buildOpenErc20(address(erc20), [uint256(0), 0], openDeadlineCursor++);
         uint256 g0 = gasleft();
-        celerLedger.openChannel(request);
+        ledger.openChannel(request);
         g = g0 - gasleft();
         vm.revertToState(snap);
     }
@@ -324,29 +324,29 @@ contract GasReport is LedgerTestBase {
         uint256 snap = vm.snapshotState();
         (bytes memory request,,) = _buildOpenErc20(address(erc20), [uint256(100), 200], openDeadlineCursor++);
         uint256 g0 = gasleft();
-        celerLedger.openChannel(request);
+        ledger.openChannel(request);
         g = g0 - gasleft();
         vm.revertToState(snap);
     }
 
     function _measure_setBalanceLimits() internal returns (uint256 g) {
         uint256 snap = vm.snapshotState();
-        celerLedger.enableBalanceLimits();
+        ledger.enableBalanceLimits();
         address[] memory tokens = new address[](1);
         tokens[0] = address(0);
         uint256[] memory limits = new uint256[](1);
         limits[0] = 1_000_000;
         uint256 g0 = gasleft();
-        celerLedger.setBalanceLimits(tokens, limits);
+        ledger.setBalanceLimits(tokens, limits);
         g = g0 - gasleft();
         vm.revertToState(snap);
     }
 
     function _measure_disableBalanceLimits() internal returns (uint256 g) {
         uint256 snap = vm.snapshotState();
-        celerLedger.enableBalanceLimits();
+        ledger.enableBalanceLimits();
         uint256 g0 = gasleft();
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         g = g0 - gasleft();
         vm.revertToState(snap);
     }
@@ -355,7 +355,7 @@ contract GasReport is LedgerTestBase {
         uint256 snap = vm.snapshotState();
         // Already disabled in setUp.
         uint256 g0 = gasleft();
-        celerLedger.enableBalanceLimits();
+        ledger.enableBalanceLimits();
         g = g0 - gasleft();
         vm.revertToState(snap);
     }
@@ -365,7 +365,7 @@ contract GasReport is LedgerTestBase {
         bytes32 ch = _openZeroEthChannel();
         vm.prank(peer0);
         uint256 g0 = gasleft();
-        celerLedger.deposit{value: 50}(ch, peer0, 0);
+        ledger.deposit{value: 50}(ch, peer0, 0);
         g = g0 - gasleft();
         vm.revertToState(snap);
     }
@@ -375,7 +375,7 @@ contract GasReport is LedgerTestBase {
         bytes32 ch = _openZeroEthChannel();
         vm.prank(peer0);
         uint256 g0 = gasleft();
-        celerLedger.deposit(ch, peer0, 100);
+        ledger.deposit(ch, peer0, 100);
         g = g0 - gasleft();
         vm.revertToState(snap);
     }
@@ -383,10 +383,10 @@ contract GasReport is LedgerTestBase {
     function _measure_deposit_erc20() internal returns (uint256 g) {
         uint256 snap = vm.snapshotState();
         (bytes memory request,, bytes32 ch) = _buildOpenErc20(address(erc20), [uint256(0), 0], openDeadlineCursor++);
-        celerLedger.openChannel(request);
+        ledger.openChannel(request);
         vm.prank(peer0);
         uint256 g0 = gasleft();
-        celerLedger.deposit(ch, peer0, 100);
+        ledger.deposit(ch, peer0, 100);
         g = g0 - gasleft();
         vm.revertToState(snap);
     }
@@ -407,7 +407,7 @@ contract GasReport is LedgerTestBase {
         }
         vm.prank(peer0);
         uint256 g0 = gasleft();
-        celerLedger.depositInBatch(ids, receivers, amounts);
+        ledger.depositInBatch(ids, receivers, amounts);
         g = g0 - gasleft();
         vm.revertToState(snap);
     }
@@ -417,7 +417,7 @@ contract GasReport is LedgerTestBase {
         bytes32 ch = _openFundedEthChannel([uint256(200), 0]);
         vm.prank(peer0);
         uint256 g0 = gasleft();
-        celerLedger.intendWithdraw(ch, 50, bytes32(0));
+        ledger.intendWithdraw(ch, 50, bytes32(0));
         g = g0 - gasleft();
         vm.revertToState(snap);
     }
@@ -426,10 +426,10 @@ contract GasReport is LedgerTestBase {
         uint256 snap = vm.snapshotState();
         bytes32 ch = _openFundedEthChannel([uint256(200), 0]);
         vm.prank(peer0);
-        celerLedger.intendWithdraw(ch, 50, bytes32(0));
+        ledger.intendWithdraw(ch, 50, bytes32(0));
         vm.prank(peer1);
         uint256 g0 = gasleft();
-        celerLedger.vetoWithdraw(ch);
+        ledger.vetoWithdraw(ch);
         g = g0 - gasleft();
         vm.revertToState(snap);
     }
@@ -438,10 +438,10 @@ contract GasReport is LedgerTestBase {
         uint256 snap = vm.snapshotState();
         bytes32 ch = _openFundedEthChannel([uint256(200), 0]);
         vm.prank(peer0);
-        celerLedger.intendWithdraw(ch, 50, bytes32(0));
+        ledger.intendWithdraw(ch, 50, bytes32(0));
         vm.warp(block.timestamp + DISPUTE_TIMEOUT + 1);
         uint256 g0 = gasleft();
-        celerLedger.confirmWithdraw(ch);
+        ledger.confirmWithdraw(ch);
         g = g0 - gasleft();
         vm.revertToState(snap);
     }
@@ -451,7 +451,7 @@ contract GasReport is LedgerTestBase {
         bytes32 ch = _openFundedEthChannel([uint256(200), 0]);
         bytes memory request = _buildCoopWithdraw(ch, 1, peer0, 100, block.timestamp + 1000, bytes32(0));
         uint256 g0 = gasleft();
-        celerLedger.cooperativeWithdraw(request);
+        ledger.cooperativeWithdraw(request);
         g = g0 - gasleft();
         vm.revertToState(snap);
     }
@@ -459,10 +459,10 @@ contract GasReport is LedgerTestBase {
     function _measure_cooperativeWithdraw_erc20() internal returns (uint256 g) {
         uint256 snap = vm.snapshotState();
         (bytes memory openReq,, bytes32 ch) = _buildOpenErc20(address(erc20), [uint256(200), 0], openDeadlineCursor++);
-        celerLedger.openChannel(openReq);
+        ledger.openChannel(openReq);
         bytes memory request = _buildCoopWithdraw(ch, 1, peer0, 100, block.timestamp + 1000, bytes32(0));
         uint256 g0 = gasleft();
-        celerLedger.cooperativeWithdraw(request);
+        ledger.cooperativeWithdraw(request);
         g = g0 - gasleft();
         vm.revertToState(snap);
     }
@@ -473,7 +473,7 @@ contract GasReport is LedgerTestBase {
         bytes memory simplex = _buildSignedSimplex(ch, peer0, 1, 50);
         bytes memory array = _wrapStateArray(simplex, "");
         uint256 g0 = gasleft();
-        celerLedger.snapshotStates(array);
+        ledger.snapshotStates(array);
         g = g0 - gasleft();
         vm.revertToState(snap);
     }
@@ -486,7 +486,7 @@ contract GasReport is LedgerTestBase {
         bytes memory array = _wrapStateArray(s0, s1);
         vm.prank(peer0);
         uint256 g0 = gasleft();
-        celerLedger.intendSettle(array);
+        ledger.intendSettle(array);
         g = g0 - gasleft();
         vm.revertToState(snap);
     }
@@ -518,7 +518,7 @@ contract GasReport is LedgerTestBase {
 
         vm.prank(peer0);
         uint256 g0 = gasleft();
-        celerLedger.intendSettle(array);
+        ledger.intendSettle(array);
         g = g0 - gasleft();
         vm.revertToState(snap);
     }
@@ -544,7 +544,7 @@ contract GasReport is LedgerTestBase {
 
         vm.prank(peer0);
         uint256 g0 = gasleft();
-        celerLedger.intendSettle(array);
+        ledger.intendSettle(array);
         g = g0 - gasleft();
         vm.revertToState(snap);
     }
@@ -580,10 +580,10 @@ contract GasReport is LedgerTestBase {
         vm.warp(block.timestamp + 10);
 
         vm.prank(peer0);
-        celerLedger.intendSettle(_wrapStateArray(s0, s1));
+        ledger.intendSettle(_wrapStateArray(s0, s1));
 
         uint256 g0 = gasleft();
-        celerLedger.clearPays(ch, peer0, tailList);
+        ledger.clearPays(ch, peer0, tailList);
         g = g0 - gasleft();
         vm.revertToState(snap);
     }
@@ -594,10 +594,10 @@ contract GasReport is LedgerTestBase {
         bytes memory s0 = _buildSignedSimplex(ch, peer0, 1, 0);
         bytes memory s1 = _buildSignedSimplex(ch, peer1, 1, 0);
         vm.prank(peer0);
-        celerLedger.intendSettle(_wrapStateArray(s0, s1));
+        ledger.intendSettle(_wrapStateArray(s0, s1));
         vm.warp(block.timestamp + DISPUTE_TIMEOUT + 1);
         uint256 g0 = gasleft();
-        celerLedger.confirmSettle(ch);
+        ledger.confirmSettle(ch);
         g = g0 - gasleft();
         vm.revertToState(snap);
     }
@@ -607,7 +607,7 @@ contract GasReport is LedgerTestBase {
         bytes32 ch = _openFundedEthChannel([uint256(200), 0]);
         bytes memory request = _buildCoopSettle(ch, 1, [uint256(120), 80], block.timestamp + 1000);
         uint256 g0 = gasleft();
-        celerLedger.cooperativeSettle(request);
+        ledger.cooperativeSettle(request);
         g = g0 - gasleft();
         vm.revertToState(snap);
     }
@@ -615,10 +615,10 @@ contract GasReport is LedgerTestBase {
     function _measure_cooperativeSettle_erc20() internal returns (uint256 g) {
         uint256 snap = vm.snapshotState();
         (bytes memory openReq,, bytes32 ch) = _buildOpenErc20(address(erc20), [uint256(200), 0], openDeadlineCursor++);
-        celerLedger.openChannel(openReq);
+        ledger.openChannel(openReq);
         bytes memory request = _buildCoopSettle(ch, 1, [uint256(120), 80], block.timestamp + 1000);
         uint256 g0 = gasleft();
-        celerLedger.cooperativeSettle(request);
+        ledger.cooperativeSettle(request);
         g = g0 - gasleft();
         vm.revertToState(snap);
     }
@@ -691,12 +691,12 @@ contract GasReport is LedgerTestBase {
     function _measure_migrate_operableEth() internal returns (uint256 g) {
         uint256 snap = vm.snapshotState();
         bytes32 ch = _openFundedEthChannel([uint256(100), 200]);
-        CelerLedger newLedger = _deployNewLedgerSiblingAndApprove();
+        AgentPayLedger newLedger = _deployNewLedgerSiblingAndApprove();
         bytes memory request =
-            _buildMigrationRequest(ch, address(celerLedger), address(newLedger), block.timestamp + 100_000);
+            _buildMigrationRequest(ch, address(ledger), address(newLedger), block.timestamp + 100_000);
 
         uint256 g0 = gasleft();
-        newLedger.migrateChannelFrom(address(celerLedger), request);
+        newLedger.migrateChannelFrom(address(ledger), request);
         g = g0 - gasleft();
         vm.revertToState(snap);
     }
@@ -707,14 +707,14 @@ contract GasReport is LedgerTestBase {
         bytes memory s0 = _buildSignedSimplex(ch, peer0, 1, 0);
         bytes memory s1 = _buildSignedSimplex(ch, peer1, 1, 0);
         vm.prank(peer0);
-        celerLedger.intendSettle(_wrapStateArray(s0, s1));
+        ledger.intendSettle(_wrapStateArray(s0, s1));
 
-        CelerLedger newLedger = _deployNewLedgerSiblingAndApprove();
+        AgentPayLedger newLedger = _deployNewLedgerSiblingAndApprove();
         bytes memory request =
-            _buildMigrationRequest(ch, address(celerLedger), address(newLedger), block.timestamp + 100_000);
+            _buildMigrationRequest(ch, address(ledger), address(newLedger), block.timestamp + 100_000);
 
         uint256 g0 = gasleft();
-        newLedger.migrateChannelFrom(address(celerLedger), request);
+        newLedger.migrateChannelFrom(address(ledger), request);
         g = g0 - gasleft();
         vm.revertToState(snap);
     }
@@ -722,14 +722,14 @@ contract GasReport is LedgerTestBase {
     function _measure_migrate_operableErc20() internal returns (uint256 g) {
         uint256 snap = vm.snapshotState();
         (bytes memory openReq,, bytes32 ch) = _buildOpenErc20(address(erc20), [uint256(100), 200], openDeadlineCursor++);
-        celerLedger.openChannel(openReq);
+        ledger.openChannel(openReq);
 
-        CelerLedger newLedger = _deployNewLedgerSiblingAndApprove();
+        AgentPayLedger newLedger = _deployNewLedgerSiblingAndApprove();
         bytes memory request =
-            _buildMigrationRequest(ch, address(celerLedger), address(newLedger), block.timestamp + 100_000);
+            _buildMigrationRequest(ch, address(ledger), address(newLedger), block.timestamp + 100_000);
 
         uint256 g0 = gasleft();
-        newLedger.migrateChannelFrom(address(celerLedger), request);
+        newLedger.migrateChannelFrom(address(ledger), request);
         g = g0 - gasleft();
         vm.revertToState(snap);
     }
@@ -784,8 +784,8 @@ contract GasReport is LedgerTestBase {
         return Fixtures.encSignedSimplexState(simplex, sigs);
     }
 
-    function _deployNewLedgerSiblingAndApprove() internal returns (CelerLedger newLedger) {
-        newLedger = new CelerLedger(address(nativeWrap), address(payRegistry), address(celerWallet));
+    function _deployNewLedgerSiblingAndApprove() internal returns (AgentPayLedger newLedger) {
+        newLedger = new AgentPayLedger(address(nativeWrap), address(payRegistry), address(wallet));
         newLedger.disableBalanceLimits();
         vm.prank(peer0);
         nativeWrap.approve(address(newLedger), type(uint256).max);

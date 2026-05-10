@@ -4,7 +4,7 @@ pragma solidity ^0.8.26;
 import "./LedgerOperation.sol";
 import "./LedgerChannel.sol";
 import "./LedgerStruct.sol";
-import "../../interfaces/ICelerLedger.sol";
+import "../../interfaces/IAgentPayLedger.sol";
 import "../AgentPayErrors.sol";
 import "../data/PbChain.sol";
 import "../data/PbEntity.sol";
@@ -23,8 +23,8 @@ library LedgerMigrate {
     using LedgerOperation for LedgerStruct.Ledger;
 
     /**
-     * @notice Migrate a channel from this CelerLedger to a new CelerLedger
-     * @param _self storage data of CelerLedger contract
+     * @notice Migrate a channel from this AgentPayLedger to a new AgentPayLedger
+     * @param _self storage data of AgentPayLedger contract
      * @param _migrationRequest bytes of migration request message
      * @return migrated channel id
      */
@@ -53,14 +53,14 @@ library LedgerMigrate {
         c.migratedTo = toLedgerAddr;
         emit MigrateChannelTo(channelId, toLedgerAddr);
 
-        _self.celerWallet.transferOperatorship(channelId, toLedgerAddr);
+        _self.wallet.transferOperatorship(channelId, toLedgerAddr);
 
         return channelId;
     }
 
     /**
-     * @notice Migrate a channel from an old CelerLedger to this CelerLedger
-     * @param _self storage data of CelerLedger contract
+     * @notice Migrate a channel from an old AgentPayLedger to this AgentPayLedger
+     * @param _self storage data of AgentPayLedger contract
      * @param _fromLedgerAddr the old ledger address to migrate from
      * @param _migrationRequest bytes of migration request message
      */
@@ -72,12 +72,10 @@ library LedgerMigrate {
         bytes calldata _migrationRequest
     ) external {
         address payable fromLedgerAddrPayable = payable(_fromLedgerAddr);
-        bytes32 channelId = ICelerLedger(fromLedgerAddrPayable).migrateChannelTo(_migrationRequest);
+        bytes32 channelId = IAgentPayLedger(fromLedgerAddrPayable).migrateChannelTo(_migrationRequest);
         LedgerStruct.Channel storage c = _self.channelMap[channelId];
         require(c.status == LedgerStruct.ChannelStatus.Uninitialized, AgentPayErrors.ChannelAlreadyMigrated());
-        require(
-            _self.celerWallet.walletOperator(channelId) == address(this), AgentPayErrors.OperatorshipNotTransferred()
-        );
+        require(_self.wallet.walletOperator(channelId) == address(this), AgentPayErrors.OperatorshipNotTransferred());
 
         _self._updateChannelStatus(c, LedgerStruct.ChannelStatus.Operable);
         // Do not migrate WithdrawIntent, in other words, migration will implicitly veto

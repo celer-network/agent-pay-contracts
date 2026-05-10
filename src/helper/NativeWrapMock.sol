@@ -8,7 +8,7 @@ import "../interfaces/INativeWrap.sol";
  * @notice **Test-only.** Minimal wrapped-native (WETH9-style ABI)
  *  reimplementation for Foundry tests. Covers `deposit` / `withdraw` /
  *  standard ERC-20. Production deploys reference each chain's canonical
- *  wrapped-native address (e.g., WETH) via  `_nativeWrap` in `CelerLedger`'s
+ *  wrapped-native address (e.g., WETH) via  `_nativeWrap` in `AgentPayLedger`'s
  *  constructor. **Do not deploy to a production network.**
  */
 contract NativeWrapMock is INativeWrap {

@@ -6,14 +6,14 @@ import {AgentPayErrors} from "../src/lib/AgentPayErrors.sol";
 import {LedgerStruct} from "../src/lib/ledgerlib/LedgerStruct.sol";
 
 /**
- * @title CelerLedger ERC20-channel tests
- * @notice Unit tests for `CelerLedger`'s ERC-20-channel paths. Focuses on
+ * @title AgentPayLedger ERC20-channel tests
+ * @notice Unit tests for `AgentPayLedger`'s ERC-20-channel paths. Focuses on
  *  ERC-20-specific behavior — open with / without funds, balance-limit gates,
  *  deposit (including by a non-peer third party), `msg.value` rejection,
  *  cooperative settle, and intend + confirm settle distributing tokens.
- *  ETH-side flows are validated in `CelerLedger.ETH.t.sol`.
+ *  ETH-side flows are validated in `AgentPayLedger.ETH.t.sol`.
  */
-contract CelerLedgerErc20Test is LedgerTestBase {
+contract AgentPayLedgerErc20Test is LedgerTestBase {
     function setUp() public override {
         super.setUp();
 
@@ -22,63 +22,63 @@ contract CelerLedgerErc20Test is LedgerTestBase {
         erc20.transfer(peer1, 1_000_000);
 
         vm.prank(peer0);
-        erc20.approve(address(celerLedger), type(uint256).max);
+        erc20.approve(address(ledger), type(uint256).max);
         vm.prank(peer1);
-        erc20.approve(address(celerLedger), type(uint256).max);
+        erc20.approve(address(ledger), type(uint256).max);
     }
 
     function test_openErc20Channel_zeroDeposit_succeeds() public {
         uint256 deadline = openDeadlineCursor++;
         (bytes memory request,, bytes32 channelId) = _buildOpenErc20(address(erc20), [uint256(0), 0], deadline);
-        celerLedger.openChannel(request);
+        ledger.openChannel(request);
 
-        assertEq(uint256(celerLedger.getChannelStatus(channelId)), uint256(LedgerStruct.ChannelStatus.Operable));
-        assertEq(celerLedger.getTokenContract(channelId), address(erc20));
-        assertEq(celerLedger.getTotalBalance(channelId), 0);
+        assertEq(uint256(ledger.getChannelStatus(channelId)), uint256(LedgerStruct.ChannelStatus.Operable));
+        assertEq(ledger.getTokenContract(channelId), address(erc20));
+        assertEq(ledger.getTotalBalance(channelId), 0);
     }
 
     function test_openErc20Channel_withFunds_revertsBeforeBalanceLimit() public {
         uint256 deadline = openDeadlineCursor++;
         (bytes memory request,,) = _buildOpenErc20(address(erc20), [uint256(100), 200], deadline);
         vm.expectPartialRevert(AgentPayErrors.BalanceLimitExceeded.selector);
-        celerLedger.openChannel(request);
+        ledger.openChannel(request);
     }
 
     function test_openErc20Channel_withFunds_succeedsAfterBalanceLimit() public {
         _setErc20BalanceLimit(1_000_000);
         uint256 deadline = openDeadlineCursor++;
         (bytes memory request,, bytes32 channelId) = _buildOpenErc20(address(erc20), [uint256(100), 200], deadline);
-        celerLedger.openChannel(request);
+        ledger.openChannel(request);
 
-        assertEq(celerLedger.getTotalBalance(channelId), 300);
+        assertEq(ledger.getTotalBalance(channelId), 300);
         // Balances pulled from peer0 and peer1.
         assertEq(erc20.balanceOf(peer0), 1_000_000 - 100);
         assertEq(erc20.balanceOf(peer1), 1_000_000 - 200);
     }
 
     function test_deposit_byPeer_succeeds() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openZeroErc20Channel();
 
         vm.prank(peer0);
-        celerLedger.deposit(channelId, peer0, 25);
+        ledger.deposit(channelId, peer0, 25);
 
-        assertEq(celerLedger.getTotalBalance(channelId), 25);
+        assertEq(ledger.getTotalBalance(channelId), 25);
     }
 
     function test_deposit_byNonPeerThirdParty_succeeds() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openZeroErc20Channel();
 
         // Stranger has no tokens — fund and approve.
         erc20.transfer(stranger, 1000);
         vm.prank(stranger);
-        erc20.approve(address(celerLedger), 1000);
+        erc20.approve(address(ledger), 1000);
 
         vm.prank(stranger);
-        celerLedger.deposit(channelId, peer0, 25);
+        ledger.deposit(channelId, peer0, 25);
 
-        assertEq(celerLedger.getTotalBalance(channelId), 25);
+        assertEq(ledger.getTotalBalance(channelId), 25);
     }
 
     function test_deposit_overBalanceLimit_reverts() public {
@@ -87,37 +87,37 @@ contract CelerLedgerErc20Test is LedgerTestBase {
 
         vm.expectPartialRevert(AgentPayErrors.BalanceLimitExceeded.selector);
         vm.prank(peer0);
-        celerLedger.deposit(channelId, peer0, 100);
+        ledger.deposit(channelId, peer0, 100);
     }
 
     function test_deposit_withMsgValueNonZero_reverts() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openZeroErc20Channel();
 
         // ERC20 channel deposit must not have msg.value.
         vm.deal(peer0, 1 ether);
         vm.expectRevert(AgentPayErrors.MsgValueMustBeZero.selector);
         vm.prank(peer0);
-        celerLedger.deposit{value: 1}(channelId, peer0, 25);
+        ledger.deposit{value: 1}(channelId, peer0, 25);
     }
 
     function test_cooperativeSettle_distributesErc20() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openFundedErc20Channel([uint256(200), 0]);
 
         bytes memory request = _buildCoopSettle(channelId, 1, [uint256(120), 80], block.timestamp + 1000);
 
         uint256 peer0Before = erc20.balanceOf(peer0);
         uint256 peer1Before = erc20.balanceOf(peer1);
-        celerLedger.cooperativeSettle(request);
+        ledger.cooperativeSettle(request);
 
-        assertEq(uint256(celerLedger.getChannelStatus(channelId)), uint256(LedgerStruct.ChannelStatus.Closed));
+        assertEq(uint256(ledger.getChannelStatus(channelId)), uint256(LedgerStruct.ChannelStatus.Closed));
         assertEq(erc20.balanceOf(peer0), peer0Before + 120);
         assertEq(erc20.balanceOf(peer1), peer1Before + 80);
     }
 
     function test_intendSettle_thenConfirmSettle_noPays_distributesErc20() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openFundedErc20Channel([uint256(200), 0]);
 
         bytes memory s0 = _buildSignedSimplex(channelId, peer0, 1, 0);
@@ -125,13 +125,13 @@ contract CelerLedgerErc20Test is LedgerTestBase {
         bytes memory array = _wrapStateArray(s0, s1);
 
         vm.prank(peer0);
-        celerLedger.intendSettle(array);
+        ledger.intendSettle(array);
 
         vm.warp(block.timestamp + DISPUTE_TIMEOUT + 1);
         uint256 peer0Before = erc20.balanceOf(peer0);
-        celerLedger.confirmSettle(channelId);
+        ledger.confirmSettle(channelId);
 
-        assertEq(uint256(celerLedger.getChannelStatus(channelId)), uint256(LedgerStruct.ChannelStatus.Closed));
+        assertEq(uint256(ledger.getChannelStatus(channelId)), uint256(LedgerStruct.ChannelStatus.Closed));
         assertEq(erc20.balanceOf(peer0), peer0Before + 200);
     }
 
@@ -144,20 +144,20 @@ contract CelerLedgerErc20Test is LedgerTestBase {
         tokens[0] = address(erc20);
         uint256[] memory limits = new uint256[](1);
         limits[0] = _limit;
-        celerLedger.setBalanceLimits(tokens, limits);
+        ledger.setBalanceLimits(tokens, limits);
     }
 
     function _openZeroErc20Channel() internal returns (bytes32) {
         uint256 deadline = openDeadlineCursor++;
         (bytes memory request,, bytes32 channelId) = _buildOpenErc20(address(erc20), [uint256(0), 0], deadline);
-        celerLedger.openChannel(request);
+        ledger.openChannel(request);
         return channelId;
     }
 
     function _openFundedErc20Channel(uint256[2] memory _amounts) internal returns (bytes32) {
         uint256 deadline = openDeadlineCursor++;
         (bytes memory request,, bytes32 channelId) = _buildOpenErc20(address(erc20), _amounts, deadline);
-        celerLedger.openChannel(request);
+        ledger.openChannel(request);
         return channelId;
     }
 }

@@ -7,7 +7,7 @@ import {ChannelHandler} from "./handlers/ChannelHandler.sol";
 
 /**
  * @title ChannelInvariants
- * @notice Foundry invariant tests for `CelerLedger`. A {ChannelHandler} drives
+ * @notice Foundry invariant tests for `AgentPayLedger`. A {ChannelHandler} drives
  *  random sequences of channel actions across both native and ERC-20 channels:
  *  open / deposit / cooperative withdraw / cooperative settle / unilateral
  *  withdraw + veto + confirm / snapshotStates / intendSettle / confirmSettle.
@@ -26,7 +26,7 @@ import {ChannelHandler} from "./handlers/ChannelHandler.sol";
  *     `peerProfiles.withdrawal`.
  *
  *  Cross-version migration is out of scope (covered by direct tests in
- *  `CelerLedger.Migrate.t.sol`); pending pay lists in simplex states are also
+ *  `AgentPayLedger.Migrate.t.sol`); pending pay lists in simplex states are also
  *  out of scope (handler always passes empty lists).
  */
 contract ChannelInvariants is LedgerTestBase {
@@ -49,7 +49,7 @@ contract ChannelInvariants is LedgerTestBase {
 
         // Disable per-token deposit caps so fuzzed open / deposit calls aren't
         // gated by uninitialized limits.
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
 
         // Seed peer ERC-20 balances + approvals upfront. The handler's
         // `_ensureErc20Balance` will top up later if a peer drains, but
@@ -58,11 +58,11 @@ contract ChannelInvariants is LedgerTestBase {
         deal(address(erc20), peer0, 100 ether);
         deal(address(erc20), peer1, 100 ether);
         vm.prank(peer0);
-        erc20.approve(address(celerLedger), type(uint256).max);
+        erc20.approve(address(ledger), type(uint256).max);
         vm.prank(peer1);
-        erc20.approve(address(celerLedger), type(uint256).max);
+        erc20.approve(address(ledger), type(uint256).max);
 
-        handler = new ChannelHandler(celerLedger, celerWallet, nativeWrap, erc20, peer0, peer1, peer0Pk, peer1Pk);
+        handler = new ChannelHandler(ledger, wallet, nativeWrap, erc20, peer0, peer1, peer0Pk, peer1Pk);
 
         // Restrict Foundry's fuzzer to the handler — otherwise it would call
         // every public function on the inherited test scaffolding.
@@ -82,7 +82,7 @@ contract ChannelInvariants is LedgerTestBase {
         for (uint256 i = 0; i < n; i++) {
             bytes32 id = handler.channelIds(i);
             uint256 prev = lastStatusValue[id];
-            uint256 curr = uint256(celerLedger.getChannelStatus(id));
+            uint256 curr = uint256(ledger.getChannelStatus(id));
 
             if (prev == 0) {
                 lastStatusValue[id] = curr;
@@ -112,7 +112,7 @@ contract ChannelInvariants is LedgerTestBase {
         uint256 n = handler.channelCount();
         for (uint256 i = 0; i < n; i++) {
             bytes32 id = handler.channelIds(i);
-            (, uint256[2] memory deps, uint256[2] memory wds) = celerLedger.getBalanceMap(id);
+            (, uint256[2] memory deps, uint256[2] memory wds) = ledger.getBalanceMap(id);
 
             assertGe(deps[0], lastDeposit[id][0], "peer0 deposit decreased");
             assertGe(deps[1], lastDeposit[id][1], "peer1 deposit decreased");
@@ -134,11 +134,11 @@ contract ChannelInvariants is LedgerTestBase {
         uint256 n = handler.channelCount();
         for (uint256 i = 0; i < n; i++) {
             bytes32 id = handler.channelIds(i);
-            uint256 currStatus = uint256(celerLedger.getChannelStatus(id));
+            uint256 currStatus = uint256(ledger.getChannelStatus(id));
             uint256 prevStatus = lastStatusForSimplex[id];
 
-            (, uint256[2] memory seqs) = celerLedger.getStateSeqNumMap(id);
-            (, uint256[2] memory tos) = celerLedger.getTransferOutMap(id);
+            (, uint256[2] memory seqs) = ledger.getStateSeqNumMap(id);
+            (, uint256[2] memory tos) = ledger.getTransferOutMap(id);
 
             bool rebound = prevStatus == uint256(LedgerStruct.ChannelStatus.Settling)
                 && currStatus == uint256(LedgerStruct.ChannelStatus.Operable);
@@ -166,11 +166,11 @@ contract ChannelInvariants is LedgerTestBase {
         uint256 n = handler.channelCount();
         for (uint256 i = 0; i < n; i++) {
             bytes32 id = handler.channelIds(i);
-            uint256 status = uint256(celerLedger.getChannelStatus(id));
+            uint256 status = uint256(ledger.getChannelStatus(id));
             address token = handler.channelToken(id);
-            uint256 walletBal = celerWallet.balanceOf(id, token);
+            uint256 walletBal = wallet.balanceOf(id, token);
 
-            (, uint256[2] memory deps, uint256[2] memory wds) = celerLedger.getBalanceMap(id);
+            (, uint256[2] memory deps, uint256[2] memory wds) = ledger.getBalanceMap(id);
             uint256 netLedger = deps[0] + deps[1] - wds[0] - wds[1];
 
             if (
@@ -191,7 +191,7 @@ contract ChannelInvariants is LedgerTestBase {
         uint256 n = handler.channelCount();
         for (uint256 i = 0; i < n; i++) {
             bytes32 id = handler.channelIds(i);
-            (, uint256[2] memory deps, uint256[2] memory wds) = celerLedger.getBalanceMap(id);
+            (, uint256[2] memory deps, uint256[2] memory wds) = ledger.getBalanceMap(id);
 
             assertEq(deps[0] + deps[1], handler.ghostDeposits(id), "deposit total mismatch");
             assertEq(wds[0] + wds[1], handler.ghostWithdrawals(id), "withdrawal total mismatch");

@@ -4,13 +4,13 @@ pragma solidity ^0.8.20;
 import {LedgerTestBase} from "./utils/LedgerTestBase.t.sol";
 import {AgentPayErrors} from "../src/lib/AgentPayErrors.sol";
 import {LedgerStruct} from "../src/lib/ledgerlib/LedgerStruct.sol";
-import {CelerLedger} from "../src/CelerLedger.sol";
+import {AgentPayLedger} from "../src/AgentPayLedger.sol";
 import {Fixtures} from "./utils/Fixtures.sol";
 import {SignUtil} from "./utils/SignUtil.sol";
 
 /**
- * @title CelerLedger ETH-channel tests
- * @notice Comprehensive unit tests for `CelerLedger`'s ETH-channel paths.
+ * @title AgentPayLedger ETH-channel tests
+ * @notice Comprehensive unit tests for `AgentPayLedger`'s ETH-channel paths.
  *  Covers the channel state machine, balance-limit admin, deposit, cooperative
  *  and unilateral withdraw, snapshot states, intend / confirm / cooperative
  *  settle, `clearPays` segment chaining, the recipient-channel rebalance
@@ -30,14 +30,14 @@ import {SignUtil} from "./utils/SignUtil.sol";
  *  11. Connection getters
  *  12. Internal helpers
  */
-contract CelerLedgerEthTest is LedgerTestBase {
+contract AgentPayLedgerEthTest is LedgerTestBase {
     // =========================================================================
     // 1. Channel state machine
     // =========================================================================
 
     function test_uninitializedChannel_returnsStatusZero() public view {
         bytes32 unknownId = bytes32(uint256(0x123));
-        assertEq(uint256(celerLedger.getChannelStatus(unknownId)), uint256(LedgerStruct.ChannelStatus.Uninitialized));
+        assertEq(uint256(ledger.getChannelStatus(unknownId)), uint256(LedgerStruct.ChannelStatus.Uninitialized));
     }
 
     // =========================================================================
@@ -47,26 +47,26 @@ contract CelerLedgerEthTest is LedgerTestBase {
     function test_openChannel_zeroDeposit_succeeds() public {
         bytes32 channelId = _openZeroEthChannel();
 
-        assertEq(uint256(celerLedger.getChannelStatus(channelId)), uint256(LedgerStruct.ChannelStatus.Operable));
-        assertEq(celerLedger.getTokenContract(channelId), address(0));
-        assertEq(celerLedger.getTotalBalance(channelId), 0);
+        assertEq(uint256(ledger.getChannelStatus(channelId)), uint256(LedgerStruct.ChannelStatus.Operable));
+        assertEq(ledger.getTokenContract(channelId), address(0));
+        assertEq(ledger.getTotalBalance(channelId), 0);
     }
 
     function test_openChannel_afterDeadline_reverts() public {
         (bytes memory request,,) = _buildOpenEth([uint256(0), 0], 0, block.timestamp - 1);
 
         vm.expectRevert(AgentPayErrors.DeadlinePassed.selector);
-        celerLedger.openChannel(request);
+        ledger.openChannel(request);
     }
 
     function test_openChannel_sameInitializerTwice_reverts() public {
         // Build with a fixed deadline so both attempts use the same initializer hash.
         uint256 deadline = openDeadlineCursor++;
         (bytes memory request,,) = _buildOpenEth([uint256(0), 0], 0, deadline);
-        celerLedger.openChannel(request);
+        ledger.openChannel(request);
 
         vm.expectRevert(AgentPayErrors.WalletIdOccupied.selector);
-        celerLedger.openChannel(request);
+        ledger.openChannel(request);
     }
 
     function test_openChannel_withFunds_revertsBeforeBalanceLimit() public {
@@ -77,7 +77,7 @@ contract CelerLedgerEthTest is LedgerTestBase {
         // (sum of both peers' deposits), limit = 0 (unconfigured).
         vm.expectRevert(abi.encodeWithSelector(AgentPayErrors.BalanceLimitExceeded.selector, uint256(300), uint256(0)));
         vm.prank(peer0);
-        celerLedger.openChannel{value: 100}(request);
+        ledger.openChannel{value: 100}(request);
     }
 
     function test_openChannel_withFunds_succeedsAfterBalanceLimit() public {
@@ -85,8 +85,8 @@ contract CelerLedgerEthTest is LedgerTestBase {
 
         bytes32 channelId = _openFundedEthChannel([uint256(100), 200]);
 
-        assertEq(celerLedger.getTotalBalance(channelId), 300);
-        (, uint256[2] memory deposits,) = celerLedger.getBalanceMap(channelId);
+        assertEq(ledger.getTotalBalance(channelId), 300);
+        (, uint256[2] memory deposits,) = ledger.getBalanceMap(channelId);
         assertEq(deposits[0], 100);
         assertEq(deposits[1], 200);
     }
@@ -108,21 +108,21 @@ contract CelerLedgerEthTest is LedgerTestBase {
             disputeTimeout: DISPUTE_TIMEOUT,
             msgValueReceiver: 0,
             chainId: block.chainid + 1,
-            ledgerAddress: address(celerLedger)
+            ledgerAddress: address(ledger)
         });
         bytes memory initializer = Fixtures.encPaymentChannelInitializer(init);
         bytes[] memory sigs = SignUtil.coSign(peer0Pk, peer1Pk, initializer);
         bytes memory request = Fixtures.encOpenChannelRequest(initializer, sigs);
 
         vm.expectPartialRevert(AgentPayErrors.ChainIdMismatch.selector);
-        celerLedger.openChannel(request);
+        ledger.openChannel(request);
     }
 
     function test_openChannel_replayedOnWrongLedger_reverts() public {
-        // Initializer is bound to a sibling ledger (a fresh CelerLedger sharing
+        // Initializer is bound to a sibling ledger (a fresh AgentPayLedger sharing
         // the same wallet+pool+registry). Replaying the same co-signed request
-        // against the original `celerLedger` must revert.
-        address otherLedger = address(new CelerLedger(address(nativeWrap), address(payRegistry), address(celerWallet)));
+        // against the original `ledger` must revert.
+        address otherLedger = address(new AgentPayLedger(address(nativeWrap), address(payRegistry), address(wallet)));
 
         Fixtures.PaymentChannelInitializer memory init = Fixtures.PaymentChannelInitializer({
             tokenType: 1,
@@ -140,7 +140,7 @@ contract CelerLedgerEthTest is LedgerTestBase {
         bytes memory request = Fixtures.encOpenChannelRequest(initializer, sigs);
 
         vm.expectRevert(AgentPayErrors.LedgerAddressMismatch.selector);
-        celerLedger.openChannel(request);
+        ledger.openChannel(request);
     }
 
     function test_openChannel_signedOnOneChain_replayedOnAnother_reverts() public {
@@ -156,7 +156,7 @@ contract CelerLedgerEthTest is LedgerTestBase {
             disputeTimeout: DISPUTE_TIMEOUT,
             msgValueReceiver: 0,
             chainId: block.chainid,
-            ledgerAddress: address(celerLedger)
+            ledgerAddress: address(ledger)
         });
         bytes memory initializer = Fixtures.encPaymentChannelInitializer(init);
         bytes[] memory sigs = SignUtil.coSign(peer0Pk, peer1Pk, initializer);
@@ -166,14 +166,14 @@ contract CelerLedgerEthTest is LedgerTestBase {
         vm.chainId(block.chainid + 1);
 
         vm.expectPartialRevert(AgentPayErrors.ChainIdMismatch.selector);
-        celerLedger.openChannel(request);
+        ledger.openChannel(request);
     }
 
     function test_openChannel_signedForOneLedger_replayedToSibling_reverts() public {
         // Direct cross-ledger replay: peers co-sign a *valid* initializer for
-        // `celerLedger`; the same signed bytes are then submitted to a sibling
+        // `ledger`; the same signed bytes are then submitted to a sibling
         // ledger sharing the same wallet+pool+registry.
-        CelerLedger siblingLedger = new CelerLedger(address(nativeWrap), address(payRegistry), address(celerWallet));
+        AgentPayLedger siblingLedger = new AgentPayLedger(address(nativeWrap), address(payRegistry), address(wallet));
 
         Fixtures.PaymentChannelInitializer memory init = Fixtures.PaymentChannelInitializer({
             tokenType: 1,
@@ -184,7 +184,7 @@ contract CelerLedgerEthTest is LedgerTestBase {
             disputeTimeout: DISPUTE_TIMEOUT,
             msgValueReceiver: 0,
             chainId: block.chainid,
-            ledgerAddress: address(celerLedger)
+            ledgerAddress: address(ledger)
         });
         bytes memory initializer = Fixtures.encPaymentChannelInitializer(init);
         bytes[] memory sigs = SignUtil.coSign(peer0Pk, peer1Pk, initializer);
@@ -206,37 +206,37 @@ contract CelerLedgerEthTest is LedgerTestBase {
 
         vm.expectRevert();
         vm.prank(stranger);
-        celerLedger.setBalanceLimits(tokens, limits);
+        ledger.setBalanceLimits(tokens, limits);
     }
 
     function test_setBalanceLimits_storesLimit() public {
         _setEthBalanceLimit(1_000_000);
-        assertEq(celerLedger.getBalanceLimit(address(0)), 1_000_000);
+        assertEq(ledger.getBalanceLimit(address(0)), 1_000_000);
     }
 
     function test_disableBalanceLimits_revertsForNonOwner() public {
         vm.expectRevert();
         vm.prank(stranger);
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
     }
 
     function test_enableBalanceLimits_revertsForNonOwner() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         vm.expectRevert();
         vm.prank(stranger);
-        celerLedger.enableBalanceLimits();
+        ledger.enableBalanceLimits();
     }
 
     function test_disableBalanceLimits_allowsLargeDeposit() public {
         _setEthBalanceLimit(50);
         bytes32 channelId = _openZeroEthChannel();
 
-        celerLedger.disableBalanceLimits();
-        assertEq(celerLedger.getBalanceLimitsEnabled(), false);
+        ledger.disableBalanceLimits();
+        assertEq(ledger.getBalanceLimitsEnabled(), false);
 
         vm.prank(peer0);
-        celerLedger.deposit{value: 1000}(channelId, peer0, 0);
-        assertEq(celerLedger.getTotalBalance(channelId), 1000);
+        ledger.deposit{value: 1000}(channelId, peer0, 0);
+        assertEq(ledger.getTotalBalance(channelId), 1000);
     }
 
     // =========================================================================
@@ -248,9 +248,9 @@ contract CelerLedgerEthTest is LedgerTestBase {
         bytes32 channelId = _openZeroEthChannel();
 
         vm.prank(peer0);
-        celerLedger.deposit{value: 50}(channelId, peer0, 0);
+        ledger.deposit{value: 50}(channelId, peer0, 0);
 
-        assertEq(celerLedger.getTotalBalance(channelId), 50);
+        assertEq(ledger.getTotalBalance(channelId), 50);
     }
 
     function test_deposit_viaWrappedNative_succeeds() public {
@@ -258,9 +258,9 @@ contract CelerLedgerEthTest is LedgerTestBase {
         bytes32 channelId = _openZeroEthChannel();
 
         vm.prank(peer0);
-        celerLedger.deposit(channelId, peer0, 100);
+        ledger.deposit(channelId, peer0, 100);
 
-        assertEq(celerLedger.getTotalBalance(channelId), 100);
+        assertEq(ledger.getTotalBalance(channelId), 100);
     }
 
     function test_deposit_viaWrappedNative_insufficientApproval_reverts() public {
@@ -269,19 +269,19 @@ contract CelerLedgerEthTest is LedgerTestBase {
 
         // peer0 lowers their nativeWrap allowance below the requested deposit.
         vm.prank(peer0);
-        nativeWrap.approve(address(celerLedger), 50);
+        nativeWrap.approve(address(ledger), 50);
 
         vm.expectRevert();
         vm.prank(peer0);
-        celerLedger.deposit(channelId, peer0, 100);
+        ledger.deposit(channelId, peer0, 100);
     }
 
-    function test_celerLedger_receive_revertsForNonNativeWrap() public {
+    function test_ledger_receive_revertsForNonNativeWrap() public {
         // Restricted receive(): only `nativeWrap` can deliver native to the
         // ledger (during its `withdraw(...)` callback).
         vm.deal(stranger, 1 ether);
         vm.prank(stranger);
-        (bool ok,) = address(celerLedger).call{value: 1}("");
+        (bool ok,) = address(ledger).call{value: 1}("");
         assertFalse(ok, "direct native send to ledger should revert");
     }
 
@@ -291,9 +291,9 @@ contract CelerLedgerEthTest is LedgerTestBase {
 
         vm.deal(stranger, 1 ether);
         vm.prank(stranger);
-        celerLedger.deposit{value: 25}(channelId, peer0, 0);
+        ledger.deposit{value: 25}(channelId, peer0, 0);
 
-        assertEq(celerLedger.getTotalBalance(channelId), 25);
+        assertEq(ledger.getTotalBalance(channelId), 25);
     }
 
     function test_deposit_overBalanceLimit_reverts() public {
@@ -302,21 +302,21 @@ contract CelerLedgerEthTest is LedgerTestBase {
 
         vm.expectPartialRevert(AgentPayErrors.BalanceLimitExceeded.selector);
         vm.prank(peer0);
-        celerLedger.deposit{value: 200}(channelId, peer0, 0);
+        ledger.deposit{value: 200}(channelId, peer0, 0);
     }
 
     function test_deposit_toNonPeer_reverts() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openZeroEthChannel();
 
         vm.deal(stranger, 1 ether);
         vm.expectRevert(AgentPayErrors.NotPeer.selector);
         vm.prank(stranger);
-        celerLedger.deposit{value: 25}(channelId, stranger, 0);
+        ledger.deposit{value: 25}(channelId, stranger, 0);
     }
 
     function test_depositInBatch_succeeds() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 ch1 = _openZeroEthChannel();
         bytes32 ch2 = _openZeroEthChannel();
 
@@ -331,10 +331,10 @@ contract CelerLedgerEthTest is LedgerTestBase {
         amounts[1] = 70;
 
         vm.prank(peer0);
-        celerLedger.depositInBatch(ids, receivers, amounts);
+        ledger.depositInBatch(ids, receivers, amounts);
 
-        assertEq(celerLedger.getTotalBalance(ch1), 30);
-        assertEq(celerLedger.getTotalBalance(ch2), 70);
+        assertEq(ledger.getTotalBalance(ch1), 30);
+        assertEq(ledger.getTotalBalance(ch2), 70);
     }
 
     function test_depositInBatch_lengthMismatch_reverts() public {
@@ -348,7 +348,7 @@ contract CelerLedgerEthTest is LedgerTestBase {
         uint256[] memory amounts = new uint256[](2);
 
         vm.expectPartialRevert(AgentPayErrors.LengthMismatch.selector);
-        celerLedger.depositInBatch(ids, receivers, amounts);
+        ledger.depositInBatch(ids, receivers, amounts);
     }
 
     // =========================================================================
@@ -356,86 +356,86 @@ contract CelerLedgerEthTest is LedgerTestBase {
     // =========================================================================
 
     function test_cooperativeWithdraw_succeeds() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openFundedEthChannel([uint256(200), 0]);
 
         bytes memory request = _buildCoopWithdraw(channelId, 1, peer0, 100, block.timestamp + 1000, bytes32(0));
 
         uint256 peer0BalBefore = peer0.balance;
-        celerLedger.cooperativeWithdraw(request);
+        ledger.cooperativeWithdraw(request);
 
         assertEq(peer0.balance, peer0BalBefore + 100);
-        assertEq(celerLedger.getTotalBalance(channelId), 100);
-        assertEq(celerLedger.getCooperativeWithdrawSeqNum(channelId), 1);
+        assertEq(ledger.getTotalBalance(channelId), 100);
+        assertEq(ledger.getCooperativeWithdrawSeqNum(channelId), 1);
     }
 
     function test_cooperativeWithdraw_toRecipientChannel_movesFundsAcrossChannels() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 srcChannel = _openFundedEthChannel([uint256(200), 0]);
         bytes32 dstChannel = _openZeroEthChannel();
 
         bytes memory request = _buildCoopWithdraw(srcChannel, 1, peer0, 80, block.timestamp + 1000, dstChannel);
-        celerLedger.cooperativeWithdraw(request);
+        ledger.cooperativeWithdraw(request);
 
         // Source channel debited 80; destination channel credited 80 to peer0.
-        assertEq(celerLedger.getTotalBalance(srcChannel), 200 - 80);
-        assertEq(celerLedger.getTotalBalance(dstChannel), 80);
+        assertEq(ledger.getTotalBalance(srcChannel), 200 - 80);
+        assertEq(ledger.getTotalBalance(dstChannel), 80);
 
-        (, uint256[2] memory dstDeposits,) = celerLedger.getBalanceMap(dstChannel);
+        (, uint256[2] memory dstDeposits,) = ledger.getBalanceMap(dstChannel);
         assertEq(dstDeposits[0], 80);
         assertEq(dstDeposits[1], 0);
     }
 
     function test_cooperativeWithdraw_expiredDeadline_reverts() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openFundedEthChannel([uint256(200), 0]);
 
         bytes memory request = _buildCoopWithdraw(channelId, 1, peer0, 100, block.timestamp - 1, bytes32(0));
 
         vm.expectRevert(AgentPayErrors.DeadlinePassed.selector);
-        celerLedger.cooperativeWithdraw(request);
+        ledger.cooperativeWithdraw(request);
     }
 
     function test_cooperativeWithdraw_outOfOrderSeqNum_reverts() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openFundedEthChannel([uint256(200), 0]);
 
         // First withdraw at seqNum=1 (must be exactly current+1).
         bytes memory r1 = _buildCoopWithdraw(channelId, 1, peer0, 50, block.timestamp + 1000, bytes32(0));
-        celerLedger.cooperativeWithdraw(r1);
+        ledger.cooperativeWithdraw(r1);
 
         // Try seqNum=1 again (should be 2 next) — reverts.
         bytes memory r2 = _buildCoopWithdraw(channelId, 1, peer0, 50, block.timestamp + 1000, bytes32(0));
         // Full-payload assertion — locks down (onchain, proposed). After the
         // first withdraw the on-chain seqNum is 1; the test resubmits 1.
         vm.expectRevert(abi.encodeWithSelector(AgentPayErrors.SeqNumOutOfOrder.selector, uint256(1), uint256(1)));
-        celerLedger.cooperativeWithdraw(r2);
+        ledger.cooperativeWithdraw(r2);
     }
 
     function test_cooperativeWithdraw_toMismatchedTokenChannel_reverts() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
 
         // Fund an ERC20 channel to use as a (mismatched) recipient.
         erc20.transfer(peer0, 1_000);
         erc20.transfer(peer1, 1_000);
         vm.prank(peer0);
-        erc20.approve(address(celerLedger), type(uint256).max);
+        erc20.approve(address(ledger), type(uint256).max);
         vm.prank(peer1);
-        erc20.approve(address(celerLedger), type(uint256).max);
+        erc20.approve(address(ledger), type(uint256).max);
 
         uint256 deadline = openDeadlineCursor++;
         (bytes memory openReq,, bytes32 erc20Channel) = _buildOpenErc20(address(erc20), [uint256(0), 0], deadline);
-        celerLedger.openChannel(openReq);
+        ledger.openChannel(openReq);
 
         bytes32 ethChannel = _openFundedEthChannel([uint256(200), 0]);
         bytes memory request = _buildCoopWithdraw(ethChannel, 1, peer0, 50, block.timestamp + 1000, erc20Channel);
 
         vm.expectRevert(AgentPayErrors.RecipientChannelTokenMismatch.selector);
-        celerLedger.cooperativeWithdraw(request);
+        ledger.cooperativeWithdraw(request);
     }
 
     function test_cooperativeWithdraw_badSignatures_reverts() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openFundedEthChannel([uint256(200), 0]);
 
         Fixtures.CooperativeWithdrawInfo memory w = Fixtures.CooperativeWithdrawInfo({
@@ -456,7 +456,7 @@ contract CelerLedgerEthTest is LedgerTestBase {
         bytes memory request = Fixtures.encCooperativeWithdrawRequest(body, sigs);
 
         vm.expectRevert(AgentPayErrors.InvalidCoSignatures.selector);
-        celerLedger.cooperativeWithdraw(request);
+        ledger.cooperativeWithdraw(request);
     }
 
     // =========================================================================
@@ -464,106 +464,106 @@ contract CelerLedgerEthTest is LedgerTestBase {
     // =========================================================================
 
     function test_intendWithdraw_succeeds_emitsEvent() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openFundedEthChannel([uint256(200), 0]);
 
         vm.prank(peer0);
-        celerLedger.intendWithdraw(channelId, 50, bytes32(0));
+        ledger.intendWithdraw(channelId, 50, bytes32(0));
 
-        (address receiver, uint256 amount,, bytes32 recipient) = celerLedger.getWithdrawIntent(channelId);
+        (address receiver, uint256 amount,, bytes32 recipient) = ledger.getWithdrawIntent(channelId);
         assertEq(receiver, peer0);
         assertEq(amount, 50);
         assertEq(recipient, bytes32(0));
     }
 
     function test_intendWithdraw_byNonPeer_reverts() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openFundedEthChannel([uint256(200), 0]);
 
         vm.expectRevert();
         vm.prank(stranger);
-        celerLedger.intendWithdraw(channelId, 50, bytes32(0));
+        ledger.intendWithdraw(channelId, 50, bytes32(0));
     }
 
     function test_intendWithdraw_pendingExists_reverts() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openFundedEthChannel([uint256(200), 0]);
 
         vm.prank(peer0);
-        celerLedger.intendWithdraw(channelId, 30, bytes32(0));
+        ledger.intendWithdraw(channelId, 30, bytes32(0));
 
         vm.expectRevert(AgentPayErrors.WithdrawIntentExists.selector);
         vm.prank(peer1);
-        celerLedger.intendWithdraw(channelId, 50, bytes32(0));
+        ledger.intendWithdraw(channelId, 50, bytes32(0));
     }
 
     function test_intendWithdraw_confirmAfterTimeout_succeeds() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openFundedEthChannel([uint256(200), 0]);
 
         vm.prank(peer0);
-        celerLedger.intendWithdraw(channelId, 50, bytes32(0));
+        ledger.intendWithdraw(channelId, 50, bytes32(0));
 
         vm.warp(block.timestamp + DISPUTE_TIMEOUT + 1);
 
         uint256 peer0BalBefore = peer0.balance;
-        celerLedger.confirmWithdraw(channelId);
+        ledger.confirmWithdraw(channelId);
 
         assertEq(peer0.balance, peer0BalBefore + 50);
-        assertEq(celerLedger.getTotalBalance(channelId), 150);
+        assertEq(ledger.getTotalBalance(channelId), 150);
     }
 
     function test_intendWithdraw_toRecipientChannel_succeeds() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 srcChannel = _openFundedEthChannel([uint256(200), 0]);
         bytes32 dstChannel = _openZeroEthChannel();
 
         vm.prank(peer0);
-        celerLedger.intendWithdraw(srcChannel, 60, dstChannel);
+        ledger.intendWithdraw(srcChannel, 60, dstChannel);
 
         vm.warp(block.timestamp + DISPUTE_TIMEOUT + 1);
-        celerLedger.confirmWithdraw(srcChannel);
+        ledger.confirmWithdraw(srcChannel);
 
-        assertEq(celerLedger.getTotalBalance(srcChannel), 140);
-        assertEq(celerLedger.getTotalBalance(dstChannel), 60);
+        assertEq(ledger.getTotalBalance(srcChannel), 140);
+        assertEq(ledger.getTotalBalance(dstChannel), 60);
     }
 
     function test_confirmWithdraw_beforeDisputeWindow_reverts() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openFundedEthChannel([uint256(200), 0]);
 
         vm.prank(peer0);
-        celerLedger.intendWithdraw(channelId, 50, bytes32(0));
+        ledger.intendWithdraw(channelId, 50, bytes32(0));
 
         vm.expectRevert(AgentPayErrors.DisputeNotElapsed.selector);
-        celerLedger.confirmWithdraw(channelId);
+        ledger.confirmWithdraw(channelId);
     }
 
     function test_confirmWithdraw_doubleConfirm_reverts() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openFundedEthChannel([uint256(200), 0]);
 
         vm.prank(peer0);
-        celerLedger.intendWithdraw(channelId, 50, bytes32(0));
+        ledger.intendWithdraw(channelId, 50, bytes32(0));
 
         vm.warp(block.timestamp + DISPUTE_TIMEOUT + 1);
-        celerLedger.confirmWithdraw(channelId);
+        ledger.confirmWithdraw(channelId);
 
         vm.expectRevert();
-        celerLedger.confirmWithdraw(channelId);
+        ledger.confirmWithdraw(channelId);
     }
 
     function test_vetoWithdraw_clearsIntent() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openFundedEthChannel([uint256(200), 0]);
 
         vm.prank(peer0);
-        celerLedger.intendWithdraw(channelId, 50, bytes32(0));
+        ledger.intendWithdraw(channelId, 50, bytes32(0));
 
         vm.prank(peer1);
-        celerLedger.vetoWithdraw(channelId);
+        ledger.vetoWithdraw(channelId);
 
-        (address receiver,,,) = celerLedger.getWithdrawIntent(channelId);
+        (address receiver,,,) = ledger.getWithdrawIntent(channelId);
         assertEq(receiver, address(0));
     }
 
@@ -572,21 +572,21 @@ contract CelerLedgerEthTest is LedgerTestBase {
     // =========================================================================
 
     function test_snapshotStates_recordsLatest() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openFundedEthChannel([uint256(200), 0]);
 
         bytes memory simplex = _buildSignedSimplex(channelId, peer0, 1, 50);
         bytes memory array = _wrapStateArray(simplex, "");
-        celerLedger.snapshotStates(array);
+        ledger.snapshotStates(array);
 
-        (, uint256[2] memory seqs) = celerLedger.getStateSeqNumMap(channelId);
+        (, uint256[2] memory seqs) = ledger.getStateSeqNumMap(channelId);
         assertEq(seqs[0], 1);
-        (, uint256[2] memory transferOuts) = celerLedger.getTransferOutMap(channelId);
+        (, uint256[2] memory transferOuts) = ledger.getTransferOutMap(channelId);
         assertEq(transferOuts[0], 50);
     }
 
     function test_snapshotStates_multiChannel_emitsPerChannel() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 ch1 = _openFundedEthChannel([uint256(100), 0]);
         bytes32 ch2 = _openFundedEthChannel([uint256(150), 0]);
         bytes32 first = ch1 < ch2 ? ch1 : ch2;
@@ -599,16 +599,16 @@ contract CelerLedgerEthTest is LedgerTestBase {
         states[1] = s1;
         bytes memory array = Fixtures.encSignedSimplexStateArray(states);
 
-        celerLedger.snapshotStates(array);
+        ledger.snapshotStates(array);
 
-        (, uint256[2] memory firstSeqs) = celerLedger.getStateSeqNumMap(first);
-        (, uint256[2] memory secondSeqs) = celerLedger.getStateSeqNumMap(second);
+        (, uint256[2] memory firstSeqs) = ledger.getStateSeqNumMap(first);
+        (, uint256[2] memory secondSeqs) = ledger.getStateSeqNumMap(second);
         assertEq(firstSeqs[0], 1);
         assertEq(secondSeqs[0], 1);
     }
 
     function test_snapshotStates_nonAscendingChannelIds_reverts() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 ch1 = _openFundedEthChannel([uint256(100), 0]);
         bytes32 ch2 = _openFundedEthChannel([uint256(150), 0]);
         bytes32 high = ch1 > ch2 ? ch1 : ch2;
@@ -622,11 +622,11 @@ contract CelerLedgerEthTest is LedgerTestBase {
         bytes memory array = Fixtures.encSignedSimplexStateArray(states);
 
         vm.expectRevert(AgentPayErrors.NonAscendingChannelIds.selector);
-        celerLedger.snapshotStates(array);
+        ledger.snapshotStates(array);
     }
 
     function test_snapshotStates_badSignature_reverts() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openFundedEthChannel([uint256(100), 0]);
 
         Fixtures.SimplexState memory s = Fixtures.SimplexState({
@@ -652,7 +652,7 @@ contract CelerLedgerEthTest is LedgerTestBase {
         bytes memory array = Fixtures.encSignedSimplexStateArray(states);
 
         vm.expectRevert(AgentPayErrors.InvalidCoSignatures.selector);
-        celerLedger.snapshotStates(array);
+        ledger.snapshotStates(array);
     }
 
     // =========================================================================
@@ -660,58 +660,58 @@ contract CelerLedgerEthTest is LedgerTestBase {
     // =========================================================================
 
     function test_cooperativeSettle_closesChannel_distributesBalance() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openFundedEthChannel([uint256(200), 0]);
 
         bytes memory request = _buildCoopSettle(channelId, 1, [uint256(120), 80], block.timestamp + 1000);
 
         uint256 peer0Before = peer0.balance;
         uint256 peer1Before = peer1.balance;
-        celerLedger.cooperativeSettle(request);
+        ledger.cooperativeSettle(request);
 
-        assertEq(uint256(celerLedger.getChannelStatus(channelId)), uint256(LedgerStruct.ChannelStatus.Closed));
+        assertEq(uint256(ledger.getChannelStatus(channelId)), uint256(LedgerStruct.ChannelStatus.Closed));
         assertEq(peer0.balance, peer0Before + 120);
         assertEq(peer1.balance, peer1Before + 80);
     }
 
     function test_cooperativeSettle_balanceSumMismatch_reverts() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openFundedEthChannel([uint256(200), 0]);
 
         // Total = 200 but settleBalance = 100 + 50 = 150 → revert.
         bytes memory request = _buildCoopSettle(channelId, 1, [uint256(100), 50], block.timestamp + 1000);
 
         vm.expectRevert(AgentPayErrors.SettleBalanceSumMismatch.selector);
-        celerLedger.cooperativeSettle(request);
+        ledger.cooperativeSettle(request);
     }
 
     function test_cooperativeSettle_expiredDeadline_reverts() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openFundedEthChannel([uint256(200), 0]);
 
         // Deadline already in the past.
         bytes memory request = _buildCoopSettle(channelId, 1, [uint256(120), 80], block.timestamp - 1);
 
         vm.expectRevert(AgentPayErrors.DeadlinePassed.selector);
-        celerLedger.cooperativeSettle(request);
+        ledger.cooperativeSettle(request);
     }
 
     function test_cooperativeSettle_lowSeqNum_reverts() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openFundedEthChannel([uint256(200), 0]);
 
         // Bump peer0's seqNum to 1 via snapshot first.
         bytes memory simplex = _buildSignedSimplex(channelId, peer0, 1, 0);
-        celerLedger.snapshotStates(_wrapStateArray(simplex, ""));
+        ledger.snapshotStates(_wrapStateArray(simplex, ""));
 
         // settleInfo seqNum must be > both peer seqNums; 1 fails (peer0 already 1).
         bytes memory request = _buildCoopSettle(channelId, 1, [uint256(120), 80], block.timestamp + 1000);
         vm.expectPartialRevert(AgentPayErrors.SeqNumOutOfOrder.selector);
-        celerLedger.cooperativeSettle(request);
+        ledger.cooperativeSettle(request);
     }
 
     function test_cooperativeSettle_singleSignature_reverts() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openFundedEthChannel([uint256(200), 0]);
 
         Fixtures.CooperativeSettleInfo memory s = Fixtures.CooperativeSettleInfo({
@@ -727,7 +727,7 @@ contract CelerLedgerEthTest is LedgerTestBase {
         bytes memory request = Fixtures.encCooperativeSettleRequest(body, sigs);
 
         vm.expectRevert(AgentPayErrors.InvalidCoSignatures.selector);
-        celerLedger.cooperativeSettle(request);
+        ledger.cooperativeSettle(request);
     }
 
     // =========================================================================
@@ -735,7 +735,7 @@ contract CelerLedgerEthTest is LedgerTestBase {
     // =========================================================================
 
     function test_intendSettle_thenConfirmSettle_noPays_closesChannel() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openFundedEthChannel([uint256(200), 0]);
 
         bytes memory s0 = _buildSignedSimplex(channelId, peer0, 1, 0);
@@ -744,20 +744,20 @@ contract CelerLedgerEthTest is LedgerTestBase {
 
         // Caller of intendSettle must be a channel peer.
         vm.prank(peer0);
-        celerLedger.intendSettle(array);
-        assertEq(uint256(celerLedger.getChannelStatus(channelId)), uint256(LedgerStruct.ChannelStatus.Settling));
+        ledger.intendSettle(array);
+        assertEq(uint256(ledger.getChannelStatus(channelId)), uint256(LedgerStruct.ChannelStatus.Settling));
 
         vm.warp(block.timestamp + DISPUTE_TIMEOUT + 1);
         uint256 peer0Before = peer0.balance;
-        celerLedger.confirmSettle(channelId);
+        ledger.confirmSettle(channelId);
 
-        assertEq(uint256(celerLedger.getChannelStatus(channelId)), uint256(LedgerStruct.ChannelStatus.Closed));
+        assertEq(uint256(ledger.getChannelStatus(channelId)), uint256(LedgerStruct.ChannelStatus.Closed));
         // peer0 deposited 200; with no transferOut, peer0 keeps everything.
         assertEq(peer0.balance, peer0Before + 200);
     }
 
     function test_intendSettle_withTransferOut_distributesOnConfirm() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openFundedEthChannel([uint256(200), 0]);
 
         // peer0 transferred 50 to peer1; peer1's simplex is null.
@@ -766,12 +766,12 @@ contract CelerLedgerEthTest is LedgerTestBase {
         bytes memory array = _wrapStateArray(s0, s1);
 
         vm.prank(peer0);
-        celerLedger.intendSettle(array);
+        ledger.intendSettle(array);
 
         vm.warp(block.timestamp + DISPUTE_TIMEOUT + 1);
         uint256 peer0Before = peer0.balance;
         uint256 peer1Before = peer1.balance;
-        celerLedger.confirmSettle(channelId);
+        ledger.confirmSettle(channelId);
 
         // peer0 keeps 200 - 50 = 150; peer1 receives 50.
         assertEq(peer0.balance, peer0Before + 150);
@@ -779,7 +779,7 @@ contract CelerLedgerEthTest is LedgerTestBase {
     }
 
     function test_intendSettle_multiChannelBatch_putsAllSettling() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 ch1 = _openFundedEthChannel([uint256(100), 0]);
         bytes32 ch2 = _openFundedEthChannel([uint256(150), 0]);
 
@@ -799,14 +799,14 @@ contract CelerLedgerEthTest is LedgerTestBase {
         bytes memory array = Fixtures.encSignedSimplexStateArray(states);
 
         vm.prank(peer0);
-        celerLedger.intendSettle(array);
+        ledger.intendSettle(array);
 
-        assertEq(uint256(celerLedger.getChannelStatus(firstId)), uint256(LedgerStruct.ChannelStatus.Settling));
-        assertEq(uint256(celerLedger.getChannelStatus(secondId)), uint256(LedgerStruct.ChannelStatus.Settling));
+        assertEq(uint256(ledger.getChannelStatus(firstId)), uint256(LedgerStruct.ChannelStatus.Settling));
+        assertEq(uint256(ledger.getChannelStatus(secondId)), uint256(LedgerStruct.ChannelStatus.Settling));
     }
 
     function test_intendSettle_nullState_singleSignedByOnePeer() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openFundedEthChannel([uint256(200), 0]);
 
         // Both states null (seqNum=0), each signed by exactly one peer.
@@ -815,13 +815,13 @@ contract CelerLedgerEthTest is LedgerTestBase {
         bytes memory array = _wrapStateArray(s0, s1);
 
         vm.prank(peer0);
-        celerLedger.intendSettle(array);
+        ledger.intendSettle(array);
 
-        assertEq(uint256(celerLedger.getChannelStatus(channelId)), uint256(LedgerStruct.ChannelStatus.Settling));
+        assertEq(uint256(ledger.getChannelStatus(channelId)), uint256(LedgerStruct.ChannelStatus.Settling));
     }
 
     function test_intendSettle_challengeWithHigherSeqNum_overrides() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openFundedEthChannel([uint256(200), 0]);
 
         // First intendSettle at seqNum=1 (peer0 transferred 30).
@@ -829,26 +829,26 @@ contract CelerLedgerEthTest is LedgerTestBase {
         bytes memory s1null = _buildSignedSimplex(channelId, peer1, 1, 0);
         bytes memory array1 = _wrapStateArray(s0v1, s1null);
         vm.prank(peer0);
-        celerLedger.intendSettle(array1);
+        ledger.intendSettle(array1);
 
         // Counterparty challenges with seqNum=2 showing peer0 actually transferred 60.
         bytes memory s0v2 = _buildSignedSimplex(channelId, peer0, 2, 60);
         bytes memory s1null2 = _buildSignedSimplex(channelId, peer1, 2, 0);
         bytes memory array2 = _wrapStateArray(s0v2, s1null2);
         vm.prank(peer1);
-        celerLedger.intendSettle(array2);
+        ledger.intendSettle(array2);
 
-        (, uint256[2] memory transferOuts) = celerLedger.getTransferOutMap(channelId);
+        (, uint256[2] memory transferOuts) = ledger.getTransferOutMap(channelId);
         assertEq(transferOuts[0], 60);
 
         vm.warp(block.timestamp + DISPUTE_TIMEOUT + 1);
         uint256 peer1Before = peer1.balance;
-        celerLedger.confirmSettle(channelId);
+        ledger.confirmSettle(channelId);
         assertEq(peer1.balance, peer1Before + 60);
     }
 
     function test_intendSettle_withPendingPays_clearsAndDistributes() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openFundedEthChannel([uint256(200), 0]);
 
         // Resolve a single hash-lock-only pay to max amount on the registry.
@@ -863,20 +863,20 @@ contract CelerLedgerEthTest is LedgerTestBase {
         vm.warp(block.timestamp + 10);
 
         vm.prank(peer0);
-        celerLedger.intendSettle(array);
+        ledger.intendSettle(array);
 
-        (, uint256[2] memory transferOuts) = celerLedger.getTransferOutMap(channelId);
+        (, uint256[2] memory transferOuts) = ledger.getTransferOutMap(channelId);
         assertEq(transferOuts[0], 25);
 
         vm.warp(block.timestamp + DISPUTE_TIMEOUT + 1);
         uint256 peer1Before = peer1.balance;
-        celerLedger.confirmSettle(channelId);
+        ledger.confirmSettle(channelId);
 
         assertEq(peer1.balance, peer1Before + 25);
     }
 
     function test_clearPays_multiSegmentList_processesSecondSegment() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openFundedEthChannel([uint256(200), 0]);
 
         // Resolve two pays so we have two distinct pay ids.
@@ -903,17 +903,17 @@ contract CelerLedgerEthTest is LedgerTestBase {
 
         // intendSettle clears the head list.
         vm.prank(peer0);
-        celerLedger.intendSettle(array);
+        ledger.intendSettle(array);
 
-        (, uint256[2] memory transferOuts1) = celerLedger.getTransferOutMap(channelId);
+        (, uint256[2] memory transferOuts1) = ledger.getTransferOutMap(channelId);
         assertEq(transferOuts1[0], 15);
-        (, bytes32[2] memory nextHashes) = celerLedger.getNextPayIdListHashMap(channelId);
+        (, bytes32[2] memory nextHashes) = ledger.getNextPayIdListHashMap(channelId);
         assertEq(nextHashes[0], tailHash);
 
         // Public clearPays processes the tail.
-        celerLedger.clearPays(channelId, peer0, tailList);
+        ledger.clearPays(channelId, peer0, tailList);
 
-        (, uint256[2] memory transferOuts2) = celerLedger.getTransferOutMap(channelId);
+        (, uint256[2] memory transferOuts2) = ledger.getTransferOutMap(channelId);
         assertEq(transferOuts2[0], 35);
     }
 
@@ -955,7 +955,7 @@ contract CelerLedgerEthTest is LedgerTestBase {
         // expires, confirmSettle reverts so recipients have time to clearPays
         // the tail segments. After the deadline, confirmSettle is unconditionally
         // eligible — uncleared-tail pays are stranded.
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openFundedEthChannel([uint256(200), 0]);
 
         uint256 clearDeadline = block.timestamp + 500;
@@ -968,19 +968,19 @@ contract CelerLedgerEthTest is LedgerTestBase {
         // implicit head-clear (via getPayAmounts) succeeds.
         vm.warp(block.timestamp + 1);
         vm.prank(peer0);
-        celerLedger.intendSettle(array);
+        ledger.intendSettle(array);
 
         // Past dispute timeout but before pay_clear_deadline → reverts.
         vm.warp(block.timestamp + DISPUTE_TIMEOUT + 1);
         assertTrue(block.timestamp < clearDeadline);
         vm.expectRevert(AgentPayErrors.PaymentNotFinalized.selector);
-        celerLedger.confirmSettle(channelId);
+        ledger.confirmSettle(channelId);
 
         // Snapshot just before the post-deadline confirmSettle: head was cleared
         // (transferOut[0] == 15) but the 20-unit tail is still outstanding
         // (pendingPayOut[0] == 20). This is the stranded-funds setup.
-        (, uint256[2] memory transferOuts) = celerLedger.getTransferOutMap(channelId);
-        (, uint256[2] memory pendingOuts) = celerLedger.getPendingPayOutMap(channelId);
+        (, uint256[2] memory transferOuts) = ledger.getTransferOutMap(channelId);
+        (, uint256[2] memory pendingOuts) = ledger.getPendingPayOutMap(channelId);
         assertEq(transferOuts[0], 15, "only head cleared");
         assertEq(pendingOuts[0], 20, "tail still pending");
         uint256 peer0Before = peer0.balance;
@@ -988,8 +988,8 @@ contract CelerLedgerEthTest is LedgerTestBase {
 
         // After pay_clear_deadline → succeeds without the tail being cleared.
         vm.warp(clearDeadline + 1);
-        celerLedger.confirmSettle(channelId);
-        assertEq(uint256(celerLedger.getChannelStatus(channelId)), uint256(LedgerStruct.ChannelStatus.Closed));
+        ledger.confirmSettle(channelId);
+        assertEq(uint256(ledger.getChannelStatus(channelId)), uint256(LedgerStruct.ChannelStatus.Closed));
 
         // Settlement strands the uncleared tail: peer1 only receives the head's 15
         // (not the full 35). The 20-unit tail effectively stays with peer0 since
@@ -1002,7 +1002,7 @@ contract CelerLedgerEthTest is LedgerTestBase {
         // Happy path: tail cleared before dispute window closes; confirmSettle
         // is eligible right after dispute timeout, no need to wait for
         // pay_clear_deadline because nextPayIdListHash[0] == 0.
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openFundedEthChannel([uint256(200), 0]);
 
         bytes32 payId1 = _resolveSingleHashLockPay(15, "p1", 1);
@@ -1023,19 +1023,19 @@ contract CelerLedgerEthTest is LedgerTestBase {
         // Advance past the head pays' resolveDeadline so intendSettle's head-clear succeeds.
         vm.warp(block.timestamp + 1);
         vm.prank(peer0);
-        celerLedger.intendSettle(array);
-        celerLedger.clearPays(channelId, peer0, tailList);
+        ledger.intendSettle(array);
+        ledger.clearPays(channelId, peer0, tailList);
 
         vm.warp(block.timestamp + DISPUTE_TIMEOUT + 1);
         uint256 peer1Before = peer1.balance;
-        celerLedger.confirmSettle(channelId);
+        ledger.confirmSettle(channelId);
 
         // peer1 receives both pays = 35.
         assertEq(peer1.balance, peer1Before + 35);
     }
 
     function test_clearPays_wrongStatus_reverts() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openZeroEthChannel();
 
         bytes32[] memory ids = new bytes32[](1);
@@ -1044,11 +1044,11 @@ contract CelerLedgerEthTest is LedgerTestBase {
 
         // Channel is Operable; clearPays requires Settling.
         vm.expectRevert(AgentPayErrors.ChannelNotSettling.selector);
-        celerLedger.clearPays(channelId, peer0, list);
+        ledger.clearPays(channelId, peer0, list);
     }
 
     function test_clearPays_listHashMismatch_reverts() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openFundedEthChannel([uint256(200), 0]);
 
         // Put channel in Settling with no pending pays.
@@ -1056,7 +1056,7 @@ contract CelerLedgerEthTest is LedgerTestBase {
         bytes memory s1 = _buildSignedSimplex(channelId, peer1, 1, 0);
         bytes memory array = _wrapStateArray(s0, s1);
         vm.prank(peer0);
-        celerLedger.intendSettle(array);
+        ledger.intendSettle(array);
 
         // Try to clear an arbitrary list — peer's nextPayIdListHash is bytes32(0).
         bytes32[] memory ids = new bytes32[](1);
@@ -1064,34 +1064,34 @@ contract CelerLedgerEthTest is LedgerTestBase {
         bytes memory list = Fixtures.encPayIdList(ids, bytes32(0));
 
         vm.expectRevert(AgentPayErrors.PayListHashMismatch.selector);
-        celerLedger.clearPays(channelId, peer0, list);
+        ledger.clearPays(channelId, peer0, list);
     }
 
     function test_confirmSettle_beforeFinalizedTime_reverts() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openFundedEthChannel([uint256(200), 0]);
 
         bytes memory s0 = _buildSignedSimplex(channelId, peer0, 1, 0);
         bytes memory s1 = _buildSignedSimplex(channelId, peer1, 1, 0);
         bytes memory array = _wrapStateArray(s0, s1);
         vm.prank(peer0);
-        celerLedger.intendSettle(array);
+        ledger.intendSettle(array);
 
         vm.expectRevert(AgentPayErrors.ConfirmSettleTooEarly.selector);
-        celerLedger.confirmSettle(channelId);
+        ledger.confirmSettle(channelId);
     }
 
     function test_confirmSettle_wrongStatus_reverts() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openFundedEthChannel([uint256(200), 0]);
 
         // Channel is Operable; confirmSettle requires Settling.
         vm.expectRevert(AgentPayErrors.ChannelNotSettling.selector);
-        celerLedger.confirmSettle(channelId);
+        ledger.confirmSettle(channelId);
     }
 
     function test_confirmSettle_invalidBalance_resetsToOperable() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openFundedEthChannel([uint256(100), 0]);
 
         // Construct a settle scenario where peer0's transferOut > peer0's deposit.
@@ -1102,15 +1102,15 @@ contract CelerLedgerEthTest is LedgerTestBase {
         bytes memory array = _wrapStateArray(s0, s1);
 
         vm.prank(peer0);
-        celerLedger.intendSettle(array);
+        ledger.intendSettle(array);
 
         vm.warp(block.timestamp + DISPUTE_TIMEOUT + 1);
-        celerLedger.confirmSettle(channelId);
+        ledger.confirmSettle(channelId);
 
         // Channel must reset to Operable, not Closed.
-        assertEq(uint256(celerLedger.getChannelStatus(channelId)), uint256(LedgerStruct.ChannelStatus.Operable));
+        assertEq(uint256(ledger.getChannelStatus(channelId)), uint256(LedgerStruct.ChannelStatus.Operable));
         // Per-peer state should have been wiped.
-        (, uint256[2] memory transferOuts) = celerLedger.getTransferOutMap(channelId);
+        (, uint256[2] memory transferOuts) = ledger.getTransferOutMap(channelId);
         assertEq(transferOuts[0], 0);
         assertEq(transferOuts[1], 0);
     }
@@ -1120,46 +1120,46 @@ contract CelerLedgerEthTest is LedgerTestBase {
     // =========================================================================
 
     function test_getChannelStatusNum_tracksOperableCount() public {
-        assertEq(celerLedger.getChannelStatusNum(uint256(LedgerStruct.ChannelStatus.Operable)), 0);
+        assertEq(ledger.getChannelStatusNum(uint256(LedgerStruct.ChannelStatus.Operable)), 0);
 
         _openZeroEthChannel();
-        assertEq(celerLedger.getChannelStatusNum(uint256(LedgerStruct.ChannelStatus.Operable)), 1);
+        assertEq(ledger.getChannelStatusNum(uint256(LedgerStruct.ChannelStatus.Operable)), 1);
 
         _openZeroEthChannel();
-        assertEq(celerLedger.getChannelStatusNum(uint256(LedgerStruct.ChannelStatus.Operable)), 2);
+        assertEq(ledger.getChannelStatusNum(uint256(LedgerStruct.ChannelStatus.Operable)), 2);
     }
 
     function test_getTokenContract_andTokenType_forEthChannel() public {
         bytes32 channelId = _openZeroEthChannel();
-        assertEq(celerLedger.getTokenContract(channelId), address(0));
+        assertEq(ledger.getTokenContract(channelId), address(0));
         // PbEntity.TokenType.NATIVE = 1
-        assertEq(uint256(celerLedger.getTokenType(channelId)), 1);
+        assertEq(uint256(ledger.getTokenType(channelId)), 1);
     }
 
     function test_getCooperativeWithdrawSeqNum_returnsLatestSeq() public {
-        celerLedger.disableBalanceLimits();
+        ledger.disableBalanceLimits();
         bytes32 channelId = _openFundedEthChannel([uint256(200), 0]);
-        assertEq(celerLedger.getCooperativeWithdrawSeqNum(channelId), 0);
+        assertEq(ledger.getCooperativeWithdrawSeqNum(channelId), 0);
 
         bytes memory request = _buildCoopWithdraw(channelId, 1, peer0, 50, block.timestamp + 1000, bytes32(0));
-        celerLedger.cooperativeWithdraw(request);
+        ledger.cooperativeWithdraw(request);
 
-        assertEq(celerLedger.getCooperativeWithdrawSeqNum(channelId), 1);
+        assertEq(ledger.getCooperativeWithdrawSeqNum(channelId), 1);
     }
 
     function test_getMigratedTo_zeroIfNotMigrated() public {
         bytes32 channelId = _openZeroEthChannel();
-        assertEq(celerLedger.getMigratedTo(channelId), address(0));
+        assertEq(ledger.getMigratedTo(channelId), address(0));
     }
 
     function test_getDisputeTimeout_returnsConfigured() public {
         bytes32 channelId = _openZeroEthChannel();
-        assertEq(celerLedger.getDisputeTimeout(channelId), DISPUTE_TIMEOUT);
+        assertEq(ledger.getDisputeTimeout(channelId), DISPUTE_TIMEOUT);
     }
 
     function test_getStateSeqNumMap_initiallyZero() public {
         bytes32 channelId = _openZeroEthChannel();
-        (address[2] memory addrs, uint256[2] memory seqs) = celerLedger.getStateSeqNumMap(channelId);
+        (address[2] memory addrs, uint256[2] memory seqs) = ledger.getStateSeqNumMap(channelId);
         assertEq(addrs[0], peer0);
         assertEq(addrs[1], peer1);
         assertEq(seqs[0], 0);
@@ -1168,28 +1168,28 @@ contract CelerLedgerEthTest is LedgerTestBase {
 
     function test_getTransferOutMap_initiallyZero() public {
         bytes32 channelId = _openZeroEthChannel();
-        (, uint256[2] memory transferOuts) = celerLedger.getTransferOutMap(channelId);
+        (, uint256[2] memory transferOuts) = ledger.getTransferOutMap(channelId);
         assertEq(transferOuts[0], 0);
         assertEq(transferOuts[1], 0);
     }
 
     function test_getNextPayIdListHashMap_initiallyZero() public {
         bytes32 channelId = _openZeroEthChannel();
-        (, bytes32[2] memory hashes) = celerLedger.getNextPayIdListHashMap(channelId);
+        (, bytes32[2] memory hashes) = ledger.getNextPayIdListHashMap(channelId);
         assertEq(hashes[0], bytes32(0));
         assertEq(hashes[1], bytes32(0));
     }
 
     function test_getPayClearDeadlineMap_initiallyZero() public {
         bytes32 channelId = _openZeroEthChannel();
-        (, uint256[2] memory deadlines) = celerLedger.getPayClearDeadlineMap(channelId);
+        (, uint256[2] memory deadlines) = ledger.getPayClearDeadlineMap(channelId);
         assertEq(deadlines[0], 0);
         assertEq(deadlines[1], 0);
     }
 
     function test_getPendingPayOutMap_initiallyZero() public {
         bytes32 channelId = _openZeroEthChannel();
-        (, uint256[2] memory pending) = celerLedger.getPendingPayOutMap(channelId);
+        (, uint256[2] memory pending) = ledger.getPendingPayOutMap(channelId);
         assertEq(pending[0], 0);
         assertEq(pending[1], 0);
     }
@@ -1199,19 +1199,19 @@ contract CelerLedgerEthTest is LedgerTestBase {
     // =========================================================================
 
     function test_getNativeWrap_returnsConfiguredPool() public view {
-        assertEq(celerLedger.getNativeWrap(), address(nativeWrap));
+        assertEq(ledger.getNativeWrap(), address(nativeWrap));
     }
 
     function test_getPayRegistry_returnsConfiguredRegistry() public view {
-        assertEq(celerLedger.getPayRegistry(), address(payRegistry));
+        assertEq(ledger.getPayRegistry(), address(payRegistry));
     }
 
-    function test_getCelerWallet_returnsConfiguredWallet() public view {
-        assertEq(celerLedger.getCelerWallet(), address(celerWallet));
+    function test_getAgentPayWallet_returnsConfiguredWallet() public view {
+        assertEq(ledger.getAgentPayWallet(), address(wallet));
     }
 
     function test_getBalanceLimit_returnsZeroByDefault() public view {
-        assertEq(celerLedger.getBalanceLimit(address(0)), 0);
+        assertEq(ledger.getBalanceLimit(address(0)), 0);
     }
 
     // =========================================================================
@@ -1223,7 +1223,7 @@ contract CelerLedgerEthTest is LedgerTestBase {
         tokens[0] = address(0);
         uint256[] memory limits = new uint256[](1);
         limits[0] = _limit;
-        celerLedger.setBalanceLimits(tokens, limits);
+        ledger.setBalanceLimits(tokens, limits);
     }
 
     /// @dev Resolve a single hash-lock-only ConditionalPay (peer0 → peer1) at max

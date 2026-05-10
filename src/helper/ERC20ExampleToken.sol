@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 /**
  * @title ERC20ExampleToken
  * @notice **Test-only.** Simple ERC-20 token whose entire supply is minted to the
- *  deployer. Used to fund ERC-20 channels in CelerLedger tests. **Do not deploy to a
+ *  deployer. Used to fund ERC-20 channels in AgentPayLedger tests. **Do not deploy to a
  *  production network.**
  */
 contract ERC20ExampleToken is ERC20 {

@@ -4,7 +4,7 @@ pragma solidity ^0.8.26;
 import "./LedgerStruct.sol";
 import "./LedgerChannel.sol";
 import "../AgentPayErrors.sol";
-import "../../interfaces/ICelerWallet.sol";
+import "../../interfaces/IAgentPayWallet.sol";
 import "../data/PbChain.sol";
 import "../data/PbEntity.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -12,10 +12,10 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @title LedgerOperation
- * @notice Library implementing the channel-lifecycle flows for CelerLedger: open,
+ * @notice Library implementing the channel-lifecycle flows for AgentPayLedger: open,
  *  deposit, snapshot, withdraw (cooperative + unilateral), and settle (cooperative +
  *  unilateral). Attached to `LedgerStruct.Ledger` via `using ... for ...` in
- *  {CelerLedger}; do not deploy directly. Library functions cannot be `payable` but
+ *  {AgentPayLedger}; do not deploy directly. Library functions cannot be `payable` but
  *  read `msg.value` from the calling contract's context.
  */
 library LedgerOperation {
@@ -25,7 +25,7 @@ library LedgerOperation {
     /**
      * @notice Open a state channel through auth withdraw message
      * @dev library function can't be payable but can read msg.value in caller's context
-     * @param _self storage data of CelerLedger contract
+     * @param _self storage data of AgentPayLedger contract
      * @param _openRequest bytes of open channel request message
      */
     function openChannel(LedgerStruct.Ledger storage _self, bytes calldata _openRequest) external {
@@ -54,7 +54,7 @@ library LedgerOperation {
         require(peerAddrs[0] < peerAddrs[1], AgentPayErrors.PeersNotAscending());
 
         bytes32 h = keccak256(openRequest.channelInitializer);
-        (bytes32 channelId, LedgerStruct.Channel storage c) = _createWallet(_self, _self.celerWallet, peerAddrs, h);
+        (bytes32 channelId, LedgerStruct.Channel storage c) = _createWallet(_self, _self.wallet, peerAddrs, h);
 
         c.disputeTimeout = channelInitializer.disputeTimeout;
         _updateChannelStatus(_self, c, LedgerStruct.ChannelStatus.Operable);
@@ -89,7 +89,7 @@ library LedgerOperation {
     /**
      * @notice Pull peer deposits into the channel's wallet at `openChannel` time.
      * @dev Purpose: address the EVM 16-slot stack-depth limit.
-     * @param _self Storage data of CelerLedger contract.
+     * @param _self Storage data of AgentPayLedger contract.
      * @param _channelId Id of the channel being opened.
      * @param _peerAddrs Sorted peer addresses from the initializer.
      * @param _amounts Per-peer initial deposits, indexed identically to `_peerAddrs`.
@@ -119,7 +119,7 @@ library LedgerOperation {
             }
             // `_amtSum > 0` is guaranteed by `openChannel`'s early return;
             // a single combined depositNative covers both peers' contributions.
-            _self.celerWallet.depositNative{value: _amtSum}(_channelId);
+            _self.wallet.depositNative{value: _amtSum}(_channelId);
         } else if (_token.tokenType == PbEntity.TokenType.ERC20) {
             require(msg.value == 0, AgentPayErrors.MsgValueMustBeZero());
 
@@ -128,8 +128,8 @@ library LedgerOperation {
                 if (_amounts[i] == 0) continue;
                 erc20Token.safeTransferFrom(_peerAddrs[i], address(this), _amounts[i]);
             }
-            erc20Token.forceApprove(address(_self.celerWallet), _amtSum);
-            _self.celerWallet.depositERC20(_channelId, address(erc20Token), _amtSum);
+            erc20Token.forceApprove(address(_self.wallet), _amtSum);
+            _self.wallet.depositERC20(_channelId, address(erc20Token), _amtSum);
         } else {
             assert(false);
         }
@@ -139,7 +139,7 @@ library LedgerOperation {
      * @notice Deposit native or ERC20 tokens into the channel
      * @dev total deposit amount = msg.value(must be 0 for ERC20) + _transferFromAmount.
      *   library function can't be payable but can read msg.value in caller's context.
-     * @param _self storage data of CelerLedger contract
+     * @param _self storage data of AgentPayLedger contract
      * @param _channelId ID of the channel
      * @param _receiver address of the receiver
      * @param _transferFromAmount amount of funds to be transferred from `nativeWrap` (wrapped-native) for native channels
@@ -158,20 +158,20 @@ library LedgerOperation {
         LedgerStruct.Channel storage c = _self.channelMap[_channelId];
         if (c.token.tokenType == PbEntity.TokenType.NATIVE) {
             if (msgValue > 0) {
-                _self.celerWallet.depositNative{value: msgValue}(_channelId);
+                _self.wallet.depositNative{value: msgValue}(_channelId);
             }
             if (_transferFromAmount > 0) {
                 IERC20(address(_self.nativeWrap)).safeTransferFrom(msg.sender, address(this), _transferFromAmount);
                 _self.nativeWrap.withdraw(_transferFromAmount);
-                _self.celerWallet.depositNative{value: _transferFromAmount}(_channelId);
+                _self.wallet.depositNative{value: _transferFromAmount}(_channelId);
             }
         } else if (c.token.tokenType == PbEntity.TokenType.ERC20) {
             require(msgValue == 0, AgentPayErrors.MsgValueMustBeZero());
 
             IERC20 erc20Token = IERC20(c.token.tokenAddress);
             erc20Token.safeTransferFrom(msg.sender, address(this), _transferFromAmount);
-            erc20Token.forceApprove(address(_self.celerWallet), _transferFromAmount);
-            _self.celerWallet.depositERC20(_channelId, address(erc20Token), _transferFromAmount);
+            erc20Token.forceApprove(address(_self.wallet), _transferFromAmount);
+            _self.wallet.depositERC20(_channelId, address(erc20Token), _transferFromAmount);
         } else {
             assert(false);
         }
@@ -184,7 +184,7 @@ library LedgerOperation {
      *   This function only updates seqNum, transferOut, pendingPayOut of each on-chain
      *   simplex state. It can't ensure that the pending pays will be cleared during
      *   settling the channel, which requires users call intendSettle with the same state.
-     * @param _self storage data of CelerLedger contract
+     * @param _self storage data of AgentPayLedger contract
      * @param _signedSimplexStateArray bytes of SignedSimplexStateArray message
      */
     function snapshotStates(LedgerStruct.Ledger storage _self, bytes calldata _signedSimplexStateArray) external {
@@ -234,7 +234,7 @@ library LedgerOperation {
     /**
      * @notice Intend to withdraw funds from channel
      * @dev only peers can call intendWithdraw
-     * @param _self storage data of CelerLedger contract
+     * @param _self storage data of AgentPayLedger contract
      * @param _channelId ID of the channel
      * @param _amount amount of funds to withdraw
      * @param _recipientChannelId withdraw to receiver address if 0,
@@ -266,7 +266,7 @@ library LedgerOperation {
     /**
      * @notice Confirm channel withdrawal
      * @dev anyone can confirm a withdrawal intent
-     * @param _self storage data of CelerLedger contract
+     * @param _self storage data of AgentPayLedger contract
      * @param _channelId ID of the channel
      */
     function confirmWithdraw(LedgerStruct.Ledger storage _self, bytes32 _channelId) external {
@@ -300,7 +300,7 @@ library LedgerOperation {
      * @notice Veto current withdrawal intent
      * @dev only peers can veto a withdrawal intent;
      *   peers can veto a withdrawal intent even after (requestTime + disputeTimeout)
-     * @param _self storage data of CelerLedger contract
+     * @param _self storage data of AgentPayLedger contract
      * @param _channelId ID of the channel
      */
     function vetoWithdraw(LedgerStruct.Ledger storage _self, bytes32 _channelId) external {
@@ -316,7 +316,7 @@ library LedgerOperation {
 
     /**
      * @notice Cooperatively withdraw specific amount of balance
-     * @param _self storage data of CelerLedger contract
+     * @param _self storage data of AgentPayLedger contract
      * @param _cooperativeWithdrawRequest bytes of cooperative withdraw request message
      */
     function cooperativeWithdraw(LedgerStruct.Ledger storage _self, bytes calldata _cooperativeWithdrawRequest)
@@ -361,7 +361,7 @@ library LedgerOperation {
      *   which means intendSettle natively supports multi-channel batch processing.
      *   A simplex state with non-zero seqNum (non-null state) must be co-signed by both peers,
      *   while a simplex state with seqNum=0 (null state) only needs to be signed by one peer.
-     * @param _self storage data of CelerLedger contract
+     * @param _self storage data of AgentPayLedger contract
      * @param _signedSimplexStateArray bytes of SignedSimplexStateArray message
      */
     function intendSettle(LedgerStruct.Ledger storage _self, bytes calldata _signedSimplexStateArray) external {
@@ -455,7 +455,7 @@ library LedgerOperation {
 
     /**
      * @notice Read payment results and add results to corresponding simplex payment channel
-     * @param _self storage data of CelerLedger contract
+     * @param _self storage data of AgentPayLedger contract
      * @param _channelId ID of the channel
      * @param _peerFrom address of the peer who send out funds
      * @param _payIdList bytes of a pay id list
@@ -482,7 +482,7 @@ library LedgerOperation {
     /**
      * @notice Confirm channel settlement
      * @dev This must be called after settleFinalizedTime
-     * @param _self storage data of CelerLedger contract
+     * @param _self storage data of AgentPayLedger contract
      * @param _channelId ID of the channel
      */
     function confirmSettle(LedgerStruct.Ledger storage _self, bytes32 _channelId) external {
@@ -528,7 +528,7 @@ library LedgerOperation {
 
     /**
      * @notice Cooperatively settle the channel
-     * @param _self storage data of CelerLedger contract
+     * @param _self storage data of AgentPayLedger contract
      * @param _settleRequest bytes of cooperative settle request message
      */
     function cooperativeSettle(LedgerStruct.Ledger storage _self, bytes calldata _settleRequest) external {
@@ -573,7 +573,7 @@ library LedgerOperation {
 
     /**
      * @notice Return channel number of given status in this contract
-     * @param _self storage data of CelerLedger contract
+     * @param _self storage data of AgentPayLedger contract
      * @param _channelStatus query channel status converted to uint
      * @return channel number of the status
      */
@@ -587,17 +587,19 @@ library LedgerOperation {
 
     /**
      * @notice create a wallet for a new channel
-     * @param _self storage data of CelerLedger contract
+     * @param _self storage data of AgentPayLedger contract
      * @param _w celer wallet
      * @param _peers peers of the new channel
      * @param _nonce nonce for creating the wallet
      * @return channel id, which is same as the created wallet id
      * @return storage pointer of the channel
      */
-    function _createWallet(LedgerStruct.Ledger storage _self, ICelerWallet _w, address[2] memory _peers, bytes32 _nonce)
-        internal
-        returns (bytes32, LedgerStruct.Channel storage)
-    {
+    function _createWallet(
+        LedgerStruct.Ledger storage _self,
+        IAgentPayWallet _w,
+        address[2] memory _peers,
+        bytes32 _nonce
+    ) internal returns (bytes32, LedgerStruct.Channel storage) {
         address[] memory owners = new address[](2);
         owners[0] = _peers[0];
         owners[1] = _peers[1];
@@ -615,7 +617,7 @@ library LedgerOperation {
 
     /**
      * @notice Internal function to add deposit of a channel
-     * @param _self storage data of CelerLedger contract
+     * @param _self storage data of AgentPayLedger contract
      * @param _channelId ID of the channel
      * @param _receiver address of the receiver
      * @param _amount the amount to be deposited
@@ -645,7 +647,7 @@ library LedgerOperation {
 
     /**
      * @notice Internal function to transfer funds out in batch
-     * @param _self storage data of CelerLedger contract
+     * @param _self storage data of AgentPayLedger contract
      * @param _channelId ID of the channel
      * @param _tokenAddr address of tokens to be transferred out
      * @param _receivers the addresses of token receivers
@@ -661,13 +663,13 @@ library LedgerOperation {
         for (uint256 i = 0; i < 2; i++) {
             if (_amounts[i] == 0) continue;
 
-            _self.celerWallet.withdraw(_channelId, _tokenAddr, _receivers[i], _amounts[i]);
+            _self.wallet.withdraw(_channelId, _tokenAddr, _receivers[i], _amounts[i]);
         }
     }
 
     /**
      * @notice Internal function to withdraw funds out of the channel
-     * @param _self storage data of CelerLedger contract
+     * @param _self storage data of AgentPayLedger contract
      * @param _channelId ID of the channel
      * @param _receiver address of the receiver of the withdrawn funds
      * @param _amount the amount of the withdrawn funds
@@ -684,7 +686,7 @@ library LedgerOperation {
 
         LedgerStruct.Channel storage c = _self.channelMap[_channelId];
         if (_recipientChannelId == bytes32(0)) {
-            _self.celerWallet.withdraw(_channelId, c.token.tokenAddress, _receiver, _amount);
+            _self.wallet.withdraw(_channelId, c.token.tokenAddress, _receiver, _amount);
         } else {
             LedgerStruct.Channel storage recipientChannel = _self.channelMap[_recipientChannelId];
             require(
@@ -695,14 +697,14 @@ library LedgerOperation {
             _addDeposit(_self, _recipientChannelId, _receiver, _amount);
 
             // move funds from one channel's wallet to another channel's wallet
-            _self.celerWallet
+            _self.wallet
                 .transferBetweenWallets(_channelId, _recipientChannelId, c.token.tokenAddress, _receiver, _amount);
         }
     }
 
     /**
      * @notice Reset the state of the channel
-     * @param _self storage data of CelerLedger contract
+     * @param _self storage data of AgentPayLedger contract
      * @param _c the channel
      */
     function _resetDuplexState(LedgerStruct.Ledger storage _self, LedgerStruct.Channel storage _c) internal {
@@ -716,7 +718,7 @@ library LedgerOperation {
 
     /**
      * @notice Clear payments by their hash array
-     * @param _self storage data of CelerLedger contract
+     * @param _self storage data of AgentPayLedger contract
      * @param _channelId the channel ID
      * @param _peerId ID of the peer who sends out funds
      * @param _payIdList payIdList to clear
@@ -755,7 +757,7 @@ library LedgerOperation {
 
     /**
      * @notice Update overall states of a duplex channel
-     * @param _self storage data of CelerLedger contract
+     * @param _self storage data of AgentPayLedger contract
      * @param _channelId the channel ID
      */
     function _updateOverallStatesByIntendState(LedgerStruct.Ledger storage _self, bytes32 _channelId) internal {
@@ -768,7 +770,7 @@ library LedgerOperation {
 
     /**
      * @notice Update status of a channel
-     * @param _self storage data of CelerLedger contract
+     * @param _self storage data of AgentPayLedger contract
      * @param _c the channel
      * @param _newStatus new channel status
      */

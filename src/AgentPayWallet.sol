@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import "./interfaces/ICelerWallet.sol";
+import "./interfaces/IAgentPayWallet.sol";
 import "./lib/AgentPayErrors.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -9,24 +9,24 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
- * @title CelerWallet
+ * @title AgentPayWallet
  * @notice Multi-owner, multi-token, operator-centric wallet that holds funds for every
  *  channel in the AgentPay network. Designed as a permanent, audited custodian — it
  *  has no business logic of its own and does not trust any external contract,
- *  including CelerLedger. A single global instance is shared across ledger versions,
+ *  including AgentPayLedger. A single global instance is shared across ledger versions,
  *  and operatorship can be transferred cooperatively to enable channel migration.
- * @dev See {ICelerWallet} for canonical NatSpec on each function.
+ * @dev See {IAgentPayWallet} for canonical NatSpec on each function.
  */
-contract CelerWallet is ICelerWallet, Pausable, Ownable {
+contract AgentPayWallet is IAgentPayWallet, Pausable, Ownable {
     using SafeERC20 for IERC20;
 
     /// @notice Hard cap on `owners.length` per wallet.
     uint256 public constant MAX_OWNERS = 10;
 
     struct Wallet {
-        // corresponding to peers in CelerLedger
+        // corresponding to peers in AgentPayLedger
         address[] owners;
-        // corresponding to CelerLedger
+        // corresponding to AgentPayLedger
         address operator;
         // address(0) for native
         mapping(address => uint256) balances;
@@ -69,7 +69,7 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
     // External / state-changing API
     // -------------------------------------------------------------------------
 
-    /// @inheritdoc ICelerWallet
+    /// @inheritdoc IAgentPayWallet
     function create(address[] calldata _owners, address _operator, bytes32 _nonce)
         external
         whenNotPaused
@@ -90,14 +90,14 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
         return walletId;
     }
 
-    /// @inheritdoc ICelerWallet
+    /// @inheritdoc IAgentPayWallet
     function depositNative(bytes32 _walletId) external payable whenNotPaused {
         uint256 amount = msg.value;
         wallets[_walletId].balances[address(0)] += amount;
         emit Deposited(_walletId, address(0), amount);
     }
 
-    /// @inheritdoc ICelerWallet
+    /// @inheritdoc IAgentPayWallet
     function depositERC20(bytes32 _walletId, address _tokenAddress, uint256 _amount) external whenNotPaused {
         wallets[_walletId].balances[_tokenAddress] += _amount;
         emit Deposited(_walletId, _tokenAddress, _amount);
@@ -106,7 +106,7 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
     }
 
     /**
-     * @inheritdoc ICelerWallet
+     * @inheritdoc IAgentPayWallet
      * @dev CEI: balance debit precedes the external transfer. Combined with
      *  Solidity 0.8's checked arithmetic, this bounds any reentrant
      *  withdraw chain at the wallet's actual balance — equivalent to N
@@ -126,7 +126,7 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
         _withdrawToken(_tokenAddress, _receiver, _amount);
     }
 
-    /// @inheritdoc ICelerWallet
+    /// @inheritdoc IAgentPayWallet
     function transferBetweenWallets(
         bytes32 _fromWalletId,
         bytes32 _toWalletId,
@@ -145,7 +145,7 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
         emit TransferredBetweenWallets(_fromWalletId, _toWalletId, _tokenAddress, _receiver, _amount);
     }
 
-    /// @inheritdoc ICelerWallet
+    /// @inheritdoc IAgentPayWallet
     function transferOperatorship(bytes32 _walletId, address _newOperator)
         external
         whenNotPaused
@@ -154,7 +154,7 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
         _changeOperator(_walletId, _newOperator);
     }
 
-    /// @inheritdoc ICelerWallet
+    /// @inheritdoc IAgentPayWallet
     function voteForOperator(bytes32 _walletId, address _candidate) external onlyWalletOwner(_walletId, msg.sender) {
         require(_candidate != address(0), AgentPayErrors.ZeroAddress());
 
@@ -175,7 +175,7 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
         }
     }
 
-    /// @inheritdoc ICelerWallet
+    /// @inheritdoc IAgentPayWallet
     function drainToken(address _tokenAddress, address _receiver, uint256 _amount) external whenPaused onlyOwner {
         emit TokenDrained(_tokenAddress, _receiver, _amount);
 
@@ -196,27 +196,27 @@ contract CelerWallet is ICelerWallet, Pausable, Ownable {
     // External views
     // -------------------------------------------------------------------------
 
-    /// @inheritdoc ICelerWallet
+    /// @inheritdoc IAgentPayWallet
     function walletOwners(bytes32 _walletId) external view returns (address[] memory) {
         return wallets[_walletId].owners;
     }
 
-    /// @inheritdoc ICelerWallet
+    /// @inheritdoc IAgentPayWallet
     function walletOperator(bytes32 _walletId) external view returns (address) {
         return wallets[_walletId].operator;
     }
 
-    /// @inheritdoc ICelerWallet
+    /// @inheritdoc IAgentPayWallet
     function balanceOf(bytes32 _walletId, address _tokenAddress) external view returns (uint256) {
         return wallets[_walletId].balances[_tokenAddress];
     }
 
-    /// @inheritdoc ICelerWallet
+    /// @inheritdoc IAgentPayWallet
     function pendingOperator(bytes32 _walletId) external view returns (address) {
         return wallets[_walletId].pendingOperator;
     }
 
-    /// @inheritdoc ICelerWallet
+    /// @inheritdoc IAgentPayWallet
     function hasVoted(bytes32 _walletId, address _owner) external view returns (bool) {
         return wallets[_walletId].votes[_owner];
     }

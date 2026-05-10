@@ -6,24 +6,24 @@ import "./lib/ledgerlib/LedgerOperation.sol";
 import "./lib/ledgerlib/LedgerMigrate.sol";
 import "./lib/ledgerlib/LedgerChannel.sol";
 import "./lib/AgentPayErrors.sol";
-import "./interfaces/ICelerWallet.sol";
+import "./interfaces/IAgentPayWallet.sol";
 import "./interfaces/INativeWrap.sol";
 import "./interfaces/IPayRegistry.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
- * @title CelerLedger
+ * @title AgentPayLedger
  * @notice Channel state machine and primary user entry point for AgentPay. The
  *  contract itself is a thin wrapper — the bulk of channel logic lives in the
  *  libraries under `src/lib/ledgerlib/` (LedgerOperation, LedgerChannel, LedgerMigrate)
  *  attached via `using ... for ...`. Balance-limit admin and ledger-wide config
  *  getters live directly on this contract since they are pure storage reads /
- *  writes that don't justify a separate library hop. CelerLedger acts as the
- *  operator of a {ICelerWallet}; cooperative migration to a future ledger version
+ *  writes that don't justify a separate library hop. AgentPayLedger acts as the
+ *  operator of a {IAgentPayWallet}; cooperative migration to a future ledger version
  *  is supported via {migrateChannelTo} / {migrateChannelFrom}.
- * @dev See {ICelerLedger} for canonical NatSpec on each function.
+ * @dev See {IAgentPayLedger} for canonical NatSpec on each function.
  */
-contract CelerLedger is ICelerLedger, Ownable {
+contract AgentPayLedger is IAgentPayLedger, Ownable {
     using LedgerOperation for LedgerStruct.Ledger;
     using LedgerMigrate for LedgerStruct.Ledger;
     using LedgerChannel for LedgerStruct.Channel;
@@ -40,15 +40,15 @@ contract CelerLedger is ICelerLedger, Ownable {
      *  (wrapped-native) contract. Used internally as a funding-flow
      *  primitive for native-token channels; never user-visible.
      * @param _payRegistry Address of the deployed {IPayRegistry}.
-     * @param _celerWallet Address of the deployed {ICelerWallet} — this ledger must
+     * @param _wallet Address of the deployed {IAgentPayWallet} — this ledger must
      *  later become its operator (during channel opening or via wallet creation).
      */
-    constructor(address _nativeWrap, address _payRegistry, address _celerWallet) Ownable(msg.sender) {
+    constructor(address _nativeWrap, address _payRegistry, address _wallet) Ownable(msg.sender) {
         require(_nativeWrap != address(0), AgentPayErrors.ZeroAddress());
         require(_nativeWrap.code.length > 0, AgentPayErrors.NativeWrapNotContract());
         ledger.nativeWrap = INativeWrap(_nativeWrap);
         ledger.payRegistry = IPayRegistry(_payRegistry);
-        ledger.celerWallet = ICelerWallet(_celerWallet);
+        ledger.wallet = IAgentPayWallet(_wallet);
         // enable balance limits in default
         ledger.balanceLimitsEnabled = true;
     }
@@ -231,7 +231,7 @@ contract CelerLedger is ICelerLedger, Ownable {
     }
 
     /**
-     * @notice Migrate a channel from this CelerLedger to a new CelerLedger
+     * @notice Migrate a channel from this AgentPayLedger to a new AgentPayLedger
      * @param _migrationRequest bytes of migration request message
      * @return migrated channel id
      */
@@ -240,7 +240,7 @@ contract CelerLedger is ICelerLedger, Ownable {
     }
 
     /**
-     * @notice Migrate a channel from an old CelerLedger to this CelerLedger
+     * @notice Migrate a channel from an old AgentPayLedger to this AgentPayLedger
      * @param _fromLedgerAddr the old ledger address to migrate from
      * @param _migrationRequest bytes of migration request message
      */
@@ -462,7 +462,7 @@ contract CelerLedger is ICelerLedger, Ownable {
     }
 
     /**
-     * @notice Return the wrapped-native contract used by this CelerLedger
+     * @notice Return the wrapped-native contract used by this AgentPayLedger
      * @return wrapped-native contract address
      */
     function getNativeWrap() external view returns (address) {
@@ -470,7 +470,7 @@ contract CelerLedger is ICelerLedger, Ownable {
     }
 
     /**
-     * @notice Return PayRegistry used by this CelerLedger contract
+     * @notice Return PayRegistry used by this AgentPayLedger contract
      * @return PayRegistry address
      */
     function getPayRegistry() external view returns (address) {
@@ -478,11 +478,11 @@ contract CelerLedger is ICelerLedger, Ownable {
     }
 
     /**
-     * @notice Return CelerWallet used by this CelerLedger contract
-     * @return CelerWallet address
+     * @notice Return AgentPayWallet used by this AgentPayLedger contract
+     * @return AgentPayWallet address
      */
-    function getCelerWallet() external view returns (address) {
-        return address(ledger.celerWallet);
+    function getAgentPayWallet() external view returns (address) {
+        return address(ledger.wallet);
     }
 
     /**

@@ -7,9 +7,9 @@ import {SignUtil} from "./SignUtil.sol";
 
 /**
  * @title LedgerTestBase
- * @notice CelerLedger-specific helpers layered on top of {BaseTest}: open-channel
+ * @notice AgentPayLedger-specific helpers layered on top of {BaseTest}: open-channel
  *  fixture builders, channelId derivation, and pre-funded peer pool. Used by
- *  every CelerLedger test file (ETH, ERC20, Migrate).
+ *  every AgentPayLedger test file (ETH, ERC20, Migrate).
  */
 contract LedgerTestBase is BaseTest {
     uint256 internal constant DISPUTE_TIMEOUT = 20;
@@ -34,9 +34,9 @@ contract LedgerTestBase is BaseTest {
 
         // Approve the ledger to draw from each peer's wrapped-native balance.
         vm.prank(peer0);
-        nativeWrap.approve(address(celerLedger), type(uint256).max);
+        nativeWrap.approve(address(ledger), type(uint256).max);
         vm.prank(peer1);
-        nativeWrap.approve(address(celerLedger), type(uint256).max);
+        nativeWrap.approve(address(ledger), type(uint256).max);
     }
 
     // -------------------------------------------------------------------------
@@ -44,11 +44,11 @@ contract LedgerTestBase is BaseTest {
     // -------------------------------------------------------------------------
 
     /// @dev Derive the channel id that `openChannel` will produce for a given
-    ///  initializer-bytes payload. Mirrors `CelerWallet.create` id derivation:
+    ///  initializer-bytes payload. Mirrors `AgentPayWallet.create` id derivation:
     ///  `keccak256(chainid, wallet, ledger, keccak256(initializer))`.
     function _deriveChannelId(bytes memory _initializer) internal view returns (bytes32) {
         bytes32 nonce = keccak256(_initializer);
-        return keccak256(abi.encodePacked(block.chainid, address(celerWallet), address(celerLedger), nonce));
+        return keccak256(abi.encodePacked(block.chainid, address(wallet), address(ledger), nonce));
     }
 
     // -------------------------------------------------------------------------
@@ -71,7 +71,7 @@ contract LedgerTestBase is BaseTest {
             disputeTimeout: DISPUTE_TIMEOUT,
             msgValueReceiver: _msgValueReceiver,
             chainId: block.chainid,
-            ledgerAddress: address(celerLedger)
+            ledgerAddress: address(ledger)
         });
         initializer = Fixtures.encPaymentChannelInitializer(init);
 
@@ -95,7 +95,7 @@ contract LedgerTestBase is BaseTest {
             disputeTimeout: DISPUTE_TIMEOUT,
             msgValueReceiver: 0,
             chainId: block.chainid,
-            ledgerAddress: address(celerLedger)
+            ledgerAddress: address(ledger)
         });
         initializer = Fixtures.encPaymentChannelInitializer(init);
 
@@ -108,7 +108,7 @@ contract LedgerTestBase is BaseTest {
     function _openZeroEthChannel() internal returns (bytes32 channelId) {
         uint256 deadline = openDeadlineCursor++;
         (bytes memory request,, bytes32 derivedId) = _buildOpenEth([uint256(0), 0], 0, deadline);
-        celerLedger.openChannel(request);
+        ledger.openChannel(request);
         return derivedId;
     }
 
@@ -118,7 +118,7 @@ contract LedgerTestBase is BaseTest {
         (bytes memory request,, bytes32 derivedId) = _buildOpenEth(_amounts, 0, deadline);
         // peer0 sends msg.value = amounts[0]; remainder pulled from peer1's wrapped-native balance.
         vm.prank(peer0);
-        celerLedger.openChannel{value: _amounts[0]}(request);
+        ledger.openChannel{value: _amounts[0]}(request);
         return derivedId;
     }
 

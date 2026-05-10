@@ -44,22 +44,22 @@ Six top-level contracts in [`src/`](src/), grouped by role:
 
 ### Asset custody (permanent, audited, not versioned)
 
-- **[CelerWallet](src/CelerWallet.sol)** — Multi-owner / multi-token wallet shared by
-  the whole network; the only contract that holds funds. Operated by a `CelerLedger`.
+- **[AgentPayWallet](src/AgentPayWallet.sol)** — Multi-owner / multi-token wallet shared by
+  the whole network; the only contract that holds funds. Operated by a `AgentPayLedger`.
 - **[PayRegistry](src/PayRegistry.sol)** — Append-only global record of resolved
   conditional-payment results, indexed by `payId = keccak256(payHash, setterAddress)`.
 - **[VirtContractResolver](src/VirtContractResolver.sol)** — On-demand deployer for
   virtual (off-chain) contracts when disputes need them on-chain.
 
-`CelerLedger` additionally depends on the chain's canonical wrapped-native
+`AgentPayLedger` additionally depends on the chain's canonical wrapped-native
 (WETH9-style) contract for the multi-party-funding path on native channels —
 wired at deploy time via the `_nativeWrap` constructor argument. Users still
 deposit and receive native; wrapped-native is internal plumbing only.
 
 ### Channel & payment logic (versioned, peer-controlled migration)
 
-- **[CelerLedger](src/CelerLedger.sol)** — Channel state machine and primary user entry
-  point; operator of `CelerWallet`. Logic split across libraries in
+- **[AgentPayLedger](src/AgentPayLedger.sol)** — Channel state machine and primary user entry
+  point; operator of `AgentPayWallet`. Logic split across libraries in
   [`src/lib/ledgerlib/`](src/lib/ledgerlib/).
 - **[PayResolver](src/PayResolver.sol)** — On-chain resolution of conditional payments;
   evaluates conditions or vouched results and writes outcomes to `PayRegistry`.
@@ -78,9 +78,9 @@ For per-contract APIs, constructor args, events, and storage, see
 
 ```
 src/
-├── CelerLedger.sol           # channel state machine; primary entry point (versioned)
-├── CelerLedgerMock.sol       # test-only ledger variant
-├── CelerWallet.sol           # multi-owner asset custodian (permanent)
+├── AgentPayLedger.sol           # channel state machine; primary entry point (versioned)
+├── AgentPayLedgerMock.sol       # test-only ledger variant
+├── AgentPayWallet.sol           # multi-owner asset custodian (permanent)
 ├── PayRegistry.sol           # global resolved-payment registry (permanent)
 ├── PayResolver.sol           # conditional-pay resolution (versioned)
 ├── RouterRegistry.sol        # optional relay-router registry
@@ -89,10 +89,10 @@ src/
 ├── interfaces/              # I*.sol — public ABI surface
 └── lib/
     ├── data/                 # auto-generated protobuf decoders + .proto sources
-    └── ledgerlib/            # CelerLedger logic split into libraries (EIP-170 size-split)
+    └── ledgerlib/            # AgentPayLedger logic split into libraries (EIP-170 size-split)
 
 test/                         # Foundry tests
-├── invariants/              # property-based / fuzz invariants for CelerLedger
+├── invariants/              # property-based / fuzz invariants for AgentPayLedger
 ├── utils/                   # shared test base + fixtures + signing utils
 └── *.t.sol                  # per-contract unit tests
 script/                       # Forge deploy scripts

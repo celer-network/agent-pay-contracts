@@ -56,7 +56,7 @@ to reproduce the linked bytecode. When verification is run as part of the same
 just deployed automatically. To verify after the fact, supply them explicitly:
 
 ```bash
-forge verify-contract <CELER_LEDGER_ADDR> AgentPayLedger \
+forge verify-contract <AGENT_PAY_LEDGER_ADDR> AgentPayLedger \
   --chain-id <CHAIN_ID> \
   --libraries src/lib/ledgerlib/LedgerOperation.sol:LedgerOperation:<ADDR> \
   --libraries src/lib/ledgerlib/LedgerChannel.sol:LedgerChannel:<ADDR> \
@@ -135,7 +135,7 @@ After **`DeployCore`**:
 1. Decide whether to keep the deployer as `AgentPayWallet` owner, or transfer to a
    security multisig:
    ```bash
-   cast send <CELER_WALLET> "transferOwnership(address)" <MULTISIG> --rpc-url $RPC_URL --private-key $PRIVATE_KEY
+   cast send <AGENT_PAY_WALLET> "transferOwnership(address)" <MULTISIG> --rpc-url $RPC_URL --private-key $PRIVATE_KEY
    ```
    The owner can `pause` / `unpause` and (when paused) `drainToken` for emergency
    recovery — pick the holder accordingly.
@@ -147,10 +147,10 @@ After **`DeployLedger`**:
    revert until you do one of:
    ```bash
    # Option A: set caps for the tokens you'll use (address(0) = native)
-   cast send <CELER_LEDGER> "setBalanceLimits(address[],uint256[])" "[0x0000000000000000000000000000000000000000]" "[1000000000000000000000]" --rpc-url $RPC_URL --private-key $PRIVATE_KEY
+   cast send <AGENT_PAY_LEDGER> "setBalanceLimits(address[],uint256[])" "[0x0000000000000000000000000000000000000000]" "[1000000000000000000000]" --rpc-url $RPC_URL --private-key $PRIVATE_KEY
 
    # Option B: disable limits entirely
-   cast send <CELER_LEDGER> "disableBalanceLimits()" --rpc-url $RPC_URL --private-key $PRIVATE_KEY
+   cast send <AGENT_PAY_LEDGER> "disableBalanceLimits()" --rpc-url $RPC_URL --private-key $PRIVATE_KEY
    ```
 2. Optionally transfer ledger ownership to the same multisig.
 

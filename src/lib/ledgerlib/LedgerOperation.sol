@@ -588,7 +588,7 @@ library LedgerOperation {
     /**
      * @notice create a wallet for a new channel
      * @param _self storage data of AgentPayLedger contract
-     * @param _w celer wallet
+     * @param _w agent-pay wallet
      * @param _peers peers of the new channel
      * @param _nonce nonce for creating the wallet
      * @return channel id, which is same as the created wallet id

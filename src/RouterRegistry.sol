@@ -17,7 +17,7 @@ contract RouterRegistry is IRouterRegistry {
     mapping(address => uint256) public routerInfo;
 
     /**
-     * @notice An external router could register to join the Celer Network
+     * @notice An external router could register to join the AgentPay Network
      */
     function registerRouter() external {
         require(routerInfo[msg.sender] == 0, AgentPayErrors.RouterAlreadyRegistered());

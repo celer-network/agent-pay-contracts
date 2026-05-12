@@ -38,7 +38,7 @@ wired at deploy time, never user-visible. Users still deposit and receive native
 ## Five design principles (one-line each)
 
 These shape every choice in the codebase. Read the full text in
-[system-overview.md][system-overview] when context matters.
+[system-overview][system-overview] when context matters.
 
 1. **Minimize on-chain footprint.** Touch the chain only for deposits / withdrawals /
    disputes; keep storage compact.
@@ -89,7 +89,7 @@ The status of a payment channel inside `AgentPayLedger` (see
   while `Settling`, returning the channel to `Operable` on the new ledger.
 
 For the full state-transition rules, see
-[channel-operations.md][channel-operations].
+[channel-operations][channel-operations].
 
 [channel-operations]: https://agentpay-docs.celer.network/agentpay-architecture/on-chain-contracts/channel-operations
 
@@ -134,12 +134,12 @@ not violate them.
 
 | Topic | Source |
 |---|---|
-| Design principles | [system-overview.md][system-overview] |
-| Core data structures (protobuf) | [core-data-structures.md][data-structures] |
-| Per-contract responsibilities & relationships | [contracts-architecture.md][contracts-arch] |
-| Channel operations (open / deposit / withdraw / settle) | [channel-operations.md][channel-operations] |
-| Decentralized versioning (migration) | [decentralized-versioning.md][versioning] |
-| App contracts and condition interface | [app-contracts-and-protocols.md][app-protocol] |
+| Design principles | [system-overview][system-overview] |
+| Core data structures (protobuf) | [core-data-structures][data-structures] |
+| Per-contract responsibilities & relationships | [contracts-architecture][contracts-arch] |
+| Channel operations (open / deposit / withdraw / settle) | [channel-operations][channel-operations] |
+| Decentralized versioning (migration) | [decentralized-versioning][versioning] |
+| App contracts and condition interface | [app-contracts-and-protocols][app-protocol] |
 
 [data-structures]: https://agentpay-docs.celer.network/agentpay-architecture/on-chain-contracts/core-data-structures
 [contracts-arch]: https://agentpay-docs.celer.network/agentpay-architecture/on-chain-contracts/contracts-architecture

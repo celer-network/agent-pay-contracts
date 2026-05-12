@@ -1,40 +1,12 @@
 # Celer AgentPay state-channel contracts
 
-Smart contracts for **Celer AgentPay** — a generalized state-channel payment network
-that enables real-time, trust-free micropayments between AI agents, decentralized
-services, and human users.
+Smart contracts for **Celer AgentPay** — a generalized state-channel payment network that enables real-time, trust-free micropayments between AI agents, decentralized services, and human users.
 
-This repo contains the on-chain L1 contract suite. Almost all activity happens
-off-chain via co-signed simplex states; the chain is touched only for deposits,
-withdrawals, settlement, and dispute resolution. For the full architecture — design
-principles, data structures, off-chain protocols, app channels — see the canonical
-docs:
+This repo contains the on-chain L1 contract suite. Almost all activity happens off-chain via co-signed simplex states; the chain is touched only for deposits, withdrawals, settlement, and dispute resolution. For the full architecture — design principles, data structures, off-chain protocols, app channels — see the canonical docs:
 
-- 📖 [agentpay-docs.celer.network](https://agentpay-docs.celer.network/)
+> 📖 [agentpay-docs.celer.network](https://agentpay-docs.celer.network/)
 
 A condensed in-repo orientation lives at [`docs/architecture-summary.md`](docs/architecture-summary.md).
-
----
-
-## Quick Start
-
-```bash
-# Install submodule dependencies (forge-std, openzeppelin)
-git submodule update --init --recursive
-
-# Build
-forge build
-
-# Test
-forge test
-
-# Format / lint
-forge fmt
-forge lint
-```
-
-Verified with `forge 1.3.5-stable`. See [foundry.toml](foundry.toml) for compiler /
-optimizer settings.
 
 ---
 
@@ -42,35 +14,24 @@ optimizer settings.
 
 Six top-level contracts in [`src/`](src/), grouped by role:
 
-### Asset custody (permanent, audited, not versioned)
+### Asset custody (permanent, not versioned)
 
-- **[AgentPayWallet](src/AgentPayWallet.sol)** — Multi-owner / multi-token wallet shared by
-  the whole network; the only contract that holds funds. Operated by a `AgentPayLedger`.
-- **[PayRegistry](src/PayRegistry.sol)** — Append-only global record of resolved
-  conditional-payment results, indexed by `payId = keccak256(payHash, setterAddress)`.
-- **[VirtContractResolver](src/VirtContractResolver.sol)** — On-demand deployer for
-  virtual (off-chain) contracts when disputes need them on-chain.
+- **[AgentPayWallet](src/AgentPayWallet.sol)** — Multi-owner / multi-token wallet shared by the whole network; the only contract that holds funds. Operated by a `AgentPayLedger`.
+- **[PayRegistry](src/PayRegistry.sol)** — Append-only global record of resolved conditional-payment results, indexed by `payId = keccak256(payHash, setterAddress)`.
+- **[VirtContractResolver](src/VirtContractResolver.sol)** — On-demand deployer for virtual (off-chain) contracts when disputes need them on-chain.
 
-`AgentPayLedger` additionally depends on the chain's canonical wrapped-native
-(WETH9-style) contract for the multi-party-funding path on native channels —
-wired at deploy time via the `_nativeWrap` constructor argument. Users still
-deposit and receive native; wrapped-native is internal plumbing only.
+`AgentPayLedger` additionally depends on the chain's canonical wrapped-native (WETH-style) contract for the multi-party-funding path on native channels — wired at deploy time via the `_nativeWrap` constructor argument. Users still deposit and receive native; wrapped-native is internal plumbing only.
 
 ### Channel & payment logic (versioned, peer-controlled migration)
 
-- **[AgentPayLedger](src/AgentPayLedger.sol)** — Channel state machine and primary user entry
-  point; operator of `AgentPayWallet`. Logic split across libraries in
-  [`src/lib/ledgerlib/`](src/lib/ledgerlib/).
-- **[PayResolver](src/PayResolver.sol)** — On-chain resolution of conditional payments;
-  evaluates conditions or vouched results and writes outcomes to `PayRegistry`.
+- **[AgentPayLedger](src/AgentPayLedger.sol)** — Channel state machine and primary user entry point; operator of `AgentPayWallet`. Logic split across libraries in [`src/lib/ledgerlib/`](src/lib/ledgerlib/).
+- **[PayResolver](src/PayResolver.sol)** — On-chain resolution of conditional payments; evaluates conditions or vouched results and writes outcomes to `PayRegistry`.
 
 ### Networking
 
-- **[RouterRegistry](src/RouterRegistry.sol)** — Optional registry where relay-router
-  operators advertise themselves.
+- **[RouterRegistry](src/RouterRegistry.sol)** — Optional registry where relay-router operators advertise themselves.
 
-For per-contract APIs, constructor args, events, and storage, see
-[`docs/contracts.md`](docs/contracts.md).
+For per-contract APIs, constructor args, events, and storage, see [`docs/contracts.md`](docs/contracts.md).
 
 ---
 
@@ -78,29 +39,26 @@ For per-contract APIs, constructor args, events, and storage, see
 
 ```
 src/
-├── AgentPayLedger.sol           # channel state machine; primary entry point (versioned)
-├── AgentPayLedgerMock.sol       # test-only ledger variant
-├── AgentPayWallet.sol           # multi-owner asset custodian (permanent)
+├── AgentPayLedger.sol        # channel state machine; primary entry point (versioned)
+├── AgentPayLedgerMock.sol    # test-only ledger variant
+├── AgentPayWallet.sol        # multi-owner asset custodian (permanent)
 ├── PayRegistry.sol           # global resolved-payment registry (permanent)
 ├── PayResolver.sol           # conditional-pay resolution (versioned)
 ├── RouterRegistry.sol        # optional relay-router registry
 ├── VirtContractResolver.sol  # on-demand virtual-contract deployer
 ├── helper/                   # test fixtures (mocks + sample ERC20) — NOT production
-├── interfaces/              # I*.sol — public ABI surface
+├── interfaces/               # I*.sol — public ABI surface
 └── lib/
     ├── data/                 # auto-generated protobuf decoders + .proto sources
     └── ledgerlib/            # AgentPayLedger logic split into libraries (EIP-170 size-split)
 
 test/                         # Foundry tests
-├── invariants/              # property-based / fuzz invariants for AgentPayLedger
-├── utils/                   # shared test base + fixtures + signing utils
-└── *.t.sol                  # per-contract unit tests
+├── invariants/               # property-based / fuzz invariants for AgentPayLedger
+├── utils/                    # shared test base + fixtures + signing utils
+└── *.t.sol                   # per-contract unit tests
 script/                       # Forge deploy scripts
 lib/                          # git submodules: forge-std, openzeppelin
 ```
-
-`broadcast/`, `cache/`, `out/`, `deployments/`, `.env`, `.mcp.json`, `.vscode/` are
-gitignored.
 
 ---
 
@@ -115,12 +73,7 @@ gitignored.
 
 ## Supported tokens
 
-Native (e.g. ETH) and **plain ERC-20** only. Tokens whose `transferFrom`
-delivers anything other than the requested amount — fee-on-transfer,
-deflationary, rebasing, ERC-777 with hooks, etc. — are **not supported**:
-channel accounting credits the requested amount, so any actual-vs-requested
-mismatch will desync the wallet's internal balance from its real token
-holdings.
+Native (e.g. ETH) and **plain ERC-20** only. Tokens whose `transferFrom` delivers anything other than the requested amount — fee-on-transfer, deflationary, rebasing, ERC-777 with hooks, etc. — are **not supported**: channel accounting credits the requested amount, so any actual-vs-requested mismatch will desync the wallet's internal balance from its real token holdings.
 
 ---
 
@@ -132,14 +85,6 @@ holdings.
 | [openzeppelin-contracts](https://github.com/OpenZeppelin/openzeppelin-contracts) | release-v5.3 | Access control, ERC-20, ECDSA, Pausable |
 
 Pinned via git submodules; see [.gitmodules](.gitmodules).
-
----
-
-## Toolchain
-
-- [Foundry](https://book.getfoundry.sh) (`forge`, `cast`, `anvil`)
-- Solidity `^0.8.20` (see `pragma` in [src/](src/))
-- Optimizer enabled, `runs = 200` ([foundry.toml](foundry.toml))
 
 ---
 
